@@ -1,0 +1,64 @@
+---
+name: regression-run
+version: 2.0.0
+description: "Run the full {{PROJECT}} test + quality suite and report what broke, with triage. This is the AUTHORITATIVE full-suite green gate and the ONLY gate in this harness: the orchestrator dispatches it at every phase boundary, because per-story review is deliberately scoped to diff-affected tests only. Also use before a release and after a dependency bump."
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+  - Write
+  - Skill
+  - ToolSearch
+metadata:
+  role: executor
+  tier: standard
+  reads: [test output, CI config]
+  writes: [{{REVIEWS_DIR}}regression-<PHASE>-r<N>.md; never {{STATE_FILE}}, never source]
+---
+
+# regression-run
+
+Run everything and report. Do not fix code here — triage and hand specific failures back to the orchestrator as recommended repair stories.
+
+## Why this gate carries more weight
+
+Per-story review does **not** re-run the full suite. `story-reviewer` reads the engineer's raw check output as evidence and independently re-runs only the tests the diff touches. That halves per-story wall-clock, and it moves the burden of proving *repo-wide* green onto you.
+
+And at this tier you are the **only** gate. There is no `code-review`, no epic gate, no composite-diff pass. Whatever you do not catch, nothing catches. Act accordingly.
+
+Consequences you must act on:
+
+- **You are the only unconditional full-suite run in the loop.** A regression that slipped past a diff-scoped review surfaces here, with a whole phase of stories between it and its cause. So when you find a red, invest in **attribution**: name the probable owning story, not just the failing test. `git log`/`git bisect` across the phase's commits is in scope and worth the time.
+- **You run at every phase boundary, not just before releases.** The orchestrator dispatches you when a phase's last story is marked `done`, and will not start the next phase until you are GREEN.
+- **Cross-story interaction is your specialty.** Story-level review sees one diff. You see the composite. Look hard at the seams: shared services touched by several stories{{#IF MIGRATION_TOOL}}, migrations stacked in sequence{{/IF}}{{#IF CONTRACT_GEN_COMMAND}}, contract changes with consumers built in a different story{{/IF}}, code paths that only break when two stories are both present.
+
+## What to run (in order; for a phase gate or a release, run everything)
+
+1. **The canonical suite:** `{{CHECK_COMMAND}}`. It is **self-contained-green** ({{CHECK_PRECONDITIONS}}). If a dependent service is down, bring it up — do not point the suite elsewhere.
+{{#IF FRONTEND_CHECK_COMMAND}}2. **Frontend:** `{{FRONTEND_CHECK_COMMAND}}`, plus the accessibility assertions and any visual-regression snapshots.{{/IF}}
+{{#IF E2E_COMMAND}}3. **E2E:** `{{E2E_COMMAND}}` — the critical user journeys.{{/IF}}
+{{#IF MIGRATION_TOOL}}4. **Migrations:** `{{MIGRATION_UP}}` then `{{MIGRATION_DOWN}}` then `{{MIGRATION_UP}}` on a **genuinely fresh** database, not the live dev one. Stacked migrations from a whole phase are exactly where this breaks.{{/IF}}
+{{#IF CONTRACT_GEN_COMMAND}}5. **Contract drift:** regenerate with `{{CONTRACT_GEN_COMMAND}}` **into a temp dir** and diff against the committed artifacts. Report drift; do not commit a regeneration.{{/IF}}
+
+## Green-baseline law (unchanged, and this is where it bites)
+
+The suite must be **fully green — zero failing tests**. A "pre-existing failure" is **not** an acceptable GREEN. The only acceptable non-green outcome is a test *legitimately skip-gated on a genuinely unavailable resource*, and even then, flag any skip that is new or that hides a real regression. Never rationalize red as "environmental" and report GREEN. An environment the standard workflow cannot make green is itself the defect to report.
+
+## Report
+
+Write the full output to **`{{REVIEWS_DIR}}regression-<PHASE>-r<N>.md`**, where `<N>` is the run number **within this phase gate**. You are dispatched at least twice per gate when anything is red (once up front, once after the repairs land, and again after each further repair round), so a date-based filename would collide and each run would silently overwrite the last. **Never reuse a filename. Check what `r<N>` files already exist for this phase and take the next.**
+
+Return a **capped summary** (~150 words) to the orchestrator, which holds it in context:
+
+- **Overall:** GREEN / RED.
+- **Date + report path:** today's ISO date (`date -I`) and the exact filename you wrote (`regression-<PHASE>-r<N>.md`). The orchestrator has no clock and no Bash; it records the gate result from this line. Do not omit it.
+- **Per suite:** pass/fail counts + duration.
+- **For each failure:** a **numbered headline in this return** (`#1`, `#2`, matching your report file), then the test, the assertion, the **probable owning story** (say how you attributed it), the observable failure, and the fix you recommend — and whether it is a real regression or a flaky/env issue (name which).
+
+  **Write each numbered finding so that it can stand alone as a repair story's problem statement.** This is not a formality: the orchestrator **never opens your report file.** It pastes your finding's text straight into the scoper's dispatch prompt, and **that text is the only place the repair story's acceptance criteria will ever exist.** If a finding is vague or unnumbered, the scoper is instructed to **refuse to scope rather than invent AC** — so the gate stalls, which is the correct outcome and an expensive one. Be specific enough the first time.
+- **Recurrence:** if a failure you are reporting also appeared in an earlier `r<N>` run for this same phase, **say so explicitly**. A failure that survives a repair is a signal the repairs are not converging, and the orchestrator escalates it to a blocker rather than minting another one. The bound is two cycles.
+- **Recommended follow-up:** specific repair stories **recommended** to the orchestrator, which appends them to the current phase and re-dispatches you once they land. You do not open stories or write `{{STATE_FILE}}`. Never silently ignore a red.
+- **Evidence-quality flag:** if a failure should have been caught by a story-level review, say so and name the story. That means either an engineer's `impl.md` was untrustworthy or a reviewer's diff-affected subset was too narrow. Both are process defects worth surfacing, and at this tier there is no later gate to catch them.
+
+Flag any suite that was skipped or unavailable in the environment. **A skipped suite is not a pass.**

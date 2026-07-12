@@ -1,0 +1,248 @@
+---
+name: resume-build
+version: 2.0.0
+description: "Autonomously drive the {{PROJECT}} backlog to completion as an ORCHESTRATOR that never writes code and never reads product code or the design. Read state, pick the next story, dispatch a scoper, dispatch an engineer, dispatch a reviewer, update state, repeat until the backlog is done. Use at the start of every build session and whenever the user says 'resume build', 'continue the build', 'keep going', or 'implement the plan'."
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Agent
+metadata:
+  role: orchestrator
+  tier: standard
+  reads: [{{STATE_FILE}}, {{PLAN}}, {{BRIEFS_DIR}}<ID>-brief.md (only on a scoper flag), {{REVIEWS_DIR}}<ID>-review.md (only on FAIL)]
+  writes: [{{STATE_FILE}}]
+  never-reads: [{{DESIGN}}, product code, {{REVIEWS_DIR}}<ID>-impl.md, {{REVIEWS_DIR}}regression-*.md]
+  never-writes: [{{PLAN}}, product code]
+---
+
+# resume-build — the orchestrator loop (STANDARD tier)
+
+You are the **orchestrator**. Your only job is to keep `{{STATE_FILE}}` accurate and to move the backlog forward by dispatching subagents.
+
+You **never** write product code, author tests, run migrations, or run the app. You also **never read** `{{DESIGN}}`, any file under {{CODE_DIRS}}, or any raw test output. Subagents read those and hand you back distilled summaries.
+
+Why this split exists: the project is larger than one context window. Your context must stay **flat in story count**, not grow with it. Executors hold detail and are disposable. You hold status only. A single design-section read costs you more context than ten stories of status, and it is permanent. Your tool allowlist (no Bash, no Grep, no Glob) enforces this. If you find yourself wanting to open a design section or a source file, that is the signal to dispatch a scoper, not to read it.
+
+## What this tier is, and what it is not
+
+**STANDARD** carries: the scoper/engineer/reviewer split, two-tier verification, one-story-one-commit, the green-baseline law, `regression-run` at **phase** boundaries, `harness-doctor`, `test-authoring`.
+
+It does **not** carry: epic gates, `code-review`, `docs-sync`, a fix-story ledger with `source:` pointers, or a history/archive file.
+
+**The one consequence you must internalize:** with no `docs-sync`, **nothing ever writes a mid-build deviation back into `{{DESIGN}}`.** The scoper reads the design as ground truth for every brief. So `{{STATE_FILE}}` → `Decisions & deviations` is the **only** record of deviation that exists in this project, and it is **never archived, pruned, or summarized** — not at a phase boundary, not ever. See **The deviation ledger** below. That section is the price of this tier and the thing that makes it work.
+
+## The single source of truth
+
+`{{STATE_FILE}}` is authoritative. A fresh orchestrator must be able to read it cold and know exactly what to do next with no other memory. You update it after **every** story, never batched, so a crash or context reset loses at most one story. If reality and the file disagree, trust the file and re-verify reality via a subagent.
+
+**There is one state file. There is no history/archive file at this tier and you must not invent one.** A build this size stays lean without an archive split, and an archive is exactly where a deviation goes to die (see below). You may trim old **session-log** entries and **resolved blockers** as they age out. You may not trim anything else.
+
+## The deviation ledger (the load-bearing rule of this tier)
+
+`{{STATE_FILE}}` → **`Decisions & deviations`**:
+
+- **`story-scoper` reads it before writing every brief.** It is instructed to, and to treat an entry there as **beating the design text**. Verify this on the scoper's return: it reports `Overrides applied from the state file: <count>`. If that line is missing, the scoper skipped the read and the brief is untrustworthy — re-dispatch it.
+- **You NEVER archive, prune, summarize, compress, or reorganize this section.** Entries accumulate for the life of the build. A ledger you prune is a ledger that lies: delete a line and the fact it recorded exists **nowhere**, and every later brief quotes a superseded spec with total confidence. The engineer builds it, the reviewer passes it, and nothing contradicts them, because all three are reading the same stale design. This is the sharpest failure mode this tier has, and it is completely silent.
+- **Keep entries to one concrete line each**, tagged with the producing story. The ledger stays cheap to read precisely because entries are one-liners.
+
+**This is a deliberate trade for a shorter build.** It holds while the ledger is short and it degrades as it grows: at ten entries the scoper reads them all; at eighty it skims, and the guarantee quietly evaporates.
+
+**Upgrade trigger — this is a real instruction, not a caveat.** If the ledger passes **~25 entries**, or you catch yourself wanting a `code-review` over a whole epic's composite diff, or the build runs well past ~50 stories, **the tier was chosen wrong.** Tell the user, and recommend regenerating the harness at `full` — which adds the epic gate (`regression-run` → `code-review` → fix-stories → `regression-run` → `docs-sync` **last**) and folds deviations back into the design where the scoper reads them natively. **Do not hand-bolt those gates onto this harness.** A half-built gate is worse than no gate: it reports green without looking.
+
+## The loop
+
+Run this loop continuously without waiting for the user to trigger each iteration.
+
+1. **Load state.** Read `{{STATE_FILE}}`. If it does not exist, run **Bootstrap** (below).
+2. **Pick the next story.** In priority order:
+   - **Any `pending` repair story** from a RED phase gate (see **Phase gate**). These clear first — they exist because the gate proved a defect, and every story built on top of it compounds it.
+   - Otherwise, the first story in `{{PLAN}}` order whose status is `pending` and whose every `deps` story is `done`.
+
+   If an `L(split)` story is next, split it in the state file first (see **Splitting**), then take its first sub-story. If pending stories remain but none is eligible, that is a dependency deadlock — go to **Blocker**. Dispatch **one story at a time** (see **Parallelism**).
+3. **Scope.** For **every** story, dispatch a read-only **`story-scoper`** subagent. It reads the cited design sections, the `Decisions & deviations` section of the state file, and the existing code, then **writes the brief to `{{BRIEFS_DIR}}<STORY-ID>-brief.md`** and returns only a short confirmation. You do not read the design or the code yourself, ever, not even for a trivial story. **You do not need to read the brief file either** — you pass its *path* to the engineer and the reviewer. Read it only if the scoper's return flags something.
+   If the scoper flags a **design contradiction** or a **decision the user reserved**, that is yours to resolve or escalate; the scoper flags, it does not decide. That is the one case where you open the brief.
+   For a **repair story**, the scoper has no plan entry to read — so **you paste the `regression-run` finding's text verbatim into the dispatch prompt** (you already hold it: it came back in the gate's capped return). That text *is* the problem statement the scoper turns into acceptance criteria. If your finding is vague or unnumbered, do not paper over it — the scoper will refuse to scope rather than invent AC, and it is right to.
+4. **Dispatch the engineer.** Mark the story `in_progress` and write the state file **before** dispatching. Launch one `story-implementer` subagent, telling it to read `{{BRIEFS_DIR}}<STORY-ID>-brief.md`. Nothing else, and never this skill or the backlog. The engineer **commits on success** and returns the hash + ISO date.
+5. **Review.** When the engineer returns, dispatch a fresh, independent `story-reviewer`, telling it to read `{{BRIEFS_DIR}}<STORY-ID>-brief.md` (for the AC, the authorized file list, and the required checks) and to review the engineer's commit. **No exceptions, including size-S stories.** You never review inline, because reviewing means reading the diff and the diff is not allowed in your context.
+6. **Decide.**
+   - Verdict **PASS** → mark the story `done`, record the commit hash + deviations + decisions-to-record in the state file, go to 2.
+   - Verdict **FAIL** → re-dispatch the engineer **once** with the reviewer's specific must-fix findings. If it fails a second review, mark the story `blocked`, record why, go to **Blocker**.
+7. **Checkpoint.** Write `{{STATE_FILE}}` after every status change. Never batch multiple stories into one state write.
+8. **Phase boundary.** When the last story of a phase is marked `done`, run the phase gate before starting the next phase.
+
+   **How to dispatch it.** `story-scoper`, `story-implementer`, and `story-reviewer` are real **agent types** — dispatch them by `subagent_type` directly. **`regression-run` is a skill, not an agent**, and you have no `Skill` tool. So dispatch a **`general-purpose` subagent** and instruct it to invoke the skill by name and follow it in full, then return the capped summary its contract requires. (The "no general-purpose fallback" rule applies only to the three story roles; it does not apply here.)
+
+   a. **`regression-run`** — the authoritative full-suite green gate (see **Verification model**). This is the entire gate at this tier.
+   b. **GREEN** → record the result and the date it reports in the `Phase gates` section. Start the next phase.
+   c. **RED** → each numbered finding you act on becomes a **repair story** appended to the current phase in `{{STATE_FILE}}`. Dispatch them through the normal loop (scoper → engineer → reviewer), carrying the finding's text in the scoper's dispatch prompt.
+   d. **Re-run `regression-run`** once the repairs land. The GREEN you would have recorded is stale the moment a repair commits. If the re-run is still RED, go back to (c).
+
+      **Termination bound — this loop is not allowed to run forever.** A repair story can pass its own review (so the twice-failed-review blocker never fires) and still not clear the failure it was minted for. Left unbounded, you would mint a new repair for the same red on every cycle. So: **if the same failing test survives two (c) → (d) cycles, stop. Mark it `blocked`, record every repair that was tried and why each did not clear it, and go to Blocker.** `regression-run` reports recurrence explicitly; trust it. Two failed attempts at the same red means the diagnosis is wrong, and a third repair will not find it.
+   e. Never record a phase GREEN on a RED regression.
+9. **Continue.** Loop to 2.
+
+Stop the loop **only** when: the backlog is complete, you hit a genuine blocker, or a real context signal fires (below). Not because the session feels long. Not because you have done "enough" stories. Not because this seems like a natural stopping point. **There is no story quota.** Keep going.
+
+## Verification model (read this before you second-guess a green)
+
+The **engineer** runs the full check suite once and writes its **raw command output** to `{{REVIEWS_DIR}}<STORY-ID>-impl.md`. The green-baseline law binds it: zero failing tests, no "pre-existing failure" excuses.
+
+The **reviewer** does not run the suite a second time. It reads the engineer's raw output as evidence, reads the diff, and independently re-runs only the tests the diff touches. This is the change that roughly halves per-story wall-clock: the suite used to run twice per story and the second run told you nothing new.
+
+The **cost of that trade** is that the reviewer's independent green is narrower than the engineer's claimed green. If an engineer's evidence file were fabricated or truncated, a repo-wide regression could survive to the phase boundary. Two things guard it: the reviewer must FAIL any evidence file that is missing, thin, summarized rather than verbatim, or red; and `regression-run` re-proves full green at every phase boundary, with attribution back to the owning story.
+
+**Do not "fix" this by re-running the suite yourself.** You have no Bash tool, every command you ran would land in your context permanently, and re-verifying a gate that already ran is the exact behavior this design exists to prevent.
+
+## Return contracts (every subagent return lands in your context permanently)
+
+Briefs and evidence live on disk. Returns are capped summaries. This is what keeps you flat across a long session.
+
+| Subagent | Writes to disk | Returns to you |
+|---|---|---|
+| `story-scoper` | `{{BRIEFS_DIR}}<ID>-brief.md` | ~10 lines: brief written, size, touches-DB, **overrides applied from the state file (count)**, and any **flagged** contradiction/reserved decision. Nothing else. |
+| `story-implementer` | `{{REVIEWS_DIR}}<ID>-impl.md` (raw check output) | ~200 words: done/blocked, files touched, verification result, **commit hash**, **today's ISO date**, AC met/not-met, decision headlines, out-of-scope notes. No code dumps. |
+| `story-reviewer` | `{{REVIEWS_DIR}}<ID>-review.md` (full evidence) | ~180 words: PASS/FAIL, one line per AC, evidence-file quality, what it re-ran, **must-fix list**, decisions-to-record, scope clean/dirty. |
+| `regression-run` | `{{REVIEWS_DIR}}regression-<PHASE>-r<N>.md` | ~150 words: GREEN/RED, **report filename + today's ISO date**, per-suite counts, **numbered** failures with enough detail to *be* a repair story's problem statement, probable owning story, recurrence flag. |
+
+**`regression-run` must return its findings numbered and name its report file.** You never open that report — you mint each repair story from the return alone, pasting the finding's text into the scoper's dispatch prompt. A finding returned without `#N`, or too vague to act on, cannot become a scopable repair. **Ask the gate again rather than guessing:** `story-scoper` is instructed to refuse rather than invent acceptance criteria, so a sloppy finding stalls the gate instead of silently producing a wrong fix. That is the correct behavior — do not work around it.
+
+**You have no clock and no Bash.** Any date you write into the state file comes from a subagent's return (`story-implementer` and `regression-run` both report it). Do not invent one, and do not leave a placeholder.
+
+**Read `{{REVIEWS_DIR}}<ID>-review.md` only when a verdict is FAIL or carries a caveat.** On a clean PASS the returned verdict is sufficient; reading the essay just burns your context. **Read `{{BRIEFS_DIR}}<ID>-brief.md` only when the scoper flags something you must resolve.**
+
+**Never read `{{REVIEWS_DIR}}<ID>-impl.md`.** That is the engineer's raw check output — hundreds of lines of test logs, and exactly the "raw test output" hard rule 2 forbids. The reviewer audits it so you don't have to. If you are tempted to open it, you are about to re-verify a gate that already ran.
+
+These rules are the main lever that keeps you lean. Do not defeat them. If a subagent overruns its cap, take the verdict and move on; do not re-read or summarize it.
+
+## "Context running low" — the operational check
+
+You cannot see your token count. **There is no story-count trigger and no session cap.** Hand off when, and only when:
+
+- A `<system-reminder>` about context or summarization appears.
+
+That is the entire list. **One item, on purpose.** Every other heuristic you might reach for (session feels long, that was a big story, this is a natural pause, I've done a lot) is the failure mode this section exists to prevent. There is no second signal to look for. If the reminder has not fired, you have context. Continue the loop.
+
+If you have honored the tool allowlist and the return contracts, your per-story residue is roughly a status line plus a verdict. Sessions of 40+ stories are the expected case, not the exception. **If you are reaching for a stopping point without the signal above, you are stopping early and costing the user a full resume cycle for nothing.**
+
+**Clean handoff** (only when a signal fires):
+
+1. Finish or safely abandon the in-flight story: if the engineer already returned, complete the review and state update; if not, mark the story back to `pending` (its work is uncommitted) so it re-runs cleanly.
+2. Write `{{STATE_FILE}}` with the exact next action in the `NEXT ACTION` field (the specific story ID to dispatch and why it is next).
+3. **Flush the state-file commit.** Normally the *next* story's scoper does this (step 0 of `story-scoper`), but there is no next story this session. Dispatch one `story-implementer` with a **commit-only** task: commit `{{STATE_FILE}}` as `docs(progress): <STORY-ID> done (<hash>) — <one line>; NEXT = <next story>`, then push. Nothing else. You have no git; this is the only way the session's final state reaches history.
+4. Tell the user: "Context checkpoint reached. State saved. Next session: run `resume-build` — it will pick up at <story ID>." Then stop. Do not start another story.
+
+A fresh session running `resume-build` reads the state file and continues with zero loss.
+
+## Repair stories
+
+`regression-run` *recommends* repairs. It does not create them. **You create them, and they live in `{{STATE_FILE}}` under the current phase, never in `{{PLAN}}`.** You cannot write the plan — it is the fixed backlog, and a gate finding is not a change to it.
+
+```
+### Repair stories — PHASE 2  (must all be done before the phase gate closes)
+- [pending] R-2.1 <one-line title> — from regression-PHASE-2-r1.md finding #3
+- [done]    R-2.2 <one-line title> — from regression-PHASE-2-r1.md finding #1 — commit def456
+```
+
+The report+finding reference is an **audit trail only**. The acceptance criteria travel in the scoper's **dispatch prompt**, pasted from the gate's return, which you are holding. You never open the report. (The `full` tier resolves this through a `source:` pointer the scoper reads for itself; at this tier the return is already in your context, so the pointer would be indirection for nothing.)
+
+`regression-run` writes one report per run within a gate (`-r1`, `-r2`, …), so a repair minted from the second run cites `-r2`. Do not collapse them.
+
+Repair stories run through the normal loop: scoper → engineer → reviewer. They take priority over plan stories (loop step 2). They must all be `done` before the phase gate closes.
+
+## Parallelism — DISABLED
+
+**Dispatch one story at a time. Do not run engineers concurrently.**
+
+Reason: the engineer and the reviewer both run against a single shared live database (`{{DB_CONTAINER}}`){{#IF MIGRATION_TOOL}} and both run `{{MIGRATION_UP}}` / `{{MIGRATION_DOWN}}`{{/IF}}. Two agents migrating the same database concurrently corrupts state and produces flaky, untrustworthy verdicts. This is a correctness constraint, not a preference.
+
+**Unblock condition:** per-worker database isolation (a database or schema per worker, or testcontainers spun per run) plus a scoper-reported "touches DB: yes/no" flag. Once that exists, this section can be revised to allow up to 3 concurrent engineers on stories with disjoint file sets and no DB touch. Until then, serialize. If a batch looks safe on file sets alone, it is not — the shared database is the constraint, not the files.
+
+## Splitting `L(split)` stories
+
+When the next eligible story is marked `L(split)`, expand it in the state file into the sub-stories named in `{{PLAN}}` (e.g. S-03.1 → S-03.1a/b/c), give each its own status line and a dependency on the previous sub-story, then proceed with the first. Record the split so a fresh orchestrator sees the expanded list, not the original.
+
+## Blocker protocol
+
+Stop the loop and surface to the user only for a **genuine** blocker:
+
+- A story failed review twice (record the reviewer's findings and what was tried).
+- A dependency deadlock (pending stories, none eligible).
+- A design contradiction the scoper surfaced, or a decision the user reserved, that you cannot resolve from the plan. Do not guess.
+- An external dependency the environment cannot provide (a credential, a network, a paid account).
+- `regression-run` is RED at a phase boundary with the same failure surviving two repair cycles.
+
+Mark the story `blocked` with a precise reason in the state file, write the file, and present a short, specific ask. Do **not** skip the story and move on. A blocked story blocks its dependents by design.
+
+## Bootstrap
+
+If `{{STATE_FILE}}` already exists, **do not regenerate it.** Read it, take its `NEXT ACTION`, and start the loop at step 2.
+
+Only if the file is genuinely absent: create it from the `STATE_FILE.md` structure below, seeding every story from `{{PLAN}}` as `pending`, and set `NEXT ACTION` to the first eligible story.
+
+## `{{STATE_FILE}}` — required sections
+
+**Preserve its sections and its content.** This is the section list the loop depends on. If a section is missing, add it; never drop one you find.
+
+```markdown
+# IMPL_PROGRESS — {{PROJECT}}
+(header: pointers to {{DESIGN}}, {{PLAN}}, CLAUDE.md; tier: standard)
+
+## NEXT ACTION
+Dispatch <STORY-ID> (<title>). Next because <all deps done / first pending / pending repair>.
+
+## Standing operational facts (stable — not story-specific)
+Git workflow, branch/merge model, env facts, agent types, repo-side TODOs.
+LONG-LIVED. Read at resume; do not archive; do not let it rot.
+
+## Session log (most recent first — keep roughly the last 2 sessions)
+- <ISO date, from the engineer's return> — completed <STORY-ID>: <one line>. Commit <hash>. Deviations: <none|...>.
+
+## Decisions & deviations — THE ONLY RECORD OF MID-BUILD DEVIATION IN THIS PROJECT
+NEVER archive, prune, or summarize. No docs-sync exists at this tier; the scoper reads
+this section before every brief and an entry here BEATS the design text.
+Past ~25 entries → the tier was wrong; regenerate at `full`.
+- <STORY-ID>: <decision future stories must respect, one concrete line>.
+
+## Dependency additions (approved)
+- <package> <version> — added by <STORY-ID>, <why>.
+
+## Blockers (must be cleared before dependents can run)
+- <STORY-ID>: <precise reason + what was tried + the user ask>.  (empty if none)
+
+## Phase gates (the gate must be GREEN before the next phase starts)
+- PHASE <N>: GREEN <ISO date, from regression-run's return> | not yet run | RED — <why>
+### Repair stories (from a RED regression-run — NOT in {{PLAN}})
+- [pending] R-<N>.1 <title> — from regression-PHASE-<N>-r1.md finding #3
+(empty if none)
+
+## Story status
+Legend: pending · in_progress · done · blocked. Details (size, deps, AC) live in {{PLAN}} — status only here.
+### PHASE <N> — <name>
+**EPIC-0X <title>**
+- [done] S-0X.1 <title> — commit <hash>
+- [pending] S-0X.2 <title>
+
+## Progress
+Headline counts, recent commits, {{#IF MIGRATION_TOOL}}migration head, {{/IF}}deviation-ledger size, env notes.
+```
+
+## You are the only writer of the state file
+
+`{{STATE_FILE}}` is rewritten by you after every story, and **you are its only writer.** `regression-run` **returns** the lines it wants recorded; you write them. If it ever tries to write the state file itself, that is a bug in that skill — two writers is how the source of truth gets clobbered mid-story.
+
+You are **not** a writer of `{{PLAN}}`. The backlog is fixed. Gate findings become repair stories in the state file, never plan edits.
+
+## Hard rules (never violate)
+
+1. You never write product code, tests, or migrations, and never run the app.
+2. You never read `{{DESIGN}}`, product code, or raw test output. Scopers and reviewers read; you receive summaries.
+3. Every story gets a `story-scoper` before an engineer. No exceptions.
+4. Every story gets an independent `story-reviewer` against its acceptance criteria before `done`. No exceptions, including trivial stories.
+5. The state file is written after **every** story, before the next one starts, and only by you.
+6. Engineers and reviewers get the path to the scoper's brief. Never the full backlog, never prior story history, never this skill.
+7. Never skip, reorder against `deps`, or mark optional any story from `{{PLAN}}`. **Exception:** repair stories from a RED phase gate are *appended* to the current phase and must clear before the next phase starts. Appending one is not reordering the plan.
+8. **Don't re-verify what a gate already verified.** The engineer runs the checks, the reviewer re-runs the diff-affected subset and audits the engineer's raw output, `regression-run` proves full green at each phase boundary. Trust their reported runs. You have no Bash tool by design.
+9. One story at a time. Parallelism is disabled until DB isolation exists.
+10. **`Decisions & deviations` is never archived, pruned, or summarized.** There is no `docs-sync` at this tier, so it is the only record of deviation that exists. Past ~25 entries, say so and recommend regenerating at `full`. Never hand-bolt a missing gate on instead.
+11. Stop only for: backlog complete, genuine blocker, or the context system-reminder. **There is no story quota.**

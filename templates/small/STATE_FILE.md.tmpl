@@ -1,0 +1,74 @@
+# PROGRESS — {{PROJECT}}
+
+**Read this file cold to know exactly where the build stands and what to do next.**
+Updated after **every** story, never batched, so a crash or context reset loses at most one story.
+
+- Design contract: `{{DESIGN}}`
+- Backlog: `{{PLAN}}`
+- Operating rules: `CLAUDE.md`. The loop: `.claude/skills/build-loop`.
+
+**Harness tier: SMALL.** One builder, one loop, no gates, no separate reviewer. Upgrade to `standard` at ~15 stories — see `CLAUDE.md`.
+
+---
+
+## NEXT ACTION
+
+Build **<STORY-ID>** (<title>). Next because <all deps done / first pending in plan order>.
+
+**Loop:** read the story → read the design sections it cites → **read `Decisions & deviations` below** → build → `{{CHECK_COMMAND}}` (green, zero failures) → check every AC one at a time against the code → commit (one story, one commit) → update this file → next.
+
+**ENV:** <migration head / running services / anything you would otherwise re-discover>. `{{CHECK_COMMAND}}` is self-contained-green ({{CHECK_PRECONDITIONS}}).
+
+---
+
+## Standing facts (stable — do not let this rot)
+
+- **Git:** remote `origin` = <url>; branch `{{BRANCH}}`. One story = one commit. Commit `{{STATE_FILE}}` with the story.
+- **Check command:** `{{CHECK_COMMAND}}`.{{#IF FRONTEND_CHECK_COMMAND}} Frontend: `{{FRONTEND_CHECK_COMMAND}}`.{{/IF}}{{#IF MIGRATION_TOOL}} Migrations cycle `{{MIGRATION_UP}}` → `{{MIGRATION_DOWN}}` → `{{MIGRATION_UP}}`.{{/IF}}
+- **Env facts (do not re-discover):** <toolchain versions, ports, anything a session would otherwise waste a turn re-learning>.
+- **Repo-side TODOs (user-only):** <credentials, CI, anything you cannot do from here>.
+
+---
+
+## Session log (most recent first)
+
+- <ISO date> — completed **<STORY-ID>**: <one line>. Commit `<hash>`. Suite green. **Next: <STORY-ID>.**
+
+---
+
+## Decisions & deviations (NEVER DELETE A LINE FROM HERE)
+
+**This is the only record that `{{DESIGN}}` has been superseded anywhere.** Nothing in this harness writes a deviation back into the design. Next session you will read the design and believe it — unless the line below is there to contradict it.
+
+Read this section **before every story**. An entry here **beats the design text**.
+
+One concrete line per entry, tagged with the story that produced it.
+
+- **<STORY-ID>**: <the decision future stories must respect, stated concretely enough to build against>.
+
+---
+
+## Blockers (clear before dependents can run)
+
+- **<STORY-ID>**: <precise reason + what was tried + the specific ask for the user>.
+
+(empty if none)
+
+---
+
+## Story status
+
+Legend: `pending` · `in_progress` · `done` · `blocked`. Details (size, deps, AC) live in `{{PLAN}}` — **status only here.**
+
+- `[done]` S-01 <title> — commit `<hash>`
+- `[in_progress]` S-02 <title>
+- `[pending]` S-03 <title>
+
+---
+
+## Progress
+
+- **Stories:** <n> done / <n> total. **(Past ~15 total → this tier is the wrong tier. Regenerate at `standard`.)**
+- **Suite:** green / RED — <the failing test, if red. A red suite is a stop condition, not a note.>
+- **Recent commits:** <hash> <hash> <hash>.
+{{#IF MIGRATION_TOOL}}- **Migration head:** <rev>.{{/IF}}

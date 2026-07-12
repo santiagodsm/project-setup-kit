@@ -1,0 +1,45 @@
+---
+name: test-authoring
+version: 1.0.0
+description: "Author tests for {{PROJECT}} at the right level. Use when a story's tests are thin, when adding a regression test for a fixed bug, or when the reviewer flags missing coverage."
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Grep
+  - Glob
+  - Bash
+metadata:
+  role: executor
+  reads: [the code under test, {{PLAN}} AC, CLAUDE.md]
+  writes: [test files only]
+---
+
+# test-authoring
+
+Write tests that would fail before the change and pass after — no vanity coverage.
+
+## Level selection
+
+Test framework: {{TEST_FRAMEWORK}}.
+
+- **Unit / domain:** pure business rules. The logic that would be wrong in a spreadsheet too.
+- **Property-based:** invariants. State the rule that must hold across all inputs, not three examples of it. The project's invariants (below) are the primary candidates.
+{{#IF DATABASE}}- **Schema / DB:** against a **real {{DATABASE}}**, never an in-memory substitute. CHECK constraints reject bad states; FK delete behavior preserves history; {{#IF MIGRATION_TOOL}}`{{MIGRATION_UP}}` / `{{MIGRATION_DOWN}}` clean; {{/IF}}isolation/scoping blocks cross-tenant reads.{{/IF}}
+- **API / contract:** the uniform error-contract shape; pagination; idempotency-key dedup; concurrency conflict; rate limits.
+{{#IF TOKENS_FILE}}- **Component:** one story per state in the {{BEHAVIOR_SECTION}} state matrix; interaction + rollback; keyboard path.
+- **E2E:** the design's key user flows, including the clean-environment restore.
+- **A11y:** axe assertions on components + the a11y lint rule set.{{/IF}}
+
+## The invariants these tests exist to protect
+
+{{INVARIANTS}}
+
+Each of these should have at least one test that fails if it is violated. If one doesn't, that is the gap to fill first.
+
+## Rules
+
+- Test behavior, not implementation. Name tests for the rule they protect.
+- Use the real dependency, not a mock, wherever the real thing is what breaks. Never mock away the thing under test.
+- For a bug fix, add the failing case **first**, confirm it fails, then confirm the fix makes it pass. A regression test that never went red proves nothing.
+- Return: files added, levels covered, what invariant each protects, and the run result.

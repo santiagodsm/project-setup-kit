@@ -1,0 +1,105 @@
+# CLAUDE.md — {{PROJECT}} operating manual
+
+You are building **{{PROJECT}}**. {{PROJECT_ONE_LINER}} Read this file cold at the start of every session — you have no memory of prior sessions.
+
+**Harness tier: SMALL.** You are the builder. There is **one** skill — `build-loop` — and you run it yourself. **Invoke `build-loop` at the start of every build session.** Where this file and `build-loop` disagree, `build-loop` wins.
+
+There is no scoper, no separate reviewer, no gates, no epic or phase boundaries. **You scope, you build, and you review your own work.** That last part is a real weakening and you should know it — see **What this tier gave up**, below. It was accepted because at this size the orchestration overhead costs more than it returns.
+
+## The three files that govern everything
+1. `{{STATE_FILE}}` — the single source of truth for status. Read it first, always. It names the exact next story. **Write it after every single story.**
+2. `{{PLAN}}` — the backlog: stories, sizes, dependencies, acceptance criteria.
+3. `{{DESIGN}}` — the design contract. Its locked-decisions section holds the ADRs; its open-register section lists what is deliberately unspecified.
+
+## What this tier gave up (read this once, honestly)
+
+**You review your own code.** The author is judging their own work. That is exactly the conflict of interest an independent reviewer exists to remove, and no amount of discipline fully removes it: you will read your diff already believing it is correct, because you wrote it believing that. The mitigation is mechanical, not motivational — **check the acceptance criteria one at a time, against the code and the tests, and cite what satisfies each.** "I implemented the story" is not a check. "AC 3 is satisfied by `service.py:88` and `test_service.py:41`" is.
+
+**Nothing folds deviations back into `{{DESIGN}}`.** If you deviate from the design mid-build, record it in `{{STATE_FILE}}` → `Decisions & deviations`, in one concrete line, and **never delete it**. That section is the only record. It is also *your* memory: next session you will read the design and believe it, unless that line is there to contradict it.
+
+**Nothing catches a cross-story regression except the full suite.** Which is why you run the full suite on every story, and why a red is never negotiable.
+
+### The upgrade trigger — this is a real instruction
+
+If **any** of these fires, the tier was chosen wrong:
+
+- the build passes **~15 stories**, or
+- you catch yourself wanting a gate — an independent review, a composite-diff pass, a regression gate at a boundary, or
+- you have deviated from the design enough times that you no longer trust it.
+
+**Regenerate the harness at `standard`.** Do not hand-bolt a gate onto this one. A small harness silently carrying a large build is the failure mode of this tier: it keeps reporting green, story after story, while nothing is actually being checked by anyone but the person who wrote it.
+
+## Project structure
+```
+{{PROJECT_STRUCTURE}}
+```
+**At the repo ROOT:** `{{DESIGN}}`, `{{PLAN}}`, `{{STATE_FILE}}`, `CLAUDE.md`.
+Code lives under {{CODE_DIRS}}; tests co-located with the code they cover.
+
+## Pinned tech stack (do not substitute)
+{{STACK_SUMMARY}}
+
+- **Language/runtime:** {{LANGUAGE}}
+- **Framework:** {{FRAMEWORK}}
+- **Database:** {{DATABASE}}
+- **Tests:** {{TEST_FRAMEWORK}}
+{{#IF MIGRATION_TOOL}}- **Migrations:** {{MIGRATION_TOOL}} (`{{MIGRATION_DIR}}`){{/IF}}
+
+Adding anything outside this list requires an explicit decision recorded in `{{STATE_FILE}}`.
+
+## The check command
+
+```
+{{CHECK_COMMAND}}
+```
+
+It is **self-contained-green** ({{CHECK_PRECONDITIONS}}).{{#IF FRONTEND_CHECK_COMMAND}} Frontend: `{{FRONTEND_CHECK_COMMAND}}`.{{/IF}}{{#IF MIGRATION_TOOL}} Migrations must cycle clean: `{{MIGRATION_UP}}` → `{{MIGRATION_DOWN}}` → `{{MIGRATION_UP}}`.{{/IF}}
+
+## Coding standards specific to this project
+
+{{INVARIANTS}}
+
+These are checkable assertions, not aspirations. Check them literally on every story. A review told "check that the code is correct" checks nothing; one told a specific invariant catches the bug.
+
+- **Errors:** a single uniform error contract, applied everywhere; plain-language user-facing errors that state impact + next action; no stack traces or secrets to clients; never show success unless the operation completed.
+{{#IF TOKENS_FILE}}- **UI components:** semantic tokens from `{{TOKENS_FILE}}` only — no raw hex/px. Status carried by icon/text, never color alone.{{/IF}}
+{{#IF MIGRATION_TOOL}}- **Schema:** obey design {{SCHEMA_SECTION}} — the standard column set, CHECK-constrained states, and FK delete behavior that never loses history to a cascade.{{/IF}}
+
+## The four rules that do not bend
+
+Everything else at this tier is a convenience. These four are load-bearing, they cost nothing, and their absence is what kills small projects.
+
+1. **GREEN BASELINE IS LAW.** `{{CHECK_COMMAND}}` must be fully green — **zero failing tests** — before a story is done. **Never excuse a red as "pre-existing" or "environmental" and move on.** If the fix is small and clearly right, fix it and note it. If it is not, **stop and say so** — do not build the next story on a red tree. A suite that has been red for three stories is a suite nobody is reading, and from that point on you are flying blind. The only acceptable non-green test is one legitimately skip-gated on a genuinely unavailable resource; adding a new skip to dodge a real failure is not that.
+2. **One story = one commit.** Branch off `{{BRANCH}}`. Commit the story as a single commit once the suite is green, using the format below. Never batch two stories into one commit, and never leave a story's work uncommitted while starting the next — the diff stops being a story and becomes a fog.
+3. **Write `{{STATE_FILE}}` after EVERY story.** Never batch. A crash, a context reset, or a closed laptop then costs you at most one story instead of a session.
+4. **Check the acceptance criteria before marking a story done.** Every AC bullet, one at a time, against the code and the tests, with the `file:line` or the test that satisfies it. Not "it works." Not "I implemented it." If an AC cannot be satisfied as written, that is a blocker — record it and ask, do not quietly redefine it.
+
+## Commits
+
+```
+{{COMMIT_FORMAT}}
+<body: what changed and why, wrapped>
+```
+
+Every message ends with the `Co-Authored-By` trailer from the environment rules. Commit `{{STATE_FILE}}` along with the story — at this tier there is no separate orchestrator, so there is no reason to split it out.
+
+## Handling ambiguity
+
+- **Make the call** when the design under-specifies an implementation detail and there is an obvious simplest choice consistent with the surrounding design (a field name, an index, a helper's shape). **Record it** in `{{STATE_FILE}}` → `Decisions & deviations`, one line.
+- **Stop and ask** when: the design contradicts itself; a decision the design's open register explicitly reserved resurfaces; an acceptance criterion cannot be met as written; or the environment cannot supply an external dependency. Record the blocker in `{{STATE_FILE}}` with a specific ask. **Never guess on a reserved decision, and never skip a blocked story to keep moving** — it blocks its dependents by design.
+
+## When to stop
+
+**There is no story quota and no session cap.** Keep building. Stop when, and only when:
+
+- the backlog is complete, or
+- you hit a genuine blocker, or
+- a context/summarization `<system-reminder>` appears.
+
+That is the entire list — one signal, on purpose. Every other heuristic you might reach for (the session feels long, that was a big story, this is a natural stopping point, I've done a lot) fires long before real context pressure and costs a full resume cycle for nothing.
+
+When the context signal fires: finish or cleanly revert the in-flight story, write `{{STATE_FILE}}` with the exact next story in `NEXT ACTION`, commit, tell the user *"run `build-loop` next session to continue at `<story>`"*, and stop.
+
+## Definition of done for the whole project
+
+Every gate in `{{DESIGN}}` {{DOD_SECTION}} holds. The backlog is complete when every story in `{{PLAN}}` is `done`, the suite is green, and those gates pass.

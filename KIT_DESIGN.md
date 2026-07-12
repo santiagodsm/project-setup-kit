@@ -1,0 +1,127 @@
+# Project Setup Kit — design contract
+
+**What this is.** A Claude Code plugin you install into an empty repo. It walks you from "I have an idea" to "this repo has a design doc, a locked set of decisions, a backlog, operating rules, and its own build agents." Then it gets out of the way.
+
+**What it is not.** A runtime harness. The harness it *generates* is project-specific and lives in the target repo. Once setup completes, the target project does not depend on this kit.
+
+---
+
+## Locked decisions (do not re-litigate)
+
+**KD-001 — Generator, not framework.**
+The kit emits a bespoke harness per project. It does not ship a parameterized universal harness with a config layer. Rationale: a generic scoper that doesn't know your ORM writes vague briefs; the value of a good scoper is precisely that it knows your stack. Baking the specifics in beats parameterizing them.
+
+**KD-002 — Tiered harness output.**
+`harness-forge` emits one of three tiers, chosen at setup by build size:
+
+| Tier | Emits | For |
+|---|---|---|
+| **small** | `CLAUDE.md` + plan + a single build loop. No gates, no epic boundaries. | < ~15 stories. Weekend/side projects. |
+| **standard** | + scoper/implementer/reviewer split, `regression-run`, `harness-doctor` | ~15–50 stories. |
+| **full** | + epic gates, `code-review`, `docs-sync`, migration/contract/token gates, fix-stories | 50+ stories, multi-session, months. |
+
+A tier can be upgraded in place later. Rationale: a heavyweight harness on a small project gets bypassed, and **a bypassed harness is worse than none — it lies about what is being checked.**
+
+**KD-003 — Distribution: Claude Code plugin.**
+Skills + agents + commands, versioned and installable. Improvements propagate to new projects. Generated harnesses are forked into the target repo and are expected to diverge.
+
+**KD-004 — Fixed section skeleton in the design doc.**
+`DESIGN.md` uses a **canonical, fixed** section map (§1–§12), not organic numbering. Rationale: every downstream agent cites sections. A fixed map means the scoper always knows where to look, and citations stay stable across projects.
+
+**KD-005 — `harness-doctor` is a mandatory gate, not an option.**
+Every generated harness is doctored before first use. Setup does not complete with an open BLOCKER. Rationale: a harness is a distributed system made of prose and nothing type-checks it. Hand-written harnesses routinely carry load-bearing contradictions (missing tools, orphan artifacts, unreachable gates). Generated ones will be worse, and the failures are silent.
+
+**KD-006 — The incomplete register is the honesty valve.**
+`DESIGN.md` §11 lists what is deliberately unspecified. Without a legitimate home for "I don't know yet," a model fills gaps with plausible fiction and every downstream agent inherits it. An empty §11 on a non-trivial project is a **defect**, not a success.
+
+**KD-007 — Setup has its own state file.**
+`SETUP_PROGRESS.md`, written after every step. Setup is multi-session. Same lesson the build loop already learned.
+
+**KD-008 — The chain has a mandatory human gate between design and backlog.**
+`design-author` classifies every §11 register entry as **BLOCKING** or **DEFERRABLE**, and returns a `BACKLOG BLOCKED` / `BACKLOG CLEAR` verdict. **`backlog-author` refuses to run while blocked.**
+
+Rationale, learned from the first real run: `design-author` correctly refused to invent a dispute mechanism the PRD never specified. That refusal is worthless if `backlog-author` then writes acceptance criteria for the dispute flow anyway — the honesty gets **laundered into fiction one step later**, and now it is in the backlog, where an engineer builds it and a reviewer passes it. The register only works if the gate is enforced, not merely mentioned.
+
+**KD-009 — Design depth scales with build size; the section map does not.**
+All twelve `DESIGN.md` sections appear on every project. The **artifacts** (DDL, contracts, state machines, numeric targets) never scale away — they are what make a section citable, and citability is the point. **Prose, rationale, and ADR count** scale with build size.
+
+ADR test: an ADR is warranted only if a competent engineer could plausibly have chosen differently **and** reversal is expensive. Everything else gets written into the section. Manufacturing ADRs buries the three or four that genuinely constrain the build under fifteen that don't, and a later agent cannot tell which is which. **Ten load-bearing ADRs beat thirty comprehensive ones.**
+
+---
+
+**KD-010 — Every cross-step signal is a machine-readable marker in a file, never a return string.**
+A verdict that lives only in an agent's return message **evaporates** — the next skill runs in a fresh context and never sees it. So:
+
+| Signal | Marker | Written by | Read by |
+|---|---|---|---|
+| Build tier | `<!-- TIER: small\|standard\|full -->` in `PRD.md` | `project-brief` (and `setup-project`, **only** on a tier-mismatch re-forge) | `design-author`, `stack-decide` (RE-TIER), `harness-forge`, `plan-lint`, `setup-project` |
+| Backlog gate | `<!-- GATE: BACKLOG BLOCKED\|CLEAR -->` on line 1 of `DESIGN.md` | `design-author` | `backlog-author` |
+| Register status | `Status: NOT SPECIFIED — BLOCKING\|DEFERRABLE` | `design-author` | `backlog-author`, `plan-lint` |
+| Gate manifest | table in `STACK.md` | `stack-decide` (and `harness-forge`, **only** to resolve the `DEFERRED` perf row) | `harness-forge`, `harness-doctor` |
+
+Learned the hard way: the first version put the BLOCKING/DEFERRABLE rule in prose *below* the §11 template an agent actually copies. On the kit's own first test run, all seven register entries came back unclassified, and `backlog-author` would have sailed straight through and invented the very thing `design-author` had honourably refused to invent. **The template is the contract. Prose below it is decoration.**
+
+**KD-011 — `SETUP_PROGRESS.md` has exactly one writer: `setup-project`.**
+Every other skill *returns*; the orchestrator records. Multi-writer state is a clobber waiting to happen. The orchestrator creates the file at step 0, before the (long) step-1 interview, so a crash costs at most one step.
+
+**KD-012 — One ADR namespace.**
+`stack-decide` numbers from ADR-001 and records its last number. `design-author` continues from there. Two namespaces both starting at ADR-001 means "ADR-003" resolves to two different decisions depending on which file you opened, and both `harness-forge` and the generated `code-review` cite ADRs by number.
+
+**KD-013 — Every *machine* fix loop is capped. Human-gated loops are not.**
+`plan-lint` → `backlog-author`: 3 rounds, then ask the user. `harness-doctor` → `harness-forge`: 3 rounds, then report failure. An uncapped "repeat until clean" loop spins forever on a problem it does not understand — a defect class the kit's own skills forbid in the harnesses they generate.
+
+The `BACKLOG BLOCKED` → user → `design-author` AMEND loop is **deliberately uncapped**, and this is not an inconsistency: each iteration requires a human answer, so it cannot spin. The thing being guarded against is an agent retrying against itself, not a person taking three passes to decide what they want.
+
+**KD-014 — `setup-project` dispatches every step as a subagent. It never invokes a skill itself.**
+Its tools are `Read/Write/Edit/Agent/Skill/AskUserQuestion/ToolSearch` — **no `Bash`, no `Grep`, no `Glob`** — and a skill's `allowed-tools` **intersects down** with whoever loads it.
+
+So if the orchestrator invoked a step directly: `scaffold` could not run the check command. `stack-decide` could not search, and would lock a stack from stale training data. `harness-doctor` could not grep, glob, or run git — silently disabling four of its twelve checks, and it would report **CLEAN on a harness it never inspected.**
+
+Every one of those failures is silent. The skill runs, produces plausible output, reports success. Dispatching every step is what keeps the orchestrator's context flat *and* gives each skill its full toolset. The two goals point the same way.
+
+**KD-015 — Tier changes must rebuild the gate manifest, not just the tier marker.**
+Manifest rows are tier-conditioned *at write time*. A tier-mismatch re-forge that rewrites `<!-- TIER -->` but not `STACK.md` produces a **gateless "standard" harness** — `harness-forge` reads "only the gates in the manifest," finds none; `harness-doctor` compares that harness against the same stale manifest and pronounces it CLEAN. Three independent checks, all agreeing, all wrong. Hence `stack-decide`'s RE-TIER mode, and hence the four-step loop-back.
+
+---
+
+## The chain
+
+Order is the product. Each step is an input to the next; running them out of order gives you a backlog written against a design that was never decided.
+
+| # | Skill | Produces | Gate | On failure |
+|---|---|---|---|---|
+| 0 | `setup-project` | `SETUP_PROGRESS.md` | — | — |
+| 1 | `project-brief` | `PRD.md` + `<!-- TIER -->` | tier marker present | — |
+| 2 | `stack-decide` | `STACK.md` (ADRs, check command, gate manifest) | manifest emitted | — |
+| 3 | `design-author` | `DESIGN.md` (§1–§12) + `<!-- GATE -->` | `BACKLOG CLEAR` | → user → `design-author` **AMEND** → recheck |
+| 4 | `scaffold` | The repo + the check command | green from cold **and** red when broken | re-dispatch (3 rounds), then ask the user |
+| 5 | `harness-forge` | `CLAUDE.md` + `.claude/**` | `harness-doctor`: zero BLOCKERs | 3 rounds, then fail |
+| 6 | `backlog-author` | `PLAN.md` | refuses unless step 3 is CLEAR | — |
+| 7 | `plan-lint` | `PLAN_LINT.md` | zero BLOCKERs **and zero MAJORs** | → 6 **FIX mode** (3 rounds) · tier mismatch → **1 → 2 (RE-TIER) → 5 → 7** |
+| 8 | seed + `harness-doctor` | first story in the state file | zero BLOCKERs | → **5** with the numbered findings (3 rounds), then fail |
+
+**Step 8 is not a repeat of step 5.** At step 5 no `PLAN.md` existed, so the build state file was emitted as a stub pointing at nothing. Step 8 seeds it with the first real story and doctors the *assembled* repo — harness plus plan plus state. It is the only pass that sees the whole thing.
+
+Setup is done when 7 and 8 are clean. Then: run the generated harness.
+
+---
+
+## Where this fails, if it fails
+
+**`design-author` (§3 of the chain) is the load-bearing risk.** Every later agent cites `DESIGN.md`. An LLM will cheerfully produce a design doc that reads beautifully and has no citable structure, no locked decisions, and no honest register of gaps — and **nothing will tell you.** Every downstream agent just quietly gets worse. This is why we build it first and judge it hardest.
+
+**`backlog-author` is second.** Plausible-sounding acceptance criteria that can't be tested means stories pass review forever while building nothing. `plan-lint` exists for this and is not optional.
+
+---
+
+## Build order
+
+1. `design-author` — risk-first. Prove the output is genuinely citable before building seven skills around it.
+2. `harness-doctor` — needed before anything is generated, so we can verify what we generate.
+3. `harness-forge` + the three tier templates.
+4. `scaffold`.
+5. `project-brief` + `stack-decide` (the interview; more effort here than in any generator).
+6. `backlog-author` + `plan-lint`.
+7. Prove it end to end on a real (if small) project.
+
+**Test target:** a deliberately throwaway project — but one that is *small in scope and real in structure*. It must have a database, an API, at least one non-obvious architectural decision, and at least one genuinely undecided thing. A toy with none of those tests nothing.

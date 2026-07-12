@@ -1,0 +1,47 @@
+---
+name: dependency-security-audit
+version: 1.0.0
+description: "Audit {{PROJECT}}'s dependencies and security posture: vulnerable packages, license issues, supply-chain risk, and the design's threat-model controls. Folded into the epic gate when the epic added or bumped a dependency, and unconditionally every 4th epic. Also use before a release."
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+  - Write
+  - WebSearch
+  - WebFetch
+metadata:
+  role: reviewer
+  reads: [lockfiles, SBOM, the design's security section, CLAUDE.md]
+  writes: [{{REVIEWS_DIR}}security-audit-<EPIC-ID>.md — never {{STATE_FILE}}, never {{PLAN}}, never product code]
+---
+
+# dependency-security-audit
+
+Two parts: dependency hygiene and application-security posture.
+
+## Dependency hygiene
+
+- **Vulnerabilities:** scan the lockfiles ({{LOCKFILES}}) with the stack's auditors ({{AUDIT_COMMANDS}}); report CVEs with severity + fixed version.
+- **Licenses:** flag copyleft or otherwise incompatible licenses for this project's distribution model.
+- **Supply chain:** flag unpinned / unmaintained / typosquat-risk packages; confirm lockfiles are committed and CI installs from them.
+- **Minimalism:** the harness forbids introducing dependencies casually (`CLAUDE.md` do-not list). **Flag any dependency added outside an approved story** — cross-check the state file's `Dependency additions` section against the lockfile diff.
+
+## Application-security posture (the design's security section)
+
+- Secrets live only in the platform secret store; never in logs, never in a committed env file, never in model context.
+- Permissions enforced in the service layer, not only in the UI; external/untrusted content cannot authorize actions.
+- The project's sensitivity/visibility tiers are honored end to end.
+- The network boundary the design specifies is intact; no unintended public exposure.
+- Backups are encrypted and restorable; deletion survives restore.
+
+## Output
+
+- Vulnerability table (package, CVE, severity, fix version).
+- License findings.
+- Security-posture checklist (ok / gap) with design-section references.
+
+Write the detail to **`{{REVIEWS_DIR}}security-audit-<EPIC-ID>.md`** and return a capped summary (~150 words) plus that filename. The orchestrator holds your return in context for the rest of the session; **do not paste CVE dumps into it.**
+
+- Recommended fix-stories, ranked by severity. You **recommend**; the orchestrator records them in `{{STATE_FILE}}` under `Fix-stories`. Do not open stories, do not edit the state file, and do not edit `{{PLAN}}` (the backlog is fixed). Never mark a high-severity item "accepted" without an explicit user decision — return that as an *ask*, and the orchestrator records it.
+- **Number every finding.** The orchestrator's fix-story line reads `source: {{REVIEWS_DIR}}security-audit-<EPIC-ID>.md, finding #2`, and a scoper turns that finding into acceptance criteria. **Your finding is the only place that fix-story's AC will ever exist.** Give each a stable number, the affected package + version, the CVE or control, and the concrete fix (target version, code change). A vague finding becomes a fix-story with invented AC.

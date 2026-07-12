@@ -1,0 +1,110 @@
+# IMPL_PROGRESS — {{PROJECT}}
+
+**Read this file cold to know exactly where the build stands and what to do next.**
+This is the single source of truth for build status. It is updated after **every** story, never batched, so a crash or context reset loses at most one story.
+- Design contract: `{{DESIGN}}` (§-references point here; the locked-decisions section holds the ADRs).
+- Backlog: `{{PLAN}}` (story IDs, sizes, deps, acceptance criteria).
+- Operating rules: `CLAUDE.md`. Orchestration mechanism: `.claude/skills/resume-build`.
+
+**The orchestrator is the ONLY writer of this file.** Gate skills (`docs-sync`, `code-review`, `regression-run`, and the conditional gates) *return* the lines they want recorded; the orchestrator writes them. Two writers is how a source of truth gets clobbered mid-story.
+
+---
+
+## NEXT ACTION
+
+Dispatch `story-scoper` for **<STORY-ID>** (<title>). Next because <all deps done / first pending in plan order / pending fix-story in the current epic>.
+
+**Loop reminder:** scoper → engineer → reviewer, **every** story, no exceptions. The orchestrator has no Bash/git and does NOT read `{{DESIGN}}` or product code. Pass the brief **PATH** (`{{BRIEFS_DIR}}<STORY-ID>-brief.md`) to the engineer and the reviewer. The engineer commits (one story = one commit; **amend** on retry) and returns the hash + ISO date. The reviewer audits `{{REVIEWS_DIR}}<STORY-ID>-impl.md` and re-runs only the diff-affected tests.
+
+**PENDING STATE-FILE COMMIT:** <none | the writes below are uncommitted; the next story's scoper flushes them at its step 0 as `docs(progress): <STORY-ID> done (<hash>) — <one line>; NEXT = <next story>`. If no scoper runs before handoff, dispatch a commit-only `story-implementer` to flush it.>
+
+**ENV:** <current DB head / migration head, if any>. `{{CHECK_COMMAND}}` is self-contained-green ({{CHECK_PRECONDITIONS}}).
+
+**PARALLELISM IS OFF.** Serialize every story — the shared `{{DB_CONTAINER}}` database, not file-set disjointness, is the constraint. Unblock condition: per-worker DB isolation, which does not exist yet.
+
+---
+
+## Standing operational facts (stable — not story-specific)
+
+LONG-LIVED. Read at resume; do not archive; do not let it rot.
+
+- **Git workflow:** remote `origin` = <url>; branch `{{BRANCH}}`. **The ENGINEER commits, not the orchestrator.** One story = exactly one commit; on a review-FAIL retry the engineer **amends** rather than adding a second commit, and returns the hash. The reviewer's out-of-scope gate reads `git show <hash>` — a batched or fragmented commit silently defeats it. The orchestrator has **no Bash/git** by design (tools: Read/Write/Edit/Agent only); that restriction is what keeps its context flat across a long session. Every message ends with the environment's `Co-Authored-By` trailer. **Merge model:** build on `{{BRANCH}}`; PR to the default branch at each phase boundary so CI gates the merge; nothing goes straight to the default branch.
+- **Agent types:** `story-scoper`, `story-implementer`, and `story-reviewer` are real subagent types — dispatch via `subagent_type` directly. **No general-purpose fallback for these three.** The **gates** (`regression-run`, `code-review`, `docs-sync`, and the conditional gates) are *skills, not agents*, and the orchestrator has no `Skill` tool — so those ARE dispatched as a `general-purpose` subagent instructed to invoke the skill by name. The two rules do not conflict; they cover different things.
+- **Verification is two-tier:** the engineer runs the full suite once and writes its **verbatim** output to `{{REVIEWS_DIR}}<ID>-impl.md`; the reviewer **audits that file** and re-runs only the diff-affected tests (no second full run). Repo-wide green is re-proven by `regression-run` at each **epic gate**. The engineer's reported green is therefore load-bearing — a thin, summarized, or red evidence file is an automatic review FAIL.
+- **Epic gate:** at each epic boundary, in this order — `regression-run` → `code-review` → fix-stories → `regression-run` again → **`docs-sync` LAST**. `docs-sync` is not optional: the scoper reads `{{DESIGN}}` as ground truth, so unfolded deviations corrupt every later brief.
+- **Env facts (do not re-discover):** <network availability, toolchain versions, anything an agent would otherwise waste a turn re-learning>.
+- **Repo-side TODOs (user-only, cannot be done from here):** <branch protection, CI runners, credentials>.
+- Older session-log entries, superseded NEXT ACTION briefs, and consumed decisions live in `{{HISTORY_FILE}}`. **`Decisions & deviations` archives on a FOLD rule, not epic completion:** a decision moves to HISTORY only once `docs-sync` reports it folded into `{{DESIGN}}`. Archiving it earlier makes it invisible to every future scoper.
+
+---
+
+## Session log (most recent first — last ~2 sessions; older → `{{HISTORY_FILE}}`)
+
+- <ISO date, taken from the engineer's return — the orchestrator has no clock> — completed **<STORY-ID>**: <one line>. Commit `<hash>`. Reviewer PASS (<n> ACs). Deviations: <none | ...>. **Next: <STORY-ID>.**
+
+---
+
+## Decisions & deviations (durable — read before dispatching related stories)
+
+Every entry is tagged with the story that produced it and the epic it constrains, so archival stays mechanical.
+
+**ARCHIVE ONLY when `docs-sync` reports the entry folded into `{{DESIGN}}`. Not on epic completion.** `story-scoper` builds every brief from the design **plus this section**, and never reads `{{HISTORY_FILE}}`. A decision archived before it reaches the design exists nowhere the scoper can see, and every later brief then quotes superseded facts with full confidence.
+
+- **<STORY-ID>** [constrains <EPIC-ID>]: <the decision future stories must respect, stated concretely enough to build against>.
+
+---
+
+## Dependency additions (approved)
+
+- `<package>` `<version>` — added by <STORY-ID>, <why>. {{#IF DEPENDENCY_AUDIT}}Audit note: <clean | CVE + accepted risk + who accepted>.{{/IF}}
+
+---
+
+## Blockers (must be cleared before dependents can run)
+
+- **<STORY-ID>**: <precise reason + what was tried + the specific user ask>.
+
+(empty if none)
+
+---
+
+## Epic gates (the gate must be GREEN before the next epic starts)
+
+- **<EPIC-ID>**: GREEN <ISO date, from `regression-run`'s return> | not yet run | RED — <why>
+
+---
+
+## Fix-stories (from gates — NOT in `{{PLAN}}`; run first, must clear before the epic gate closes)
+
+The `source:` pointer is **load-bearing: it is the only place the fix-story's acceptance criteria exist.** The orchestrator builds it from the gate's *return* alone (which is why every gate must return findings **numbered** with its report filename) and never opens the report. The scoper resolves the pointer; if it cannot, it **refuses to scope rather than invent AC**.
+
+### <EPIC-ID>
+- `[pending]` **F-XX.1** <one-line title> — source: `{{REVIEWS_DIR}}code-review-<EPIC-ID>.md`, finding #3 [blocker]
+- `[done]` **F-XX.2** <one-line title> — source: `{{REVIEWS_DIR}}regression-<EPIC-ID>-r1.md`, finding #1 — commit `<hash>`
+
+(empty if none)
+
+**Termination bound:** if the same failing test survives two fix-story → `regression-run` cycles, **stop**. Mark it `blocked`, record every fix-story tried and why each did not clear it. Two failed attempts at the same red means the diagnosis is wrong, and a third fix-story will not find it.
+
+---
+
+## Story status
+
+Legend: `pending` · `in_progress` · `done` · `blocked`. Details (size, deps, AC) live in `{{PLAN}}` — **status only here.**
+
+### PHASE <N> — <name>
+
+**<EPIC-ID> <epic title>**
+- `[done]` S-XX.1 <title> — commit `<hash>`
+- `[in_progress]` S-XX.2 <title>
+- `[pending]` S-XX.3 <title>
+
+---
+
+## Progress
+
+- **Stories:** <n> done / <n> total.
+- **Current epic:** <EPIC-ID> (<n>/<n>).
+- **Recent commits:** <hash> <hash> <hash>.
+{{#IF MIGRATION_TOOL}}- **Migration head:** <rev>.{{/IF}}
+- **Env notes for the next session:** <anything that would otherwise be re-discovered>.

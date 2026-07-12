@@ -1,0 +1,8 @@
+# Testbed — throwaway projects used to exercise the chain. Regenerable, never shipped.
+_testbed/
+
+# Audit reports — regenerable by re-running the linter/doctor
+HARNESS_DOCTOR.md
+PLAN_LINT.md
+
+.DS_Store

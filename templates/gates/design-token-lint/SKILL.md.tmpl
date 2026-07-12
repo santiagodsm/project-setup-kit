@@ -1,0 +1,41 @@
+---
+name: design-token-lint
+version: 1.0.0
+description: "Enforce that {{PROJECT}} UI code uses semantic design tokens only — never raw hex, ad-hoc px, or hard-coded type/spacing/radius/motion values that bypass {{TOKENS_FILE}}. Use on every frontend story and as a CI gate."
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+  - Write
+metadata:
+  role: reviewer
+  reads: [frontend source, {{TOKENS_FILE}}, the design's styling section]
+  writes: [a report; may be wired as a failing CI check]
+---
+
+# design-token-lint
+
+> **Emitted only when `{{TOKENS_FILE}}` is set.** A project with no design-token file does not get this gate — and `story-reviewer` must not reference it.
+
+The design system's core rule: components reference **semantic tokens only**, never primitives or raw values. This skill catches violations mechanically.
+
+## What to flag
+
+- **Raw hex / rgb / hsl** color literals in components (`#`, `rgb(`, `hsl(`) — must be a semantic token from `{{TOKENS_FILE}}`. Exception: inside `{{TOKENS_FILE}}` itself.
+- **Raw color for status/identity** — status must come from the semantic status tokens, never a bespoke color; identity/avatar colors from the identity scale, never an ad-hoc hue.
+- **Ad-hoc spacing / radius / type** — magic px for margin/padding/gap/border-radius/font-size that doesn't map to a spacing/radius/type token. Allow `0`, 1px hairlines, and `100%` / `auto`.
+- **Hard-coded motion** — durations/eases not from the motion tokens; and any motion that ignores `prefers-reduced-motion`.
+- **Non-token font families / weights** outside the font tokens.
+- **Primitive-token use in components** — components should use *semantic* tokens; flag direct use of a raw primitive where a semantic token exists.
+- **Dark mode** — any component that hard-codes a light-only color instead of relying on the semantic token that re-declares under the dark theme selector.
+
+## How
+
+Grep/AST the frontend sources for the patterns above; allowlist `{{TOKENS_FILE}}`. Prefer wiring this as a stylelint rule + an ESLint rule so it runs in CI and fails PRs rather than depending on an agent remembering to run it.
+
+## Output
+
+A list of violations (`file:line`, the offending value, the token that should replace it). Zero violations = pass. For CI, exit non-zero on any violation.
+
+When called by `story-reviewer`, this is **report-only** — the reviewer never edits the code it judges.

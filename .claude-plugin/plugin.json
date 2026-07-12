@@ -1,0 +1,15 @@
+{
+  "name": "project-setup-kit",
+  "version": "0.1.0",
+  "description": "Walks a new project from idea to a working build harness. Interviews you, locks the stack, writes a citable design contract, scaffolds the repo, and generates the project's own build agents — sized to the build and containing only the gates the stack can actually run.",
+  "author": {
+    "name": "Santiago Diaz"
+  },
+  "keywords": [
+    "project-setup",
+    "scaffolding",
+    "agent-harness",
+    "design-doc",
+    "backlog"
+  ]
+}

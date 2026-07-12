@@ -1,0 +1,49 @@
+---
+name: release-runbook
+version: 1.0.0
+description: "Execute a {{PROJECT}} release: reproducible build, backup-verify, deploy, health-check, and rollback path. NOT an epic gate — invoked only when the user asks to ship."
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+  - Write
+metadata:
+  role: executor
+  reads: [the design's deployment + operations sections, CLAUDE.md]
+  writes: [release artifacts, deployment logs, a release report — never {{STATE_FILE}}]
+---
+
+# release-runbook
+
+Ship a release the way the design requires: reproducible, signed, backed by a verified backup, reversible.
+
+**This is not an epic gate.** `resume-build` does not dispatch it as part of the loop. It runs only when the user asks to ship.
+
+## Pre-flight
+
+1. `regression-run` is GREEN (all suites{{#IF E2E_COMMAND}}, incl. E2E and the clean-restore journey{{/IF}}).
+{{#IF DEPENDENCY_AUDIT}}2. `dependency-security-audit` has no unaddressed high-severity finding.{{/IF}}
+3. A **verified** backup exists before touching production. Created-and-verified at minimum; restore-tested is better.
+{{#IF MIGRATION_TOOL}}4. Migrations reviewed by `db-migration-review`; `{{MIGRATION_UP}}` / `{{MIGRATION_DOWN}}` proven on a **copy**, never on production.{{/IF}}
+
+## Release
+
+1. Build a reproducible, immutable, signed release artifact. The signing key comes from the recovery package, not only from the build machine.
+2. Deploy via the supervisor/orchestration path the design specifies — **not** the application's own API. The deploy path must work while the app is down.
+{{#IF MIGRATION_TOOL}}3. Run migrations as part of the deploy, inside the maintenance window.{{/IF}}
+4. Health-check: readiness endpoints green; background workers reconnected; queues intact; a smoke pass of the primary user loop.
+
+## Rollback / roll-forward
+
+- If health fails: roll back to the previous signed artifact. **If a migration was destructive, restore from the pre-release verified backup** — a rollback of code alone does not undo a dropped column.
+- Record the incident and what triggered the rollback.
+
+## Post
+
+- Confirm the backup and restore-test schedules are intact.
+- **Return** the release hash and result for the orchestrator to record. Do **not** write `{{STATE_FILE}}` yourself — the orchestrator is its only writer, and it rewrites the file after every story. A second writer clobbers it. Write the deployment record itself (that file is yours).
+
+## Output
+
+A release report: version/hash, pre-flight results{{#IF MIGRATION_TOOL}}, migration outcome{{/IF}}, health result, and rollback status (not needed / performed + why).

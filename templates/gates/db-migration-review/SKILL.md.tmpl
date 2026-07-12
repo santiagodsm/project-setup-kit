@@ -1,0 +1,45 @@
+---
+name: db-migration-review
+version: 1.0.0
+description: "Review a {{MIGRATION_TOOL}} migration against the {{SCHEMA_SECTION}} {{DATABASE}} standards and the design's DDL before it merges. Use for every schema story and any migration that alters existing tables."
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+  - Write
+metadata:
+  role: reviewer
+  reads: [the migration, {{DESIGN}} {{SCHEMA_SECTION}}{{#IF STANDARDS_DOC}}, {{STANDARDS_DOC}}{{/IF}}]
+  writes: []
+---
+
+# db-migration-review
+
+> **Emitted only when `{{MIGRATION_TOOL}}` is set.** A project with no migration tool does not get this gate — and `story-reviewer` must not reference it.
+
+Review a migration for standards compliance, safety, and fidelity to the design DDL.
+
+## Checklist
+
+1. **Standard columns** ({{SCHEMA_SECTION}}{{#IF STANDARDS_DOC}} / `{{STANDARDS_DOC}}`{{/IF}}) on editable canonical tables: the project's required column set (PK, tenant/owner scope, status, version, created/updated audit columns, soft-delete marker).
+2. **Enums CHECK-constrained** to the design's value lists (or a seeded reference table); no free-text status/category columns.
+3. **FKs** default to the project's non-destructive delete behavior; a cascade is only for true dependents. **History is never lost to a cascade.**
+4. **Taxonomies** (sensitivity, visibility, role) use exactly the design's value set — no invented members.
+5. **Tenant scoping & isolation:** the scope column is present on every major table; a row-level policy or documented join-scoping covers the tables the design names as priority.
+6. **Indexes** for the query patterns the story needs (scope column, hot FKs, active-status partials, date ranges); no speculative indexes.
+7. **Write-path side effects:** writes that matter emit their event/audit record **in the same transaction** as the write (check the service, not just the DDL).
+8. **Reversibility & safety:** `downgrade` is real and clean; on existing tables the change is safe under data (nullable → backfill → constrain, not a bare NOT NULL on a populated table); uniqueness handles NULLs the way the design intends.
+9. **Fidelity:** matches the exact DDL in `{{DESIGN}}`, including any reviewer-applied fixes and the open register.
+10. **Schema placement:** the table lives in the correct schema/namespace per the {{SCHEMA_SECTION}} map.
+
+## Where to run the migration cycle (do not get this wrong)
+
+Prove `{{MIGRATION_UP}}` → `{{MIGRATION_DOWN}}` → `{{MIGRATION_UP}}` on a database that is **not** the live dev DB. Which one depends on who called you:
+
+- **Called by `story-reviewer` (per-story gate):** use a **scratch database on the existing `{{DB_CONTAINER}}` container**. {{DB_ISOLATION}} — run the cycle, then drop it. Cheap, isolated, no container spin-up. **Never run the cycle against the live database on `{{DB_CONTAINER}}`** — that is the database other checks depend on, and a full downgrade against it destroys the state the rest of the story's tests need. This is not theoretical: on the project this gate came from, running the story-review and the migration review concurrently against the shared dev DB caused transient reds and an OOM. A scratch DB removes the contention entirely.
+- **Called by `regression-run` (epic gate) or before a release:** use a **genuinely fresh {{DATABASE}}**. An epic stacks several migrations, and stacked migrations from a clean slate are exactly where reversibility breaks. A scratch DB on a warm container is not sufficient there.
+
+## Output
+
+PASS/FAIL + a per-item checklist with `file:line` evidence; for FAIL, the exact corrections. Report the `{{MIGRATION_UP}}` / `{{MIGRATION_DOWN}}` / `{{MIGRATION_UP}}` result and **say which database you ran it against.**

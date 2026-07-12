@@ -1,0 +1,40 @@
+---
+name: perf-profiling
+version: 1.0.0
+description: "Profile {{PROJECT}}'s surfaces against the design's performance targets and report regressions. Invoked from {{PERF_FIRST_EPIC}} onward, any earlier epic that touched a hot user-facing surface, and whenever a screen feels slow."
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+  - Write
+metadata:
+  role: executor
+  reads: [the running app, the design's performance-targets section]
+  writes: [{{REVIEWS_DIR}}perf-<EPIC-ID>.md — never {{STATE_FILE}}, never {{PLAN}}, never product code]
+---
+
+# perf-profiling
+
+Measure against the design's targets; report the worst offenders with evidence. **Don't optimize blindly** — a profile without a target is a hunch.
+
+## Targets
+
+Read them from `{{DESIGN}}` ({{PERF_SECTION}}). If the design does not state numeric targets, **say so and stop** rather than inventing them: a perf gate with invented targets produces fix-stories nobody asked for and hides the real gap, which is that the design never committed to a number.
+
+## Method
+
+- **Frontend:** measure the load and interaction metrics on the hot screens, bundle size, hydration cost, and cache-hit behavior. Confirm skeletons appear promptly and lists don't reflow jarringly.
+- **Backend:** profile the hot endpoints. Look for N+1 queries, missing indexes (cross-check the design's hot-path index list), unbounded result sets, and synchronous work that should be a background job.
+- **Data/search:** measure query latency; confirm the intended index is actually used (not a sequential scan).
+- **Real-time:** measure fan-out latency and reconnect/replay cost.
+
+## Output
+
+- Per-surface measurement **vs target** (met / missed). A measurement without its target is not a finding.
+- Ranked bottlenecks with the evidence (query plan, flame graph, bundle report).
+
+Write the detail to **`{{REVIEWS_DIR}}perf-<EPIC-ID>.md`** and return a capped summary (~150 words) plus that filename. The orchestrator holds your return in context for the rest of the session; **do not paste profiles into it.**
+
+- Specific fix-stories (add index X, batch query Y, move Z to a background job) **recommended** to the orchestrator, which records them in `{{STATE_FILE}}` under `Fix-stories`. You do not open stories, do not edit the state file, and do not edit `{{PLAN}}` (the backlog is fixed). Never "optimize everything" — name the few that matter.
+- **Number every finding.** The orchestrator's fix-story line reads `source: {{REVIEWS_DIR}}perf-<EPIC-ID>.md, finding #2`, and a scoper turns that finding into acceptance criteria. **Your finding is the only place that fix-story's AC will ever exist.** Give each a stable number, the `file:line`, the measured number vs the target, and the concrete fix. A vague finding becomes a fix-story with invented AC.
