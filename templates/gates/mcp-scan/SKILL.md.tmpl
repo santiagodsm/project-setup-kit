@@ -1,0 +1,42 @@
+---
+name: mcp-scan
+version: 1.0.0
+description: "Threat-scan the MCP servers and tool definitions this project ships or dispatches, before they reach a build or a user. Default-deny posture: a tool is allowed only if the design named it. Use for every story that adds, edits, or wires an MCP server, tool, or dispatch path."
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+  - Write
+metadata:
+  role: reviewer
+  reads: [the MCP server/tool configs, {{DESIGN}} {{GLOSSARY_SECTION}} + the section that names the project's tool surface, CLAUDE.md, {{STATE_FILE}} (reviewer-approved deviations)]
+  writes: [{{REVIEWS_DIR}}mcp-scan-<EPIC-ID>.md — never product code, never a server config]
+---
+
+# mcp-scan
+
+> **Emitted only when the project integrates MCP servers or tools** (the `mcp-scan` manifest row is `yes`). A project that dispatches no MCP tools does not get this gate — and no reviewer references it.
+
+An MCP tool is remote code you handed a model the authority to call. The failure this gate exists to prevent is silent: a tool gets added, it looks reasonable, nothing tests its *authority*, and the harness reports green while the model can now exfiltrate a secret or take an action nobody scoped. You **report only**; you never edit a server config.
+
+## The posture: default-deny
+
+A tool is allowed **only if the design named it.** The question is never "is this tool dangerous" — it is "did anyone decide this tool should exist, with this scope?" A tool the design does not mention is a finding even if it looks harmless, because nobody scoped its blast radius and nothing downstream will.
+
+## Checklist
+
+1. **Every dispatched tool is in the design's tool surface.** Enumerate the tools actually reachable (server manifests, tool registrations, allow-lists). Each must map to a capability the design named. An unlisted tool → **BLOCKER**.
+2. **Default-deny is the default, not the exception.** The dispatch layer denies unknown tools rather than passing them through. An allow-list that is actually a deny-list (everything permitted except a named few) is a **BLOCKER** — it inverts the posture.
+3. **Least authority.** Each tool's scope is the minimum its stated job needs: read where it only reads, a path prefix rather than the filesystem, one host rather than the network. Over-broad scope is a finding even with no known exploit.
+4. **Secrets never enter tool context.** Credentials, tokens, and connection strings are not passed into a tool's arguments or returned in its output, and are not loggable from inside a tool call. Trace one call end to end.
+5. **Untrusted content cannot authorize an action.** Output from one tool (or a user string) cannot be fed as authorization into another tool call — the classic confused-deputy / prompt-injection path. Check that tool results are treated as data, not as instructions.
+6. **Per-tool timeout and failure semantics.** Every tool call is bounded; a hung or failing tool degrades closed (denies), never open (proceeds as if it succeeded).
+7. **Provenance.** The server's origin is pinned (a version, a digest, a vendored copy), not a floating `latest` that can change under you between runs.
+8. **Fidelity.** The wired configuration matches what the design and `CLAUDE.md` say the tool surface is — including any reviewer-approved deviation recorded in the state file.
+
+## Output
+
+PASS/FAIL + a per-item checklist with `file:line` evidence. For FAIL, the exact corrections, **numbered** — each finding becomes a fix-story whose acceptance criteria are written from your finding and nowhere else, so name the tool, the config path, and the authority at issue. A security or data-exfiltration finding is called out as such: those are escalated, not merely scheduled.
+
+Write the detail to **`{{REVIEWS_DIR}}mcp-scan-<EPIC-ID>.md`** and return a capped summary (~150 words): **numbered** findings by severity plus that filename. The orchestrator never opens the report — it builds each fix-story's `source: {{REVIEWS_DIR}}mcp-scan-<EPIC-ID>.md, finding #N` pointer from your return alone, so a finding returned without its number and the filename cannot become a fix-story. You **recommend**; the orchestrator records — never write `{{STATE_FILE}}` or `{{PLAN}}` yourself.

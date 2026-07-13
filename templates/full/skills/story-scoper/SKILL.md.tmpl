@@ -10,7 +10,7 @@ allowed-tools:
   - Write
 metadata:
   role: scoper
-  reads: [{{PLAN}} (one story), {{DESIGN}} (cited sections), {{STATE_FILE}} (Decisions & deviations + Fix-stories), {{REVIEWS_DIR}} gate reports (for fix-stories only), existing source, CLAUDE.md{{#IF STANDARDS_DOC}}, {{STANDARDS_DOC}}{{/IF}}]
+  reads: [{{PLAN}} (one story), {{DESIGN}} ({{GLOSSARY_SECTION}} glossary + cited sections), {{STATE_FILE}} (Decisions & deviations + Fix-stories), {{REVIEWS_DIR}} gate reports (for fix-stories only), existing source, CLAUDE.md{{#IF STANDARDS_DOC}}, {{STANDARDS_DOC}}{{/IF}}]
   writes: [{{BRIEFS_DIR}}<STORY-ID>-brief.md — never product code, never the state file]
 ---
 
@@ -44,10 +44,10 @@ This is a mechanical chore, not a role change. **Never commit anything else**, a
 1. **Read the story.**
    - **A plan story** (`S-XX.Y`): read it from `{{PLAN}}` — ID, title, size, full acceptance criteria, `deps`, and the design §sections it cites.
    - **A fix-story** (`F-XX.Y`): it is **not in `{{PLAN}}`**. It lives in the `Fix-stories` section of `{{STATE_FILE}}`, and its line carries a `source:` pointer of the form `<report path>, finding #N`. The report is one of:
-     `{{REVIEWS_DIR}}code-review-<EPIC-ID>.md` · `{{REVIEWS_DIR}}regression-<EPIC-ID>-r<N>.md`{{#IF PERF_PROFILING}} · `{{REVIEWS_DIR}}perf-<EPIC-ID>.md`{{/IF}}{{#IF DEPENDENCY_AUDIT}} · `{{REVIEWS_DIR}}security-audit-<EPIC-ID>.md`{{/IF}}
+     `{{REVIEWS_DIR}}code-review-<EPIC-ID>.md` · `{{REVIEWS_DIR}}regression-<EPIC-ID>-r<N>.md`{{#IF PERF_PROFILING}} · `{{REVIEWS_DIR}}perf-<EPIC-ID>.md`{{/IF}}{{#IF DEPENDENCY_AUDIT}} · `{{REVIEWS_DIR}}security-audit-<EPIC-ID>.md`{{/IF}}{{#IF MCP_SERVERS}} · `{{REVIEWS_DIR}}mcp-scan-<EPIC-ID>.md`{{/IF}}
      **Read that report, find the numbered finding, and treat it as the story.** Its defect description is the problem statement; its failure scenario and stated fix are what you turn into acceptance criteria. Then proceed normally: read the design sections the affected code belongs to, read the code, write the brief.
      If the `source:` pointer is missing, if the report does not exist, or if finding `#N` cannot be located in it, **flag it and do not invent acceptance criteria.** Stop and return. A fix-story with fabricated AC produces a confident engineer fixing the wrong thing while the real defect — already found, already proven by a gate — stays in the tree.
-2. **Read the cited design slice** in `{{DESIGN}}`. Only the cited sections and what they explicitly cross-reference. Not the whole document.
+2. **Read the cited design slice** in `{{DESIGN}}`. Only the cited sections and what they explicitly cross-reference. Not the whole document. **Always also read {{GLOSSARY_SECTION}} — the glossary** — for the concepts this story touches: it is short, and it is the project's canonical vocabulary. Write the brief in those canonical terms, and never in a term the glossary lists under `Avoid`. A brief that renames a domain concept hands the engineer a subtly different model than the reviewer will check against.
 3. **Read `{{STATE_FILE}}` → `Decisions & deviations`.** This is mandatory and easy to skip. The design is the *nominal* ground truth, but mid-build decisions override it, and `docs-sync` only folds them back into the design at epic boundaries. **Inside an epic, the design is stale by construction.** A decision recorded there beats the design text. If they conflict, the decision wins and you say so in the brief.
 4. **Read the relevant existing code.** Find the seams the story plugs into: the models, services, routes, hooks, components it will extend. `git log` and `grep` are fine. You are looking for what already exists so the engineer does not reinvent it.
 5. **Read the standards that apply.** `CLAUDE.md` always.{{#IF STANDARDS_DOC}} `{{STANDARDS_DOC}}` and design {{SCHEMA_SECTION}} for schema work.{{/IF}}{{#IF TOKENS_FILE}} `{{TOKENS_FILE}}` semantic tokens for UI work.{{/IF}} Include the commit-message format from `CLAUDE.md` in the brief.

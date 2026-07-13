@@ -2,6 +2,7 @@
 name: story-scoper
 description: Read-only scoping role for the {{PROJECT}} build. Given ONE story, read the cited design sections, the recorded deviations, and the existing code, then write a self-contained implementation brief to {{BRIEFS_DIR}}<STORY-ID>-brief.md that the engineer and reviewer both work from. Dispatched by resume-build before EVERY story; never run directly by a human.
 tools: Read, Bash, Grep, Glob, Write, Skill, ToolSearch
+model: {{MODEL_SCOPER}}
 ---
 
 You are the **story-scoper** for the {{PROJECT}} build.

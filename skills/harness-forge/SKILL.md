@@ -49,7 +49,7 @@ When you author a new gate, it obeys the same five contracts (below). Write it t
 
    `regression-run`, `code-review`, and `docs-sync` are **tier-core**: they live in `templates/<tier>/skills/`, not `templates/gates/`, and step 5 already copied them. Do not look for them in `gates/` and do not author duplicates at step 7.
 7. **Author any gate the stack needs that no template covers.** Same contracts.
-8. **Resolve every placeholder.** Confirm every path with `ls` before writing it.
+8. **Resolve every placeholder.** Confirm every path with `ls` before writing it. **Including `{{MODEL_*}}`:** each agent declares a `model:` tier (see `PLACEHOLDERS.md` → "per-agent model tier"). Take the defaults — scoper `sonnet`, implementer and reviewer `opus` — unless something about this project argues otherwise, and keep the strong default when unsure. Spend the cheap model where the work is bounded and mechanical (the scoper), never on the independent reviewer. Resolve to a literal tier; a surviving `{{MODEL_*}}` trips the grep in step 11 like any other placeholder.
 9. **Stub the state file.** `PLAN.md` doesn't exist yet (step 6). Emit every required section with `NEXT ACTION: awaiting PLAN.md`. **Do not invent a first story** — an orchestrator booting at a fabricated story is worse than one booting at nothing.
 10. **Gitignore** the harness's working dirs (`{{BRIEFS_DIR}}`, `{{REVIEWS_DIR}}`), plus `HARNESS_DOCTOR.md` and `PLAN_LINT.md`. You chose those paths; `scaffold` was explicitly forbidden from guessing them.
 11. **Grep the output for `{{`.** Zero hits. See below.
@@ -61,9 +61,9 @@ An unresolved placeholder does not throw. An agent reading `Run {{CHECK_COMMAND}
 
 Same for a stray `{{#IF}}`: resolve the condition, then **delete the markers.**
 
-*One exception, and read it precisely:* `harness-doctor`'s template must **name** the pattern in order to grep for it, so its check-0 prose contains a bare `{{` and `{{#IF`. **Those two literals are exempt.**
+*One exception, and read it precisely:* `harness-doctor`'s template must **name** the pattern in order to grep for it, so its check-0 grep quotes a bare `{{` on a line tagged `PLACEHOLDER-LITERAL`. **That one literal is exempt.**
 
-**The exemption is on those literals, not on the file.** That same file also carries real placeholders — `{{STATE_FILE}}`, `{{REVIEWS_DIR}}`, `{{BRIEFS_DIR}}` — and **every one of them must still resolve.** Skip the file wholesale and you ship a doctor whose report path is literally `{{REVIEWS_DIR}}harness-doctor-<date>.md`. That is precisely the failure this check exists to catch, embedded in the thing that checks for it.
+**The exemption is on that line, not on the file.** That same file also carries real placeholders — `{{STATE_FILE}}`, `{{REVIEWS_DIR}}`, `{{BRIEFS_DIR}}` — and **every one of them must still resolve.** Skip the file wholesale and you ship a doctor whose report path is literally `{{REVIEWS_DIR}}harness-doctor-<date>.md`. That is precisely the failure this check exists to catch, embedded in the thing that checks for it.
 
 ## The five contracts (they apply to templates AND to anything you author)
 
@@ -87,7 +87,7 @@ The generated skills must read as if hand-written for this project:
 - The **verbatim `{{CHECK_COMMAND}}`**, never "run the tests."
 - **Real paths**, confirmed with `ls`.
 - The real commit format, the real migration commands, the real container names.
-- `DESIGN.md`'s section convention, so the scoper cites correctly.
+- `DESIGN.md`'s section convention, so the scoper cites correctly — including `{{GLOSSARY_SECTION}}` (§2.1), the glossary the scoper and reviewer both read to keep the code's vocabulary aligned with the design's.
 - **`{{INVARIANTS}}`** — the project's actual assertions from §5/§12, verbatim.
 
 That last one carries the whole `code-review` gate. *"Any code writing a balance column is a defect"* catches the bug. *"Check that the code is correct"* checks nothing. **If §5/§12 give you nothing concrete, do not invent invariants** — emit without them and flag it. The design is the gap, and a gate full of platitudes is one more thing reporting green without looking.
@@ -96,6 +96,7 @@ That last one carries the whole `code-review` gate. *"Any code writing a balance
 
 - Tier emitted; agents and skills generated.
 - **Gates included; gates deliberately excluded** (name the exclusions — they are what make the harness honest).
+- **Per-agent model tiers set**, and any deviation from the scoper-`sonnet` / implementer-`opus` / reviewer-`opus` default, with why.
 - **Any gate you authored from scratch**, and why no template covered it.
 - `{{CHECK_COMMAND}}`, verbatim, as wired in.
 - **The exact path of the build state file you created.** `setup-project` must seed it at step 8 and has no Glob. Omit this and it guesses.

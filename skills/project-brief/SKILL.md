@@ -59,6 +59,16 @@ Cover, in roughly this order:
 
 **4. Search only when a fact would change the scope.** A platform limit, a store policy, whether a needed API still exists. Not to pad.
 
+## Grill the language and the edges — a second, harder pass
+
+A polite interview collects what the user already knows. It does not surface the two things that quietly sink the project: **words used for more than one concept**, and **boundaries nobody has drawn**. Once you have the loop and the non-goals, go back through and *grill* — the tone is a sceptical colleague, not a stenographer.
+
+- **Sharpen every overloaded noun.** The user says "account" — do they mean the *person* or the *login*? "Group" — the household, or the set of people on one expense? When one word is carrying two concepts, name both and make them pick the canonical word for each. This is the single highest-value move in the interview: an ambiguous noun here becomes two contradictory schemas forty stories downstream.
+- **Stress-test the loop with a concrete scenario.** Invent a specific case at the edge — "two people pay for the same thing at once," "someone leaves halfway through the month" — and make them tell you what the product does. Vague relationships collapse the moment you force a real example through them.
+- **Cross-check answers against each other.** If they said it *won't* do X (a non-goal) but the daily loop seems to need X, surface the contradiction now. One of the two is wrong and only they can say which.
+
+Capture the sharpened nouns as a **draft domain language** in the PRD (below). You are not writing the canonical glossary — `design-author` owns that, as `DESIGN.md` §2.1 — you are handing it a head start and a record of which words were deliberately chosen over which rejected synonyms. A term you sharpened here is one `design-author` will not have to re-litigate blind.
+
 ## Set the build tier — this is a real decision, not bookkeeping
 
 From the constraints, propose a tier and get agreement. Everything downstream keys off it.
@@ -77,7 +87,7 @@ From the constraints, propose a tier and get agreement. Everything downstream ke
 <!-- TIER: small -->
 ```
 
-Four separate skills read this: `design-author` scales the design's depth by it, `harness-forge` sizes the harness by it, `plan-lint` checks the story count against it, and `setup-project` records it. A tier buried in a prose sentence ("small build, call it 3 weeks") is a tier none of them will find, and they will each silently default — to different things.
+Five separate skills read this: `design-author` scales the design's depth by it, `stack-decide` rebuilds the gate manifest against it on a re-tier, `harness-forge` sizes the harness by it, `plan-lint` checks the story count against it, and `setup-project` records it. A tier buried in a prose sentence ("small build, call it 3 weeks") is a tier none of them will find, and they will each silently default — to different things.
 
 ## Output — `PRD.md`
 
@@ -105,6 +115,11 @@ The three or four properties that actually constrain the build.
 ## Explicit non-goals (v1)
 At least four. Each one a thing it will NOT do.
 
+## Domain language (draft)
+The nouns you sharpened in the grill, each with its chosen word and the synonyms you ruled out.
+`design-author` owns the canonical glossary (§2.1); this is a head start, not the contract.
+- **<canonical term>** — <one-line meaning>.  (not: <rejected synonyms>)
+
 ## Constraints
 Team size · timeline · platform · anything already fixed.
 
@@ -124,6 +139,7 @@ Route every undecided item to `OPEN_QUESTIONS.md` as `OQ-NNN`, marked **RESERVED
 
 - [ ] The daily loop is a narrative with a time budget, not a capability list.
 - [ ] At least four explicit non-goals.
+- [ ] Every overloaded noun was grilled to a single concept; the draft domain language records the chosen word and the rejected synonyms.
 - [ ] "What wrong looks like" is answered.
 - [ ] Build tier set, with a story estimate the user agreed to.
 - [ ] Everything the user waved off is in `OPEN_QUESTIONS.md`, not silently resolved in the PRD.

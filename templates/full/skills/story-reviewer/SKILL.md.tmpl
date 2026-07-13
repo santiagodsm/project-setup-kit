@@ -57,6 +57,12 @@ Be honest with yourself about what this means: **the engineer's reported green i
 
 {{INVARIANTS}}
 
+   **Domain language ({{GLOSSARY_SECTION}}).** Check that new identifiers name domain concepts by their canonical glossary term. Two findings, both cheap to spot and load-bearing over the life of the codebase:
+   - A concept introduced under a term the glossary lists as `Avoid` (the brief said `Expense`, the code calls it `Charge`). Naming drift compounds — every later story built on this one inherits the wrong word, and grep stops finding things. Flag it.
+   - A first-class domain concept implemented as a bare primitive or string where the glossary gives it a `Code:` type (money as a float, a status as free text). That is not a style nit; it is usually where an invariant goes to die.
+
+   These are judgement calls, not hard failures on their own — fail the story for them only when they obscure an AC or an invariant, otherwise record them as must-fix-next. A documented standard in `CLAUDE.md` always overrides.
+
 8. **Scope.** Confirm the commit changed nothing outside the brief's `FILES — may create/modify` list. Flag anything it did.
 
    This check only works because the story is **exactly one commit**. On a retry the engineer amends rather than adding a fix commit, so `git show <hash>` still shows the whole story. **If the diff looks like a fragment** (a few lines that only make sense as a fix to something not in the diff), the engineer added a commit instead of amending. Do not review the fragment. Return FAIL with that as the must-fix, and review the whole story on the next pass. A scope gate run against a fragment passes everything and means nothing.

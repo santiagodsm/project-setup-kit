@@ -7,6 +7,9 @@ allowed-tools:
   - Grep
   - Glob
   - Bash
+  # Write stays even though this gate writes nothing (writes: []): allowed-tools
+  # intersect down, and story-reviewer loads this gate mid-review — dropping Write
+  # here would strip the reviewer of the tool its own review file needs.
   - Write
 metadata:
   role: reviewer

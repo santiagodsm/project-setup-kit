@@ -1,7 +1,7 @@
 ---
 name: design-author
 version: 0.1.0
-description: "Turn a product brief and a locked stack into DESIGN.md — the design contract every later agent cites. Produces a fixed §1–§12 section map, concrete artifacts (DDL, API contracts, state machines, screen inventory), a locked ADR block, and an honest register of what is deliberately unspecified. Use when starting a new project, after project-brief and stack-decide, or when the user says 'write the design doc', 'design this', or 'turn the PRD into a technical design'."
+description: "Turn a product brief and a locked stack into DESIGN.md — the design contract every later agent cites. Produces a fixed §1–§12 section map, concrete artifacts (a §2.1 glossary / ubiquitous language, DDL, API contracts, state machines, screen inventory), a locked ADR block, and an honest register of what is deliberately unspecified. Use when starting a new project, after project-brief and stack-decide, or when the user says 'write the design doc', 'design this', or 'turn the PRD into a technical design'."
 allowed-tools:
   - Read
   - Write
@@ -91,7 +91,7 @@ Every project gets these twelve sections, in this order, with these numbers. A s
 
 ```
 §1   Product           purpose · users · the daily loop · explicit non-goals
-§2   Domain model      entities · relationships · lifecycle · what's canonical vs derived
+§2   Domain model      §2.1 glossary (the ubiquitous language) · entities · relationships · lifecycle · what's canonical vs derived
 §3   Data design       DDL per table · standard columns · constraints · indexes · isolation
 §4   API contracts     endpoints · request/response shapes · the error contract · pagination
 §5   Behavior          state machines · invariants · permission rules · conflict resolution
@@ -112,7 +112,7 @@ The test for every section: **could someone build this and could someone else te
 
 | Section | Ships | Not |
 |---|---|---|
-| §2 | An entity list with a one-line definition each, and a relationship diagram or table | "The system models users and their content" |
+| §2 | **§2.1 a glossary** (below), then an entity list with a one-line definition each, and a relationship diagram or table | "The system models users and their content" |
 | §3 | **Literal DDL.** Every column, type, constraint, default, index. State the standard columns once, then apply them. | "A table to store items" |
 | §4 | **Literal contracts.** Path, method, request shape, response shape, status codes. One error contract, stated once, used everywhere. | "REST endpoints for CRUD" |
 | §5 | **State machines** with named states and legal transitions. Invariants as testable assertions. | "Items can be active or archived" |
@@ -121,6 +121,36 @@ The test for every section: **could someone build this and could someone else te
 | §12 | Assertions that a gate can mechanically check | "The app should be high quality" |
 
 If you cannot make a section concrete, that is not a reason to write it vaguely. **That is a §11 entry.**
+
+## §2.1 — the glossary (the ubiquitous language every later agent shares)
+
+Your sections give downstream agents stable **numbers** to cite. §2.1 gives them a stable **vocabulary**. Without it, the scoper writes "account," the engineer builds `User`, the reviewer reads "member," and three agents are silently talking about three things. The glossary is what makes "the code uses the wrong word" a *checkable* defect instead of a matter of taste.
+
+It is an **artifact, not prose**, so it appears on every tier — a small build gets a short glossary, not none (KD-009: the artifacts never scale away; only the elaboration does).
+
+**Start from `PRD.md`'s "Domain language (draft)"** if it exists — `project-brief` grilled those nouns with the user and recorded which word was chosen over which synonyms. That is a head start, not the contract: you promote each draft term to a canonical entry, add its `Code:` anchor, and add the concepts the PRD never named.
+
+One entry per domain concept. Format:
+
+```
+**Expense** — a charge one member paid that others owe a share of.
+  Avoid:  bill, transaction, purchase, charge
+  Code:   table `expense`, type `Expense`  (§3.2)
+
+**Balance** — the net amount one member owes another, DERIVED from expense shares, never stored.
+  Avoid:  debt, total, owed
+  Code:   computed; no column  (§5.3, ADR-005)
+```
+
+Rules — these are what make it load-bearing, not decorative:
+
+- **Be opinionated. One canonical word per concept.** When several words mean the same thing, pick one and list the rest under `Avoid`. A glossary that permits synonyms has not reduced ambiguity, it has catalogued it. The `Avoid` list is the half the reviewer greps for.
+- **Define what it IS, not what it does.** One or two sentences. "A request for payment sent after delivery," not "handles the billing flow."
+- **Only project-specific terms.** A concept unique to *this* domain earns an entry. General programming vocabulary (cache, timeout, retry, DTO) does not, however much the code uses it. Before adding a term, ask: would a competent engineer on a *different* project already know this word means this thing here? If yes, it is not a glossary term.
+- **Every entry names its `Code:` anchor** — the table, type, or field it maps to, with the §3/§5 reference. This is the bridge that makes the term citable. A term with no anchor is either a §3 gap or a §11 entry; there is no third state.
+- **Every §2 entity has a glossary term, and every canonical glossary term resolves to a §3 identifier or a §11 entry.** No orphans in either direction.
+
+A concept you cannot yet name canonically — because the domain decision is reserved — is **not** a glossary guess. It is a §11 entry like any other unspecified thing.
 
 ## §10 — the ADR block (this is what stops re-litigation)
 
@@ -163,6 +193,7 @@ Rules:
 
 - [ ] All twelve sections present. None deleted. Empty ones say why.
 - [ ] Every subsection is citable and standalone — an agent handed only §N.M can build §N.M.
+- [ ] **§2.1 glossary present.** Every §2 entity has a glossary term; every canonical term names its `Code:` anchor and an `Avoid:` list; no term is a general programming concept.
 - [ ] Every entity in §2 has DDL in §3, **or** an entry in §11. No third option.
 - [ ] Every endpoint in §4 has a request shape, a response shape, and error cases.
 - [ ] One error contract, defined once, referenced everywhere.
@@ -240,7 +271,7 @@ BACKLOG CLEAR — <N> deferrable register entries; none blocks planning.
 
 Then, under ~150 words:
 - Sections written; any marked not-applicable.
-- **ADR count** (§10) and **register count** (§11), split BLOCKING / DEFERRABLE. These numbers are the honest measure of the document.
+- **Glossary term count** (§2.1), **ADR count** (§10), and **register count** (§11), split BLOCKING / DEFERRABLE. These numbers are the honest measure of the document.
 - The one section you are least confident in, and why. Say it plainly. Everything downstream trusts this document, and you are the only one who knows where it is thin.
 
 **`backlog-author` must refuse to run while the verdict is BACKLOG BLOCKED.** That refusal is the whole point of the classification. Do not soften the verdict to be helpful — a blocked chain that asks one question is working correctly; an unblocked chain that guesses is the failure this entire skill exists to prevent.

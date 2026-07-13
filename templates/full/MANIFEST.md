@@ -49,6 +49,7 @@ Emitting one of these when its placeholder is absent produces a gate that refere
 | `gates/api-contract-sync/SKILL.md.tmpl` | `{{CONTRACT_GEN_COMMAND}}` | Drop it, **and strip the contract branch from `story-reviewer` step 5.** |
 | `gates/design-token-lint/SKILL.md.tmpl` | `{{TOKENS_FILE}}` | Drop it, **and strip the frontend branch from `story-reviewer` step 5.** |
 | `gates/dependency-security-audit/SKILL.md.tmpl` | `{{DEPENDENCY_AUDIT}}` | Drop it, and strip its rows from `resume-build`'s conditional-gate list and return-contract table. |
+| `gates/mcp-scan/SKILL.md.tmpl` | `{{MCP_SERVERS}}` | Drop it, and strip its rows from `resume-build`'s conditional-gate list and return-contract table. |
 | `gates/perf-profiling/SKILL.md.tmpl` | `{{PERF_PROFILING}}` (needs `{{PERF_SECTION}}` with **numeric** targets) | Drop it. A perf gate with invented targets is worse than none. |
 | `gates/release-runbook/SKILL.md.tmpl` | `{{RELEASE_RUNBOOK}}` | Drop it. It is **not** an epic gate either way. |
 
@@ -58,25 +59,40 @@ Emitting one of these when its placeholder is absent produces a gate that refere
 
 ### Already in `PLACEHOLDERS.md`
 
+One row per placeholder (grouped only where the file sets are identical), grep-verified. `(agent+skill)` marks a placeholder carried by both the agent shim and its skill file.
+
 | Placeholder | Files that use it |
 |---|---|
-| `{{PROJECT}}` | all |
-| `{{DESIGN}}` `{{PLAN}}` `{{STATE_FILE}}` `{{HISTORY_FILE}}` `{{BRIEFS_DIR}}` `{{REVIEWS_DIR}}` | all |
-| `{{CHECK_COMMAND}}` `{{CHECK_PRECONDITIONS}}` | CLAUDE, STATE_FILE, resume-build, story-implementer, story-reviewer (agent+skill), regression-run |
-| `{{AFFECTED_TEST_COMMAND}}` `{{LINT_COMMAND}}` `{{TYPECHECK_COMMAND}}` | story-reviewer, api-contract-sync |
-| `{{FRONTEND_CHECK_COMMAND}}` `{{BUILD_COMMAND}}` | story-implementer, story-reviewer, regression-run |
-| `{{STACK_SUMMARY}}` `{{LANGUAGE}}` `{{FRAMEWORK}}` `{{DATABASE}}` `{{TEST_FRAMEWORK}}` | CLAUDE, test-authoring, db-migration-review |
-| `{{MIGRATION_TOOL}}` `{{MIGRATION_DIR}}` `{{MIGRATION_UP}}` `{{MIGRATION_DOWN}}` | CLAUDE, resume-build, story-implementer, story-reviewer, regression-run, db-migration-review, release-runbook |
-| `{{DB_CONTAINER}}` `{{DB_ISOLATION}}` | CLAUDE, STATE_FILE, resume-build, story-reviewer, db-migration-review |
-| `{{CONTRACT_GEN_COMMAND}}` | CLAUDE, resume-build, story-implementer, story-reviewer, api-contract-sync |
-| `{{TOKENS_FILE}}` | CLAUDE, story-scoper, story-implementer, story-reviewer, code-review, test-authoring, design-token-lint |
-| `{{COMMIT_FORMAT}}` `{{BRANCH}}` | CLAUDE, STATE_FILE |
-| `{{SCHEMA_SECTION}}` `{{BEHAVIOR_SECTION}}` `{{DOD_SECTION}}` | CLAUDE, story-scoper, story-implementer, code-review, test-authoring, db-migration-review |
+| `{{PROJECT}}` | CLAUDE, STATE_FILE, all three story roles (agent+skill), resume-build, regression-run, code-review, test-authoring, dependency-security-audit, design-token-lint, perf-profiling, release-runbook |
+| `{{DESIGN}}` | CLAUDE, STATE_FILE, resume-build, story-scoper (agent+skill), story-implementer, story-reviewer, code-review, docs-sync, db-migration-review, mcp-scan, perf-profiling |
+| `{{PLAN}}` | CLAUDE, STATE_FILE, resume-build, story-scoper, docs-sync, test-authoring, dependency-security-audit, mcp-scan, perf-profiling |
+| `{{STATE_FILE}}` | CLAUDE, resume-build, story-scoper (agent+skill), story-implementer, story-reviewer, regression-run, code-review, docs-sync, harness-doctor, dependency-security-audit, mcp-scan, perf-profiling, release-runbook |
+| `{{HISTORY_FILE}}` | CLAUDE, STATE_FILE, resume-build, story-scoper, story-implementer, docs-sync |
+| `{{BRIEFS_DIR}}` | CLAUDE, STATE_FILE, resume-build, story-scoper (agent+skill), story-implementer, story-reviewer, harness-doctor |
+| `{{REVIEWS_DIR}}` | CLAUDE, STATE_FILE, resume-build, story-scoper, story-implementer, story-reviewer (agent+skill), regression-run, code-review, harness-doctor, dependency-security-audit, mcp-scan, perf-profiling |
+| `{{CHECK_COMMAND}}` | CLAUDE, STATE_FILE, story-scoper, story-implementer, story-reviewer (agent+skill), regression-run |
+| `{{CHECK_PRECONDITIONS}}` | CLAUDE, STATE_FILE, story-implementer, regression-run |
+| `{{AFFECTED_TEST_COMMAND}}` `{{LINT_COMMAND}}` `{{BUILD_COMMAND}}` | story-reviewer |
+| `{{TYPECHECK_COMMAND}}` | story-reviewer, api-contract-sync |
+| `{{FRONTEND_CHECK_COMMAND}}` | story-implementer, regression-run |
+| `{{STACK_SUMMARY}}` `{{LANGUAGE}}` `{{FRAMEWORK}}` `{{COMMIT_FORMAT}}` `{{DOD_SECTION}}` | CLAUDE |
+| `{{BRANCH}}` | CLAUDE, STATE_FILE |
+| `{{DATABASE}}` | CLAUDE, test-authoring, db-migration-review |
+| `{{TEST_FRAMEWORK}}` | CLAUDE, story-implementer, test-authoring |
+| `{{MIGRATION_TOOL}}` | CLAUDE, STATE_FILE, resume-build, story-scoper, story-implementer, story-reviewer, regression-run, code-review, test-authoring, db-migration-review, release-runbook |
+| `{{MIGRATION_DIR}}` | CLAUDE, story-implementer |
+| `{{MIGRATION_UP}}` `{{MIGRATION_DOWN}}` | resume-build, story-scoper, story-implementer, story-reviewer, regression-run, test-authoring, db-migration-review, release-runbook |
+| `{{DB_CONTAINER}}` | CLAUDE, STATE_FILE, resume-build, story-reviewer, db-migration-review |
+| `{{DB_ISOLATION}}` | story-reviewer, db-migration-review |
+| `{{CONTRACT_GEN_COMMAND}}` | CLAUDE, resume-build, story-scoper, story-implementer, story-reviewer, regression-run, code-review, api-contract-sync |
+| `{{TOKENS_FILE}}` | CLAUDE, resume-build, story-scoper, story-implementer, story-reviewer, code-review, test-authoring, design-token-lint |
+| `{{SCHEMA_SECTION}}` | CLAUDE, story-scoper, story-implementer, code-review, db-migration-review |
+| `{{BEHAVIOR_SECTION}}` | CLAUDE, test-authoring |
 | **`{{INVARIANTS}}`** | **CLAUDE, story-reviewer (step 7), code-review (dimension 3), test-authoring.** The one placeholder that carries the project. Lifted verbatim as *checkable assertions*. If the design gives you nothing concrete, **emit without them and flag it** — a `code-review` full of platitudes reports green without looking. |
 | `{{CODE_DIRS}}` | CLAUDE, resume-build |
 | `{{STANDARDS_DOC}}` | CLAUDE, story-scoper, story-implementer, db-migration-review |
 
-### New — **add these to `PLACEHOLDERS.md`**
+### Later additions — **defined in `PLACEHOLDERS.md`**
 
 | Placeholder | Source | Example | Used by |
 |---|---|---|---|
@@ -87,10 +103,12 @@ Emitting one of these when its placeholder is absent produces a gate that refere
 | `{{AUDIT_COMMANDS}}` | `STACK.md` | `pip-audit, npm audit` | dependency-security-audit |
 | `{{PERF_SECTION}}` | `DESIGN.md` — **must contain numeric targets** | `§29.10` | perf-profiling |
 | `{{PERF_FIRST_EPIC}}` | `PLAN.md` — first epic with a hot surface | `EPIC-12` | CLAUDE, resume-build, perf-profiling |
+| `{{GLOSSARY_SECTION}}` | `DESIGN.md` §2.1 | `§2.1` | CLAUDE, story-scoper, story-reviewer, code-review, mcp-scan |
+| `{{MODEL_SCOPER}}` `{{MODEL_IMPLEMENTER}}` `{{MODEL_REVIEWER}}` | forge, by role | `sonnet` / `opus` / `opus` | the three agent files |
 
-### New — conditional **flags** (boolean; presence gates a whole gate)
+### Conditional **flags** (boolean; presence gates a whole gate)
 
-`{{#IF DEPENDENCY_AUDIT}}` · `{{#IF PERF_PROFILING}}` · `{{#IF RELEASE_RUNBOOK}}`
+`{{#IF DEPENDENCY_AUDIT}}` · `{{#IF MCP_SERVERS}}` · `{{#IF PERF_PROFILING}}` · `{{#IF RELEASE_RUNBOOK}}`
 
 Set these when the corresponding gate file is emitted. They gate the gate's rows in `resume-build`'s conditional-gate list, its return-contract table, its single-writer list, and `CLAUDE.md`'s trigger table. **A flag set without its gate file emitted, or a gate file emitted without its flag set, is an unreachable-dispatch BLOCKER** — `harness-doctor` check 3 catches it.
 

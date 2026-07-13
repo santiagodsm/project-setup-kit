@@ -39,6 +39,7 @@ Every `{{VAR}}` in `templates/**`. `harness-forge` resolves all of them before w
 | `{{HISTORY_FILE}}` | full tier only | `docs/IMPL_HISTORY.md` |
 | `{{BRIEFS_DIR}}` | forge's choice | `docs/_briefs/` |
 | `{{REVIEWS_DIR}}` | forge's choice | `docs/_reviews/` |
+| `{{GLOSSARY_SECTION}}` | `DESIGN.md` §2.1 | `§2.1` |
 | `{{SCHEMA_SECTION}}` | `DESIGN.md` §3 | `§3` |
 | `{{BEHAVIOR_SECTION}}` | `DESIGN.md` §5 | `§5` |
 | `{{DOD_SECTION}}` | `DESIGN.md` §12 | `§12` |
@@ -52,6 +53,9 @@ Every `{{VAR}}` in `templates/**`. `harness-forge` resolves all of them before w
 | `{{AUDIT_COMMANDS}}` | `STACK.md` | `pip-audit`, `npm audit` |
 | `{{PERF_SECTION}}` | `DESIGN.md` §8 | `§8.1` |
 | `{{PERF_FIRST_EPIC}}` | `PLAN.md` | `EPIC-09` |
+| `{{MODEL_SCOPER}}` | forge, by role (see below) | `sonnet` |
+| `{{MODEL_IMPLEMENTER}}` | forge, by role | `opus` |
+| `{{MODEL_REVIEWER}}` | forge, by role | `opus` |
 
 ## Conditional flags
 
@@ -63,13 +67,14 @@ Set by `harness-forge` from `STACK.md`'s gate manifest. **A flag set without its
 | `{{#IF CONTRACT_GEN_COMMAND}}` | the client is generated from a spec **and** manifest yes |
 | `{{#IF TOKENS_FILE}}` | a token system exists **and** manifest yes |
 | `{{#IF DEPENDENCY_AUDIT}}` | third-party deps **and** manifest yes |
+| `{{#IF MCP_SERVERS}}` | the project ships or dispatches MCP servers/tools **and** manifest yes |
 | `{{#IF PERF_PROFILING}}` | `DESIGN.md` §8 has numeric targets (forge resolves the DEFERRED row) |
 | `{{#IF RELEASE_RUNBOOK}}` | a deploy target exists **and** manifest yes |
-| `{{#IF FRONTEND}}` | the stack has a frontend — reserved; not yet used by any template |
 | `{{#IF STANDARDS_DOC}}` | a coding/DB standards doc exists |
 | `{{#IF DATABASE}}` | the stack has a database |
 | `{{#IF BUILD_COMMAND}}` | there is a separate build step |
 | `{{#IF FRONTEND_CHECK_COMMAND}}` | the frontend has its own check command |
+| `{{#IF E2E_COMMAND}}` | the stack has an E2E suite |
 
 ---
 
@@ -91,6 +96,22 @@ A gate told "check that the code is correct" checks nothing. A gate told "any co
 **If §5 and §12 give you nothing concrete enough to assert, do not invent invariants.** Emit the gate without them and flag it: the design is thin, and a `code-review` gate full of platitudes is one more thing that reports green without looking.
 
 ---
+
+## `{{MODEL_*}}` — per-agent model tier (a cost lever, used conservatively)
+
+Each generated agent declares a `model:` in its frontmatter. The point is to spend the strongest model where a wrong answer is expensive and a cheaper one where the work is bounded and mechanical — **not** to minimize cost. Defaults:
+
+| Agent | Default | Why |
+|---|---|---|
+| `story-scoper` | `{{MODEL_SCOPER}}` → `sonnet` | Read-heavy, mechanical: distil cited sections into a brief. Bounded output, low reasoning depth. The safe place to save. |
+| `story-implementer` | `{{MODEL_IMPLEMENTER}}` → `opus` | The hardest reasoning in the loop and the one you least want wrong. Do not cheap out here. |
+| `story-reviewer` | `{{MODEL_REVIEWER}}` → `opus` | Independent judgement is the entire value of the role; a weaker reviewer is a weaker gate. |
+
+Rules:
+
+1. **These are defaults, not mandates.** `harness-forge` may raise the scoper on a design-heavy project, or note that a simpler stack tolerates a cheaper implementer. It records any deviation in its return.
+2. **Resolve to a literal tier** (`opus` / `sonnet` / `haiku`) — never leave `{{MODEL_*}}` in a generated file; `harness-doctor`'s `{{` grep fails on it like any other placeholder.
+3. **When unsure, keep the strong default.** A gate or an engineer running on too weak a model fails silently — it produces plausible output that is subtly worse, exactly the failure mode this kit exists to prevent. Saving tokens on the scoper is safe; saving them on the reviewer is not.
 
 ## Conditional blocks
 

@@ -9,7 +9,6 @@ allowed-tools:
   - Bash
   - Grep
   - Glob
-  - Skill
   - ToolSearch
   - WebFetch
 metadata:
@@ -58,7 +57,7 @@ Run continuously. Do not wait for the user to trigger each story.
    If pending stories remain but none is eligible, that is a dependency deadlock — go to **Blocker**.
 3. **Read what the story needs.**
    - The story in `{{PLAN}}`: ID, title, size, **the full acceptance criteria**, deps, and the design sections it cites.
-   - Those design sections in `{{DESIGN}}` — the cited ones and what they explicitly cross-reference. Not the whole document.
+   - Those design sections in `{{DESIGN}}` — the cited ones and what they explicitly cross-reference. Not the whole document. Plus **{{GLOSSARY_SECTION}}, the glossary**, for the concepts this story touches — it is the project's canonical vocabulary, and you will name your own types and variables from it.
    - **`{{STATE_FILE}}` → `Decisions & deviations`. Do not skip this.** Nothing in this harness ever writes a deviation back into `{{DESIGN}}`, so the design is stale on every decision recorded there — permanently. **An entry there beats the design text.** You wrote those lines yourself, in an earlier session you do not remember. Trust them over the design.
    - The existing code the story plugs into. You are looking for what already exists so you do not reinvent it.
    - `CLAUDE.md`: the stack, the standards, the invariants.
@@ -95,6 +94,7 @@ Run continuously. Do not wait for the user to trigger each story.
    Then, cold, as a reviewer would:
    - `git diff` — read the actual diff. Does it do only what the story asked? Anything in there you cannot justify to the story?
    - Do the project's **invariants** (in `CLAUDE.md`) still hold? Check them literally, one by one, against the diff.
+   - **Do your names match the glossary ({{GLOSSARY_SECTION}})?** A concept you called by a term the glossary lists under `Avoid`, or a first-class domain concept you left as a bare primitive/string where the glossary gives it a type — rename it now. You have no independent reviewer to catch naming drift, and at this tier it is the cheapest defect to fix and the most expensive to leave: every later story inherits the wrong word.
    - Any error path returning a stack trace, a secret, or a success it did not earn?
 8. **Commit — one story, exactly one commit.**
    ```

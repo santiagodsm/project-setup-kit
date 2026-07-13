@@ -25,13 +25,15 @@ That's it. It runs the chain and asks you things.
 
 ---
 
-## The three ideas it's built on
+## The four ideas it's built on
 
 **A design doc is a contract, not documentation.** Every later agent cites it. So it has a fixed section map (§1–§12), literal DDL and literal API contracts rather than prose, and locked ADRs that record what was *rejected* — because a decision that keeps getting re-argued isn't locked.
 
 **"I don't know yet" needs a legitimate home.** Asked for a schema it lacks the information to specify, a model will produce a plausible one — and it will look exactly as confident as the parts it actually knows. Nobody can tell later. So `DESIGN.md` §11 is a register of what is deliberately unspecified, each entry marked **BLOCKING** or **DEFERRABLE**. `backlog-author` **refuses to run** while anything is BLOCKING. Otherwise the honest gap gets laundered into a confident requirement one step downstream, and an engineer builds it while a reviewer passes it.
 
 **A gate that can't run is worse than no gate.** It lies about what's being checked, and you believe it. So `stack-decide` emits a manifest of the gates the stack actually supports, and `harness-forge` emits *only* those. No ORM, no migration gate. No design tokens, no token lint.
+
+**Shared vocabulary, not just shared section numbers.** Three agents can cite the same section and still call the same concept three different names — the scoper writes "account," the engineer builds `User`, the reviewer reads "member," and grep stops finding things. So `DESIGN.md` §2.1 is a glossary: one canonical term per concept, the rejected synonyms listed under `Avoid`, and a `Code:` anchor tying each term to its table or type. The scoper writes briefs in it, and the reviewer flags code that names a concept by an avoided word.
 
 ---
 

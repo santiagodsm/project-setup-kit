@@ -75,25 +75,39 @@ The orchestrator has **no agent file** — it is the main session, and its restr
 
 ## Placeholders used, by file
 
+One row per placeholder (grouped only where the file sets are identical), grep-verified. `(agent+skill)` marks a placeholder carried by both the agent shim and its skill file.
+
 | Placeholder | Files that use it |
 |---|---|
-| `{{PROJECT}}` `{{PROJECT_ONE_LINER}}` `{{PROJECT_STRUCTURE}}` | CLAUDE |
-| `{{DESIGN}}` `{{PLAN}}` `{{STATE_FILE}}` `{{BRIEFS_DIR}}` `{{REVIEWS_DIR}}` | all |
-| `{{CHECK_COMMAND}}` `{{CHECK_PRECONDITIONS}}` | CLAUDE, STATE_FILE, resume-build, story-implementer, story-reviewer (agent+skill), regression-run |
-| `{{AFFECTED_TEST_COMMAND}}` `{{LINT_COMMAND}}` `{{TYPECHECK_COMMAND}}` | story-reviewer |
-| `{{FRONTEND_CHECK_COMMAND}}` `{{BUILD_COMMAND}}` `{{E2E_COMMAND}}` | story-implementer, story-reviewer, regression-run |
-| `{{STACK_SUMMARY}}` `{{LANGUAGE}}` `{{FRAMEWORK}}` `{{DATABASE}}` `{{TEST_FRAMEWORK}}` | CLAUDE, test-authoring |
-| `{{MIGRATION_TOOL}}` `{{MIGRATION_DIR}}` `{{MIGRATION_UP}}` `{{MIGRATION_DOWN}}` | CLAUDE, STATE_FILE, resume-build, story-scoper, story-implementer, story-reviewer, regression-run, test-authoring |
-| `{{DB_CONTAINER}}` `{{DB_ISOLATION}}` | CLAUDE, STATE_FILE, resume-build, story-reviewer |
+| `{{PROJECT}}` | all files except harness-doctor |
+| `{{PROJECT_ONE_LINER}}` `{{PROJECT_STRUCTURE}}` | CLAUDE |
+| `{{DESIGN}}` | CLAUDE, STATE_FILE, resume-build, story-scoper (agent+skill), story-implementer, story-reviewer |
+| `{{PLAN}}` | CLAUDE, STATE_FILE, resume-build, story-scoper, test-authoring |
+| `{{STATE_FILE}}` | CLAUDE, resume-build, story-scoper (agent+skill), story-implementer, story-reviewer, regression-run, harness-doctor |
+| `{{BRIEFS_DIR}}` | CLAUDE, STATE_FILE, resume-build, story-scoper (agent+skill), story-implementer, story-reviewer, harness-doctor |
+| `{{REVIEWS_DIR}}` | CLAUDE, STATE_FILE, resume-build, story-scoper, story-implementer, story-reviewer (agent+skill), regression-run, harness-doctor |
+| `{{CHECK_COMMAND}}` | CLAUDE, STATE_FILE, story-scoper, story-implementer, story-reviewer (agent+skill), regression-run |
+| `{{CHECK_PRECONDITIONS}}` | CLAUDE, STATE_FILE, story-implementer, regression-run |
+| `{{AFFECTED_TEST_COMMAND}}` `{{LINT_COMMAND}}` `{{TYPECHECK_COMMAND}}` `{{BUILD_COMMAND}}` `{{DB_ISOLATION}}` | story-reviewer |
+| `{{FRONTEND_CHECK_COMMAND}}` | story-implementer, regression-run |
+| `{{E2E_COMMAND}}` | regression-run |
+| `{{STACK_SUMMARY}}` `{{LANGUAGE}}` `{{FRAMEWORK}}` `{{COMMIT_FORMAT}}` `{{DOD_SECTION}}` | CLAUDE |
+| `{{BRANCH}}` | CLAUDE, STATE_FILE |
+| `{{DATABASE}}` | CLAUDE, test-authoring |
+| `{{TEST_FRAMEWORK}}` | CLAUDE, story-implementer, test-authoring |
+| `{{MIGRATION_TOOL}}` | CLAUDE, STATE_FILE, resume-build, story-scoper, story-implementer, story-reviewer, regression-run, test-authoring |
+| `{{MIGRATION_DIR}}` | CLAUDE, story-implementer |
+| `{{MIGRATION_UP}}` `{{MIGRATION_DOWN}}` | resume-build, story-scoper, story-implementer, story-reviewer, regression-run, test-authoring |
+| `{{DB_CONTAINER}}` | CLAUDE, STATE_FILE, resume-build, story-reviewer |
 | `{{CONTRACT_GEN_COMMAND}}` | story-scoper, story-implementer, story-reviewer, regression-run |
 | `{{TOKENS_FILE}}` | CLAUDE, story-scoper, story-implementer, story-reviewer, test-authoring |
-| `{{COMMIT_FORMAT}}` `{{BRANCH}}` | CLAUDE, STATE_FILE |
-| `{{SCHEMA_SECTION}}` `{{BEHAVIOR_SECTION}}` `{{DOD_SECTION}}` | CLAUDE, story-scoper, story-implementer, story-reviewer, test-authoring |
+| `{{SCHEMA_SECTION}}` | CLAUDE, story-scoper, story-implementer |
+| `{{BEHAVIOR_SECTION}}` | CLAUDE, test-authoring |
 | **`{{INVARIANTS}}`** | **CLAUDE, story-reviewer (step 7), test-authoring.** The one placeholder that carries the project. Lifted verbatim as *checkable assertions*. With no `code-review` at this tier, `story-reviewer` step 7 is the **only** place the invariants are enforced — a vague `{{INVARIANTS}}` block here is worse than at `full`. If the design gives you nothing concrete, **emit without them and flag the design as the gap.** |
 | `{{CODE_DIRS}}` | CLAUDE, resume-build |
 | `{{STANDARDS_DOC}}` | CLAUDE, story-scoper, story-implementer, story-reviewer |
 
-**Not used at this tier (do not emit):** `{{HISTORY_FILE}}`, `{{PERF_SECTION}}`, `{{PERF_FIRST_EPIC}}`, `{{LOCKFILES}}`, `{{AUDIT_COMMANDS}}`, and the `{{#IF DEPENDENCY_AUDIT}}` / `{{#IF PERF_PROFILING}}` / `{{#IF RELEASE_RUNBOOK}}` flags. A flag set without its gate file emitted is an unreachable-dispatch BLOCKER.
+**Not used at this tier (do not emit):** `{{HISTORY_FILE}}`, `{{PERF_SECTION}}`, `{{PERF_FIRST_EPIC}}`, `{{LOCKFILES}}`, `{{AUDIT_COMMANDS}}`, and the `{{#IF DEPENDENCY_AUDIT}}` / `{{#IF MCP_SERVERS}}` / `{{#IF PERF_PROFILING}}` / `{{#IF RELEASE_RUNBOOK}}` flags (all their gates are full-tier only). A flag set without its gate file emitted is an unreachable-dispatch BLOCKER. **Used at this tier:** `{{GLOSSARY_SECTION}}` (CLAUDE, scoper, and reviewer cite the §2.1 glossary) and `{{MODEL_SCOPER}}` / `{{MODEL_IMPLEMENTER}}` / `{{MODEL_REVIEWER}}` (the three agent files).
 
 ### Conditional flags in use
 

@@ -12,7 +12,7 @@ allowed-tools:
   - WebFetch
 metadata:
   role: reviewer
-  reads: [lockfiles, SBOM, the design's security section, CLAUDE.md]
+  reads: [lockfiles, SBOM, the design's security section, CLAUDE.md, {{STATE_FILE}} (Dependency additions)]
   writes: [{{REVIEWS_DIR}}security-audit-<EPIC-ID>.md — never {{STATE_FILE}}, never {{PLAN}}, never product code]
 ---
 

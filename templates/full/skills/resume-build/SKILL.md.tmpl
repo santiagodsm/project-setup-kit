@@ -60,7 +60,7 @@ Run this loop continuously without waiting for the user to trigger each iteratio
 7. **Checkpoint.** Write `{{STATE_FILE}}` after every status change. Never batch multiple stories into one state write.
 8. **Epic boundary.** When the last story of an epic is marked `done`, run the epic gate before starting the next epic.
 
-   **How to dispatch a gate.** `story-scoper`, `story-implementer`, and `story-reviewer` are real **agent types** — dispatch them by `subagent_type` directly. The gates (`regression-run`, `code-review`, `docs-sync`{{#IF DEPENDENCY_AUDIT}}, `dependency-security-audit`{{/IF}}{{#IF PERF_PROFILING}}, `perf-profiling`{{/IF}}) are **skills, not agents**, and you have no `Skill` tool. So dispatch a **`general-purpose` subagent** and instruct it to invoke the skill by name and follow it in full, then return the capped summary the contract requires. (The "no general-purpose fallback" rule applies only to the three story roles; it does not apply here.)
+   **How to dispatch a gate.** `story-scoper`, `story-implementer`, and `story-reviewer` are real **agent types** — dispatch them by `subagent_type` directly. The gates (`regression-run`, `code-review`, `docs-sync`{{#IF DEPENDENCY_AUDIT}}, `dependency-security-audit`{{/IF}}{{#IF MCP_SERVERS}}, `mcp-scan`{{/IF}}{{#IF PERF_PROFILING}}, `perf-profiling`{{/IF}}) are **skills, not agents**, and you have no `Skill` tool. So dispatch a **`general-purpose` subagent** and instruct it to invoke the skill by name and follow it in full, then return the capped summary the contract requires. (The "no general-purpose fallback" rule applies only to the three story roles; it does not apply here.)
 
    **The gate order matters and is not arbitrary:**
 
@@ -75,6 +75,7 @@ Run this loop continuously without waiting for the user to trigger each iteratio
 
    **Conditional gates** — fold these into (b) when their trigger fires, so their findings become fix-stories in the same (c) pass:
    {{#IF DEPENDENCY_AUDIT}}- **`dependency-security-audit`** — when the epic added or bumped any dependency, and unconditionally every 4th epic. Cheap; a stale CVE is not something to discover at release.{{/IF}}
+   {{#IF MCP_SERVERS}}- **`mcp-scan`** — when the epic added, edited, or wired any MCP server, tool, or dispatch path. A tool's authority is scoped once, silently, and never re-examined unless this gate runs.{{/IF}}
    {{#IF PERF_PROFILING}}- **`perf-profiling`** — from `{{PERF_FIRST_EPIC}}` onward, and any earlier epic that touched a hot user-facing surface.{{/IF}}
    {{#IF RELEASE_RUNBOOK}}- **`release-runbook`** is **not** an epic gate. It runs only when the user asks to ship. Do not dispatch it as part of the loop.{{/IF}}
 9. **Continue.** Loop to 2.
@@ -104,6 +105,7 @@ Briefs and evidence live on disk. Returns are capped summaries. This is what kee
 | `code-review` (epic gate) | `{{REVIEWS_DIR}}code-review-<EPIC-ID>.md` | ~150 words: **numbered**, severity-ranked headlines only, one line each, with `file:line`. Findings → fix-stories. No essay. |
 {{#IF PERF_PROFILING}}| `perf-profiling` (conditional) | `{{REVIEWS_DIR}}perf-<EPIC-ID>.md` | ~150 words: **numbered** findings vs the design's performance targets + report filename. |{{/IF}}
 {{#IF DEPENDENCY_AUDIT}}| `dependency-security-audit` (conditional) | `{{REVIEWS_DIR}}security-audit-<EPIC-ID>.md` | ~150 words: **numbered** findings by severity + report filename. |{{/IF}}
+{{#IF MCP_SERVERS}}| `mcp-scan` (conditional) | `{{REVIEWS_DIR}}mcp-scan-<EPIC-ID>.md` | ~150 words: **numbered** findings by severity + report filename. |{{/IF}}
 | `docs-sync` (epic gate, last) | `{{DESIGN}}`, ADRs, open register | ~100 words: doc edits made; **which `Decisions & deviations` entries are now folded (safe to archive) and which are not (must stay)**. Never writes the state file. |
 
 **Every gate must return its findings numbered and name its report file.** You never open those reports — you build each fix-story's `source:` pointer from the return alone. A finding returned without `#N` and a filename cannot become a scopable fix-story.
@@ -138,7 +140,7 @@ A fresh session running `resume-build` reads the state file and continues with z
 
 ## Fix-stories
 
-A gate (`regression-run`, `code-review`{{#IF DEPENDENCY_AUDIT}}, `dependency-security-audit`{{/IF}}{{#IF PERF_PROFILING}}, `perf-profiling`{{/IF}}) *recommends* fix-stories. It does not create them. **You create them, and they live in `{{STATE_FILE}}`, never in `{{PLAN}}`.** You cannot write the plan — it is the fixed backlog, and a gate finding is not a change to it.
+A gate (`regression-run`, `code-review`{{#IF DEPENDENCY_AUDIT}}, `dependency-security-audit`{{/IF}}{{#IF MCP_SERVERS}}, `mcp-scan`{{/IF}}{{#IF PERF_PROFILING}}, `perf-profiling`{{/IF}}) *recommends* fix-stories. It does not create them. **You create them, and they live in `{{STATE_FILE}}`, never in `{{PLAN}}`.** You cannot write the plan — it is the fixed backlog, and a gate finding is not a change to it.
 
 Record each one in the current epic's `Fix-stories` section of the state file:
 
@@ -234,7 +236,7 @@ Headline counts, recent commits, {{#IF MIGRATION_TOOL}}migration head, {{/IF}}en
 
 ## You are the only writer of the state file
 
-`{{STATE_FILE}}` is rewritten by you after every story, and **you are its only writer.** Gate skills (`docs-sync`, `code-review`, `regression-run`{{#IF DEPENDENCY_AUDIT}}, `dependency-security-audit`{{/IF}}{{#IF PERF_PROFILING}}, `perf-profiling`{{/IF}}{{#IF RELEASE_RUNBOOK}}, `release-runbook`{{/IF}}) **return** the lines they want recorded; you write them. If any of them ever tries to write the state file itself, that is a bug in that skill — two writers is how the source of truth gets clobbered mid-story.
+`{{STATE_FILE}}` is rewritten by you after every story, and **you are its only writer.** Gate skills (`docs-sync`, `code-review`, `regression-run`{{#IF DEPENDENCY_AUDIT}}, `dependency-security-audit`{{/IF}}{{#IF MCP_SERVERS}}, `mcp-scan`{{/IF}}{{#IF PERF_PROFILING}}, `perf-profiling`{{/IF}}{{#IF RELEASE_RUNBOOK}}, `release-runbook`{{/IF}}) **return** the lines they want recorded; you write them. If any of them ever tries to write the state file itself, that is a bug in that skill — two writers is how the source of truth gets clobbered mid-story.
 
 You are **not** a writer of `{{PLAN}}`. The backlog is fixed. Gate findings become fix-stories in the state file (see **Fix-stories**), never plan edits.
 

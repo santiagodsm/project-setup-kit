@@ -11,7 +11,7 @@ You are building **{{PROJECT}}**. {{PROJECT_ONE_LINER}} Read this file cold at t
 ## The three files that govern everything
 1. `{{STATE_FILE}}` — single source of truth for status. Read it first, always. It tells you the exact next action. **Nothing is ever archived out of it** (see below).
 2. `{{PLAN}}` — the backlog: epics, stories, sizes, dependencies, acceptance criteria.
-3. `{{DESIGN}}` — the design contract. Its locked-decisions section holds the ADRs. Its open-register section lists specs still needing detail (each is a real story, not optional).{{#IF TOKENS_FILE}} `{{TOKENS_FILE}}` is the frontend/design source of truth and outranks design prose on any styling question.{{/IF}}
+3. `{{DESIGN}}` — the design contract. Its locked-decisions section holds the ADRs. Its open-register section lists specs still needing detail (each is a real story, not optional). Its **{{GLOSSARY_SECTION}} glossary** is the project's canonical vocabulary — name types, tables, and variables from it, and never from a term it lists under `Avoid`.{{#IF TOKENS_FILE}} `{{TOKENS_FILE}}` is the frontend/design source of truth and outranks design prose on any styling question.{{/IF}}
 
 ## The deviation ledger — read this before you skip it
 

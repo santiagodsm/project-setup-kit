@@ -44,6 +44,12 @@ Your value over `story-reviewer` is the **composite**. Story review sees one dif
 {{#IF MIGRATION_TOOL}}4. **Data layer ({{SCHEMA_SECTION}}).** Standard columns present; states CHECK-constrained; FK delete behavior preserves history; isolation/scoping enforced at the DB level where the design requires it.{{/IF}}
 {{#IF TOKENS_FILE}}5. **Accessibility (WCAG 2.2 AA).** Semantic landmarks + heading order; every control labelled; status never by color alone (icon/text too); focus ring visible, modals trap+restore focus, ESC closes; text reflow at large type sizes; targets ≥44px; live regions for streaming/status. Confirm the a11y lint and axe assertions pass.{{/IF}}
 6. **Efficiency & simplification.** Redundant queries (N+1), dead code, reinventing an existing primitive or service.
+7. **Composite-diff smells (judgement calls, not hard failures).** These are the defects that are *invisible to `story-reviewer`* because they only appear once several stories are laid side by side — which is exactly your composite view's reason to exist. Report each as a labelled heuristic ("possible Shotgun Surgery"), never as a violation, and **suppress any that a documented standard in `CLAUDE.md` endorses or that tooling already enforces.** The dimensions above (invariants, correctness, security) always outrank this one; a smell never overturns a passing invariant.
+   - **Shotgun Surgery** — one logical change forced scattered edits across many files in the epic. → gather what changes together.
+   - **Divergent Change** — one module was edited by several unrelated stories for unrelated reasons. → split it.
+   - **Duplicated Code** — the same logic shape appears in more than one story's hunks. → extract it, call it from both.
+   - **Primitive Obsession / Mysterious Name** — a domain concept from {{GLOSSARY_SECTION}} implemented as a bare primitive, or named with a term the glossary lists under `Avoid`. → give it its canonical type and name.
+   - **Speculative Generality** — abstraction or hooks added for needs no story in the epic has. → delete it; inline until a real need shows.
 
 ## Output
 

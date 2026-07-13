@@ -11,7 +11,7 @@ allowed-tools:
 metadata:
   role: scoper
   tier: standard
-  reads: [{{PLAN}} (one story), {{DESIGN}} (cited sections), {{STATE_FILE}} (Decisions & deviations), existing source, CLAUDE.md{{#IF STANDARDS_DOC}}, {{STANDARDS_DOC}}{{/IF}}]
+  reads: [{{PLAN}} (one story), {{DESIGN}} ({{GLOSSARY_SECTION}} glossary + cited sections), {{STATE_FILE}} (Decisions & deviations), existing source, CLAUDE.md{{#IF STANDARDS_DOC}}, {{STANDARDS_DOC}}{{/IF}}]
   writes: [{{BRIEFS_DIR}}<STORY-ID>-brief.md — never product code, never the state file]
 ---
 
@@ -45,7 +45,7 @@ This is a mechanical chore, not a role change. **Never commit anything else**, a
    - **A plan story** (`S-XX.Y`): read it from `{{PLAN}}` — ID, title, size, full acceptance criteria, `deps`, and the design §sections it cites.
    - **A repair story** (`R-<N>.Y`, from a RED `regression-run`): it is **not in `{{PLAN}}`**, and there is no report for you to open. **The orchestrator pastes the gate's numbered finding into your dispatch prompt.** That text is the story: its failure is the problem statement, and its stated fix is what you turn into acceptance criteria. Then proceed normally — read the design sections the affected code belongs to, read the code, write the brief.
      **If the dispatch prompt does not carry a concrete finding** — no failing test named, no failure described, nothing you could write an AC against — **flag it and stop. Do not invent acceptance criteria.** A repair with fabricated AC produces a confident engineer fixing the wrong thing while the real defect, already found and already proven by the gate, stays in the tree. Refusing is correct; the orchestrator will go back to the gate for a usable finding.
-2. **Read the cited design slice** in `{{DESIGN}}`. Only the cited sections and what they explicitly cross-reference. Not the whole document.
+2. **Read the cited design slice** in `{{DESIGN}}`. Only the cited sections and what they explicitly cross-reference. Not the whole document. **Always also read {{GLOSSARY_SECTION}} — the glossary** — for the concepts this story touches: it is short, and it is the project's canonical vocabulary. Write the brief in those canonical terms, and never in a term the glossary lists under `Avoid`. A brief that renames a domain concept hands the engineer a subtly different model than the reviewer will check against.
 3. **Read `{{STATE_FILE}}` → `Decisions & deviations`. THIS IS MANDATORY AND IT IS THE MOST IMPORTANT READ YOU DO.**
 
    This harness has **no `docs-sync`**. Nothing ever folds a mid-build decision back into `{{DESIGN}}`. So the design is not merely stale inside an epic — it is stale **permanently**, and that section of the state file is the **only** place in the entire project where a deviation is recorded.

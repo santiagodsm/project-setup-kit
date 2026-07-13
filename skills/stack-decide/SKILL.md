@@ -63,6 +63,7 @@ Verify at minimum: current stable versions of the language and framework; whethe
 | **Auth** | Almost always more constraining on the schema than people expect. |
 | **Deploy target** | Sets the release gate's shape. |
 | **Async / jobs / real-time** | Only if the daily loop needs it. Say so if it doesn't. |
+| **MCP tool surface** | Does the product ship or dispatch MCP servers/tools (its own, or third-party)? **Determines whether an `mcp-scan` gate exists.** "No MCP" is the common answer; say it explicitly. |
 | **THE CHECK COMMAND** | See below. This is the most-referenced string in the entire harness. |
 
 ## The check command (get this right or everything downstream suffers)
@@ -118,6 +119,7 @@ Tier: <from PRD.md's TIER marker>
 | api-contract-sync         | **no** | **inline** | yes | the client is generated from a spec |
 | design-token-lint         | **no** | **inline** | yes | a token system exists |
 | dependency-security-audit | **no** | **no** | yes | there are third-party deps |
+| mcp-scan                  | **no** | **no** | yes | the project ships or dispatches MCP servers/tools |
 | perf-profiling            | **no** | **no** | DEFERRED | see below |
 | release-runbook           | **no** | **no** | yes | a deploy target exists |
 

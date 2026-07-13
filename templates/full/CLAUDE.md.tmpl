@@ -9,7 +9,7 @@ You are building **{{PROJECT}}**. {{PROJECT_ONE_LINER}} Read this file cold at t
 ## The three files that govern everything
 1. `{{STATE_FILE}}` — single source of truth for status, kept lean (older log + consumed decisions are archived to `{{HISTORY_FILE}}`, which you read only when you need a past detail). Read the state file first, always. It tells you the exact next action.
 2. `{{PLAN}}` — the backlog: epics, stories, sizes, dependencies, acceptance criteria.
-3. `{{DESIGN}}` — the design contract. Its locked-decisions section holds the ADRs. Its open-register section lists specs still needing detail (each is a real story, not optional).{{#IF TOKENS_FILE}} `{{TOKENS_FILE}}` is the frontend/design source of truth and outranks design prose on any styling question.{{/IF}}
+3. `{{DESIGN}}` — the design contract. Its locked-decisions section holds the ADRs. Its open-register section lists specs still needing detail (each is a real story, not optional). Its **{{GLOSSARY_SECTION}} glossary** is the project's canonical vocabulary — name types, tables, and variables from it, and never from a term it lists under `Avoid`.{{#IF TOKENS_FILE}} `{{TOKENS_FILE}}` is the frontend/design source of truth and outranks design prose on any styling question.{{/IF}}
 
 ## Project structure
 ```
@@ -117,6 +117,7 @@ When it does fire: finish or safely revert the in-flight story, write `{{STATE_F
 
 **Conditional:**
 {{#IF DEPENDENCY_AUDIT}}- **`dependency-security-audit`** — folded into the epic gate when the epic added or bumped a dependency, and unconditionally every 4th epic.{{/IF}}
+{{#IF MCP_SERVERS}}- **`mcp-scan`** — folded into the epic gate when the epic added, edited, or wired an MCP server, tool, or dispatch path. Default-deny: a tool is allowed only if the design named it.{{/IF}}
 {{#IF PERF_PROFILING}}- **`perf-profiling`** — from `{{PERF_FIRST_EPIC}}` on, and any earlier epic touching a hot user-facing surface.{{/IF}}
 - **`test-authoring`** — by the engineer, when it is unsure what level an AC should be tested at, or when the reviewer flags coverage.
 {{#IF RELEASE_RUNBOOK}}- **`release-runbook`** — **not an epic gate.** Only when the user asks to ship.{{/IF}}

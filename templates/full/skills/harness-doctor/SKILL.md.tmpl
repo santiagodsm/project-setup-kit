@@ -37,19 +37,18 @@ Then use `bash`/`git` to check claims against reality. **A path a skill referenc
 ### 0. Unresolved placeholders   <!-- PLACEHOLDER-LITERAL --> (run this FIRST)
 
 ```bash
-grep -rn -e '{{' --include='*.md' \
-  --exclude-dir=.git \
-  . | grep -v 'PLACEHOLDER-LITERAL' \
-  CLAUDE.md .claude/ {{STATE_FILE}} 2>/dev/null
+PATTERN='{{'   # PLACEHOLDER-LITERAL — the tag keeps this one line out of its own results
+grep -rn -e "$PATTERN" --include='*.md' --exclude-dir=.git \
+  CLAUDE.md .claude/ {{STATE_FILE}} 2>/dev/null | grep -v 'PLACEHOLDER-LITERAL'
 ```
 
 **Zero hits. Every hit is a BLOCKER.**
 
-An unresolved placeholder does not throw. An agent reading `Run {{CHECK_COMMAND}}` will **infer a plausible command, run it, and report green.** The verification you believe in has silently stopped, and nothing tells you. Same for a stray `{{#IF` block: the condition was never resolved and the markers were never deleted.
+An unresolved placeholder does not throw. An agent reading a check command left as an unresolved placeholder will **infer a plausible command, run it, and report green.** The verification you believe in has silently stopped, and nothing tells you. Same for a stray conditional block: the condition was never resolved and the `#IF` markers were never deleted.
 
-**Why the filter, and why it is line-scoped:** this skill has to *name* the pattern in order to search for it, so the two lines above that quote it are tagged `PLACEHOLDER-LITERAL` and filtered out. Without that you would flag yourself on every run, forever, and `harness-forge` would burn its three repair rounds fixing a correct harness.
+**Why the filter, and why it is line-scoped:** this skill has to *name* the pattern in order to search for it, so the one line above that quotes it is tagged `PLACEHOLDER-LITERAL` and filtered out. Without that you would flag yourself on every run, forever, and `harness-forge` would burn its three repair rounds fixing a correct harness.
 
-**Filter the two tagged lines, never the whole file.** This file also carries real placeholders that must resolve. Exclude it wholesale and you ship a doctor whose own report path is a literal placeholder — the exact failure this check exists to catch, hiding inside the thing that checks for it.
+**Filter the tagged line, never the whole file.** This file also carries real placeholders that must resolve. Exclude it wholesale and you ship a doctor whose own report path is a literal placeholder — the exact failure this check exists to catch, hiding inside the thing that checks for it.
 
 ### 1. Tool sufficiency
 For every agent: does its `tools:` list cover everything its skill's procedure demands? And does the skill's own `allowed-tools` (which **intersects down** once the skill loads) still cover it?
