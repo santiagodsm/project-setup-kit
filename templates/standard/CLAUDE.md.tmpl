@@ -68,7 +68,7 @@ These are not aspirations. They are checkable assertions, and the reviewer check
      ```
      docs(progress): <STORY-ID> done (<code commit hash>) — <one line>; NEXT = <next story>
      ```
-     At a clean handoff or when the backlog is complete, the orchestrator dispatches one `story-implementer` with a commit-only task to flush the final state-file change. **Never fold the state file into a story's code commit.**
+     At a clean handoff or when the backlog is complete, the orchestrator dispatches one `story-implementer` with a commit-only task (`model: haiku` — it is one git command) to flush the final state-file change. **Never fold the state file into a story's code commit.**
 
 ## The orchestrator workflow (every story)
 This is the loop; `resume-build` holds the full detail. **Every subagent is dispatched with `run_in_background: true`** — that is what makes the concurrency above real rather than nominal; a synchronous dispatch silently turns "up to {{MAX_PARALLEL}} at once" into one-at-a-time. **A launch confirmation is not a result:** a story is `done` when its *return* is recorded. For each story:

@@ -110,6 +110,18 @@ Each generated agent declares a `model:` in its frontmatter. The point is to spe
 | `story-implementer` | `{{MODEL_IMPLEMENTER}}` → `opus` | The hardest reasoning in the loop and the one you least want wrong. Do not cheap out here. |
 | `story-reviewer` | `{{MODEL_REVIEWER}}` → `opus` | Independent judgement is the entire value of the role; a weaker reviewer is a weaker gate. |
 
+### Fixed dispatch models (not placeholders — literals in `resume-build`)
+
+The `{{MODEL_*}}` placeholders cover only the three story roles, because those are the dispatches whose right tier can vary by project. Everything else is fixed by the *nature of the task*, so `resume-build` carries the models as literals on the dispatch itself (the Agent tool's `model:` override beats the agent file's default):
+
+| Dispatch | Model | Why |
+|---|---|---|
+| `code-review`, `docs-sync` | `opus` | Composite judgment; docs-sync rewrites the design contract — an error poisons every future brief |
+| `regression-run` + the conditional gates | `sonnet` | Mechanical: run, number, attribute |
+| Commit-only flush, notify-only task | `haiku` | One git command; one pre-worded shell command |
+
+Without an override, every one of these inherits the orchestrator session's model — backwards twice: chores on the priciest model, judgment on an unguaranteed one.
+
 Rules:
 
 1. **These are defaults, not mandates.** `harness-forge` may raise the scoper on a design-heavy project, or note that a simpler stack tolerates a cheaper implementer. It records any deviation in its return.

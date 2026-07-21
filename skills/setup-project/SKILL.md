@@ -112,7 +112,7 @@ A halted chain is indistinguishable from a finished one if nobody is at the term
 You have no `Bash`; delegate the push like everything else:
 
 1. **The skill that discovers the stop sends it before returning** — `design-author` on BLOCKED; `scaffold`, `harness-forge`, `plan-lint` on their third failed round. Still say in every dispatch prompt: *"if you end in a state that waits on the user, push once per `ASK_CONTRACT.md` before returning."* A subagent reads the skill, not this file.
-2. **For a stop only you can see** (tier mismatch to confirm, a bailout you are declaring), dispatch a one-shot `general-purpose` agent to run `~/.claude/scripts/notify.sh ask` — **with the plain-language wording written by you** in the dispatch prompt.
+2. **For a stop only you can see** (tier mismatch to confirm, a bailout you are declaring), dispatch a one-shot `general-purpose` agent (`model: haiku` — the wording is already written) to run `~/.claude/scripts/notify.sh ask` — **with the plain-language wording written by you** in the dispatch prompt.
 
 **Then still ask in the terminal.** The push is the doorbell; `AskUserQuestion` is where the answer gets captured. Delivery failure exits 0 and never halts the chain.
 

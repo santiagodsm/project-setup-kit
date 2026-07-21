@@ -75,6 +75,8 @@ Run this loop continuously without waiting for the user to trigger each iteratio
 
    **How to dispatch it.** `story-scoper`, `story-implementer`, and `story-reviewer` are real **agent types** — dispatch them by `subagent_type` directly. **`regression-run` is a skill, not an agent**, and you have no `Skill` tool. So dispatch a **`general-purpose` subagent** and instruct it to invoke the skill by name and follow it in full, then return the capped summary its contract requires. (The "no general-purpose fallback" rule applies only to the three story roles; it does not apply here.)
 
+   **Every dispatch names a model; only the judgment gets the expensive one.** The three story roles carry theirs in their agent files (scoper `sonnet`; implementer and reviewer `opus` — never cheapen the independent reviewer). For everything else, pass `model:` on the dispatch — it overrides the agent file's default: **`regression-run` → `sonnet`** (mechanical: run the suite, number the findings, attribute them); **commit-only flush and notify-only tasks → `haiku`** (one git command; one pre-worded shell command — an expensive model adds nothing but cost). An unspecified model silently inherits this session's, which is backwards twice: routine chores run on the priciest model while nothing guarantees judgment work runs on a strong one.
+
    a. **`regression-run`** — the authoritative full-suite green gate (see **Verification model**). This is the entire gate at this tier.
    b. **GREEN** → record the result and the date it reports in the `Phase gates` section. Start the next phase.
    c. **RED** → each numbered finding you act on becomes a **repair story** appended to the current phase in `{{STATE_FILE}}`. Dispatch them through the normal loop (scoper → engineer → reviewer), carrying the finding's text in the scoper's dispatch prompt.
@@ -131,7 +133,7 @@ If you have honored the tool allowlist and the return contracts, your per-story 
 
 1. Finish or safely abandon the in-flight story: if the engineer already returned, complete the review and state update; if not, mark the story back to `pending` (its work is uncommitted) so it re-runs cleanly.
 2. Write `{{STATE_FILE}}` with the exact next action in the `NEXT ACTION` field (the specific story ID to dispatch and why it is next).
-3. **Flush the state-file commit.** Normally the *next* story's scoper does this (step 0 of `story-scoper`), but there is no next story this session. Dispatch one `story-implementer` with a **commit-only** task: commit `{{STATE_FILE}}` as `docs(progress): <STORY-ID> done (<hash>) — <one line>; NEXT = <next story>`, then push. Nothing else. You have no git; this is the only way the session's final state reaches history.
+3. **Flush the state-file commit.** Normally the *next* story's scoper does this (step 0 of `story-scoper`), but there is no next story this session. Dispatch one `story-implementer` with a **commit-only** task (`model: haiku` — the override beats the agent file's `opus`, and this is one git command): commit `{{STATE_FILE}}` as `docs(progress): <STORY-ID> done (<hash>) — <one line>; NEXT = <next story>`, then push. Nothing else. You have no git; this is the only way the session's final state reaches history.
 4. Tell the user: "Context checkpoint reached. State saved. Next session: run `resume-build` — it will pick up at <story ID>." Then stop. Do not start another story.
 
 A fresh session running `resume-build` reads the state file and continues with zero loss.
@@ -223,7 +225,7 @@ Mark the story `blocked` with a precise reason in the state file, write the file
 
 ### Then reach the user off-terminal
 
-Most blockers arrive **already pushed** — whoever found one has `Bash` and says so in its return; never double-send. For a blocker only you can see (a dependency deadlock, a twice-failed review, a repair loop at its bound), dispatch a one-shot notify task: a `general-purpose` subagent that runs `{{NOTIFY}} ask` with the four `.claude/ASK_CONTRACT.md` fields — **worded by you, in plain language, in the dispatch prompt.** An agent handed "notify the user about STORY-14" produces something unanswerable. **One push per stop**, however many questions it carries (`--count N` bundles them). Delivery failure exits 0; the ask is already in the state file.
+Most blockers arrive **already pushed** — whoever found one has `Bash` and says so in its return; never double-send. For a blocker only you can see (a dependency deadlock, a twice-failed review, a repair loop at its bound), dispatch a one-shot notify task: a `general-purpose` subagent (`model: haiku` — the wording is already written) that runs `{{NOTIFY}} ask` with the four `.claude/ASK_CONTRACT.md` fields — **worded by you, in plain language, in the dispatch prompt.** An agent handed "notify the user about STORY-14" produces something unanswerable. **One push per stop**, however many questions it carries (`--count N` bundles them). Delivery failure exits 0; the ask is already in the state file.
 
 ## Bootstrap
 

@@ -127,6 +127,7 @@ Whatever the harness claims about itself, verify mechanically:
 - If it claims the orchestrator's context stays flat, check nothing forces it to read raw test output, a diff, or the design.
 - If it claims single-writer on a file, check for a second writer.
 - If it claims a gate is mandatory, check it has a dispatcher and a failure path.
+- **Every dispatch has a model.** Each agent file declares `model:`; the gate/utility dispatches in the orchestrator skill name one explicitly (judgment gates strong, mechanical gates mid, commit-only/notify chores cheap). A dispatch with no model silently inherits the session's — chores overpay while nothing guarantees the judgment work. MAJOR.
 - **Parallelism: check the policy against the isolation that actually exists — in both directions.** This is the gate-manifest check applied to concurrency, and it fails both ways:
   - Harness says **serial / one-at-a-time**, but `scaffold` built per-worker isolation → **MAJOR.** The build runs at a fraction of its speed forever, on a constraint that was removed before the harness existed. It is invisible: a slow build looks exactly like a careful one, and every session assumes the last one had a reason.
   - Harness permits **concurrent engineers**, but there is no per-worker DB isolation and stories touch the DB → **BLOCKER.** Concurrent suites corrupt each other and produce flaky verdicts, which is worse than slow: the two-tier verification model rests on a green meaning something.
