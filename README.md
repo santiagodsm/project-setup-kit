@@ -88,7 +88,7 @@ scripts/notify.sh selftest                                # a push should arrive
 
 The credentials live in `~/.claude/`, outside every repo — one copy serves the kit and every project it generates, and no `git add` can reach them.
 
-Then one hook, once, in `~/.claude/settings.json`. It pushes **only when Claude is actually waiting on you** (a permission prompt, a question) at silent priority — every other notification is dropped, and repeats within 5 minutes are deduped:
+Then one hook, once, in `~/.claude/settings.json`. It pushes **only when Claude has a question or is waiting for your input**, at silent priority — permission prompts and every other notification are dropped (they fire constantly in supervised sessions, across every project on the machine), and repeats within 5 minutes are deduped per project:
 
 ```json
 "hooks": { "Notification": [ { "hooks": [

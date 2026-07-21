@@ -10,9 +10,9 @@
 #                                 the full detail lives at the terminal, not in the push.
 #             Enforces the Ask Contract — see ASK_CONTRACT.md. Missing a piece = exit 2.
 #   hook      reads a Claude Code Notification-hook JSON payload on stdin. Sends
-#             (silently, priority -1) ONLY when Claude is actually waiting on the
-#             user — a permission prompt or a question. Every other notification
-#             is dropped. Deduped per project for 5 minutes.
+#             (silently, priority -1) ONLY when Claude has a question or is
+#             waiting for input. Permission prompts and every other notification
+#             are dropped. Deduped per project for 5 minutes.
 #   selftest  prove the wiring works. The ONLY mode that fails loudly.
 #
 # ask/hook ALWAYS exit 0 on a delivery failure. A notification that can fail a
@@ -195,7 +195,11 @@ ${blocks}"
     payload=$(cat 2>/dev/null || echo '{}')
     text=$(printf '%s' "$payload" | jq -r '.message // empty' 2>/dev/null)
     dir=$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null)
-    printf '%s' "$text" | grep -qiE 'permission|waiting|input|question|approv|needs you' || exit 0
+    # Questions and input-waits only. Permission prompts are deliberately NOT
+    # pushed: they fire constantly in supervised sessions across every project,
+    # and a channel that buzzes for routine approvals gets muted. The loud `ask`
+    # channel covers an agent that is genuinely stuck.
+    printf '%s' "$text" | grep -qiE 'waiting|input|question' || exit 0
     [ -n "$dir" ] && proj=$(basename "$dir") || proj=$(project_name)
     dedupe_ok "${proj}-hook" || exit 0
     send "[${proj}] waiting for you" "$text" -1 || true
@@ -226,7 +230,8 @@ notify.sh — reach the human ONLY when something is needed from them.
 
   notify.sh hook
       Claude Code Notification hook (JSON on stdin). Pushes silently, only
-      when Claude is waiting on the user; drops everything else. 5-min dedupe.
+      for questions/input-waits; permission prompts and everything else are
+      dropped. 5-min dedupe per project.
 
   notify.sh selftest
       Send a test push. Exits non-zero if it did not arrive.
