@@ -1,4 +1,7 @@
-# Testbed — throwaway projects used to exercise the chain. Regenerable, never shipped.
+# Testbed — throwaway projects used to exercise the chain. Regenerable.
+# Kept OUTSIDE this directory (../.project-setup-kit-testbed) because plugin
+# install copies the directory tree, not the git tree: anything sitting here
+# ships to every user who installs the kit, gitignored or not.
 _testbed/
 
 # Audit reports — regenerable by re-running the linter/doctor

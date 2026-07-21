@@ -1,0 +1,29 @@
+{
+  "description": "Project Setup Kit — push to Pushover when Claude has a question waiting, and keep the stable notify.sh path in sync with the installed plugin version.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sync-notify.sh\"",
+            "async": true,
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/notify.sh\" hook",
+            "async": true,
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

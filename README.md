@@ -79,24 +79,21 @@ But a stopped build looks exactly like a finished one from outside, and the diff
 
 ### Setup
 
+One step — the two Pushover keys:
+
 ```bash
 cp scripts/pushover.env.example ~/.claude/pushover.env   # fill in the two keys
 chmod 600 ~/.claude/pushover.env
-cp scripts/notify.sh ~/.claude/scripts/notify.sh && chmod +x ~/.claude/scripts/notify.sh
 scripts/notify.sh selftest                                # a push should arrive
 ```
 
-The credentials live in `~/.claude/`, outside every repo — one copy serves the kit and every project it generates, and no `git add` can reach them.
+They live in `~/.claude/`, outside every repo — one copy serves the kit and every project it generates, and no `git add` can reach them.
 
-Then one hook, once, in `~/.claude/settings.json`. It pushes **only when Claude has a question or is waiting for your input**, at silent priority — permission prompts and every other notification are dropped (they fire constantly in supervised sessions, across every project on the machine), and repeats within 5 minutes are deduped per project:
+**The hook ships with the plugin** (`hooks/hooks.json`), so there is nothing to paste into `settings.json` and nothing to keep up to date. It pushes **only when Claude has a question or is waiting for your input**, at silent priority — permission prompts and every other notification are dropped (they fire constantly in supervised sessions, across every project on the machine), and repeats within 5 minutes are deduped per project.
 
-```json
-"hooks": { "Notification": [ { "hooks": [
-  { "type": "command", "command": "\"$HOME/.claude/scripts/notify.sh\" hook", "async": true, "timeout": 20 }
-] } ] }
-```
+A second hook keeps `~/.claude/scripts/notify.sh` in step with the installed plugin on every session start. That path exists because `${CLAUDE_PLUGIN_ROOT}` is set for hooks and commands but **not** for a skill's or subagent's Bash — so the skills call a stable path, and the sync hook is what stops it drifting a version behind. Both copies update together; neither is yours to maintain.
 
-Generated projects get their own `.claude/scripts/notify.sh` for the loud channel, and **deliberately no hook** — a per-project hook fires on top of the global one, and a channel that buzzes twice for nothing gets muted before the one time it mattered.
+Generated projects get their own `.claude/scripts/notify.sh` for the loud channel, and **deliberately no hook** — a per-project hook would fire on top of the plugin's, and a channel that buzzes twice for nothing gets muted before the one time it mattered.
 
 ### The Ask Contract
 
