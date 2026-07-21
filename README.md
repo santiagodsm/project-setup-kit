@@ -37,6 +37,20 @@ That's it. It runs the chain and asks you things.
 
 ---
 
+## Parallelism is the default, not the reward
+
+The generated harness dispatches **up to 3 stories concurrently**, and scopes further ahead than that. Serial is what a *specific* story falls back to, not the posture of the build.
+
+Two stories run together when four things hold: **no dependency edge · disjoint file sets · at most one migration-authoring story in flight · concurrent test suites can't see each other.** Fail one and that story waits while the rest keep going — one vague brief costs one story's concurrency, never the build's.
+
+The mechanism that makes it safe is the same one that makes it fast: **scopers always run in parallel, unconditionally**, and each returns a `Files:` line naming exactly what its story will touch. That is what the orchestrator compares. A scoper that can't pin the set writes `Files: UNKNOWN`, which is a legitimate answer costing one story's concurrency — a *wrong* file set is far worse, because `UNKNOWN` is handled correctly and a wrong one is trusted.
+
+**The mechanism ships with the policy.** Every subagent is dispatched `run_in_background: true` — otherwise "up to 3 at once" blocks on each agent in turn and runs strictly serial while every file still reads as parallel, and *nothing detects that*: no gate fails, the build is just three times slower than it claims. Two rules come with it — **a launch confirmation is not a result** (a story is done when its return is recorded), and **gates and handoffs drain first** (a full-suite run against a tree engineers are still writing to describes a state that never existed). `setup-project`'s own chain is the deliberate exception and runs synchronously: its steps feed each other, so there is nothing to overlap.
+
+**None of this is configured, it's derived.** `stack-decide` requires a test-isolation decision, `scaffold` builds it as a hard gate, and `harness-forge` emits the concurrency the result actually supports — the same way it emits only the gates the stack can run. If isolation is missing, the harness says so *in a sentence that calls itself a defect*, because a build that quietly serializes is one nobody ever fixes: the cost is invisible and permanent, and each session assumes the last one had a reason.
+
+---
+
 ## Proportionality
 
 The harness is sized to the build. Ceremony you don't need gets bypassed, and a bypassed harness is worse than none.
@@ -54,6 +68,47 @@ The harness is sized to the build. Ceremony you don't need gets bypassed, and a 
 The generated harness is a multi-agent system made of prose files. **Nothing type-checks it.** A skill can demand a tool its agent was never granted, write a file nobody reads, or contradict `CLAUDE.md` outright — and it all looks fine until the build quietly stops verifying itself.
 
 Hand-written harnesses routinely carry several load-bearing contradictions. Generated ones start worse. So setup does not complete with an open BLOCKER.
+
+---
+
+## When an agent has a question, it can reach you
+
+Both halves of the system — the setup chain and the harness it generates — stop at gates by design. `design-author` refuses to invent a schema nobody specified. A story goes `blocked` rather than guessing at a reserved decision. That is the whole point.
+
+But a stopped build looks exactly like a finished one from outside, and the difference gets noticed late. **The way a silent stop actually ends is a human coming back hours later and telling an agent to carry on — past the gate that fired correctly.** So every gate that waits on a person pushes the question to your phone, via Pushover.
+
+### Setup
+
+```bash
+cp scripts/pushover.env.example ~/.claude/pushover.env   # fill in the two keys
+chmod 600 ~/.claude/pushover.env
+cp scripts/notify.sh ~/.claude/scripts/notify.sh && chmod +x ~/.claude/scripts/notify.sh
+scripts/notify.sh selftest                                # a push should arrive
+```
+
+The credentials live in `~/.claude/`, outside every repo — one copy serves the kit and every project it generates, and no `git add` can reach them.
+
+Then one hook, once, in `~/.claude/settings.json`. It pushes **only when Claude is actually waiting on you** (a permission prompt, a question) at silent priority — every other notification is dropped, and repeats within 5 minutes are deduped:
+
+```json
+"hooks": { "Notification": [ { "hooks": [
+  { "type": "command", "command": "\"$HOME/.claude/scripts/notify.sh\" hook", "async": true, "timeout": 20 }
+] } ] }
+```
+
+Generated projects get their own `.claude/scripts/notify.sh` for the loud channel, and **deliberately no hook** — a per-project hook fires on top of the global one, and a channel that buzzes twice for nothing gets muted before the one time it mattered.
+
+### The Ask Contract
+
+A push that says *"I have a question about §4.2"* is useless from a lock screen. You are not looking at §4.2. You may never have read it.
+
+So `ASK_CONTRACT.md` fixes what a question must contain, and `notify.sh ask` **refuses to send** without it: **what's actually stuck** in the words a non-engineer would use · **at least two options, each with what picking it means in practice** · **what the agent would pick, why, and what would change its mind** · **what stays blocked** until you answer. No jargon you haven't used first.
+
+**And one push per stop, never one per question.** A stop that carries several questions sends a single summary push (`--count N`) — the numbered one-liners on your phone, the full options and recommendations at the terminal and in `OPEN_QUESTIONS.md`. A phone that buzzes five times for one stop gets muted.
+
+Not a style preference. A question that can't be answered in four seconds gets no answer, or gets *"you decide"* — which is a decision you were never actually shown, recorded downstream as **locked** when it was really just abandoned. Same contract governs terminal questions, so the two channels can't drift.
+
+**Delivery never fails a build.** `notify.sh` exits 0 whether or not the message arrived; a notification that can halt a run stops it for a reason unrelated to the code. `selftest` is the one mode that fails loudly, and `harness-doctor` check 12 verifies the wiring is real rather than assuming it.
 
 ---
 

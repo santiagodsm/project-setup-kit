@@ -89,13 +89,32 @@ A generated harness with a missing tool grant or an unreachable gate fails on it
 
 This is not a style preference, it is a hard constraint:
 
-**Your tools are `Read`, `Write`, `Edit`, `Agent`, `Skill`, `AskUserQuestion`, `ToolSearch`. You have no `Bash`, no `Grep`, no `Glob`.** And a skill's `allowed-tools` **intersects down** with the tools of whoever loads it. So if *you* invoke `scaffold`, it cannot run the check command. If *you* invoke `harness-doctor`, it cannot grep, glob, or run git — which silently disables four of its twelve checks, and it will report CLEAN on a harness it never actually inspected. If *you* invoke `stack-decide`, it cannot search the web and will lock a stack from stale training data.
+**Your tools are `Read`, `Write`, `Edit`, `Agent`, `Skill`, `AskUserQuestion`, `ToolSearch`. You have no `Bash`, no `Grep`, no `Glob`.** And a skill's `allowed-tools` **intersects down** with the tools of whoever loads it. So if *you* invoke `scaffold`, it cannot run the check command. If *you* invoke `harness-doctor`, it cannot grep, glob, or run git — which silently disables four of its thirteen checks, and it will report CLEAN on a harness it never actually inspected. If *you* invoke `stack-decide`, it cannot search the web and will lock a stack from stale training data.
 
 Every one of those failures is **silent**. The skill runs, produces plausible output, and reports success.
+
+### Dispatch these steps **synchronously**. This is the one place background is wrong.
+
+The generated build harness dispatches every subagent with `run_in_background: true`, because it runs many stories at once. **Your chain is the opposite shape: each step's output *is* the next step's input.** There is nothing to overlap — `design-author` cannot start before `STACK.md` exists, and `backlog-author` reads the gate banner `design-author` writes. Dispatching in the background here buys zero wall-clock and adds the one failure this skill exists to prevent: moving to step N+1 before step N actually finished. "The order is the product."
+
+So: **chain steps synchronous (`run_in_background: false`); the notify-only dispatch background.** A notification has no output anyone waits on, and blocking the chain on a push to somebody's phone would be absurd.
+
+Do not generalize the harness's rule to here, and do not generalize this exception to the harness. The rule in both places is the same one: **dispatch in the background exactly when there is other work to do meanwhile.**
 
 The restriction is deliberate: it is what keeps your context flat across a chain that spans sessions. Dispatch, take the capped return, record it, move on. Read a produced file only when you need one specific value from it (the `<!-- GATE -->` banner, the `<!-- TIER -->` marker, the first eligible story).
 
 Write `SETUP_PROGRESS.md` **after every step**. Setup spans sessions. A crash should cost at most one step.
+
+## Reaching the user when the chain stops
+
+A halted chain is indistinguishable from a finished one if nobody is at the terminal — and long silences get resolved by guessing. So a stop that waits on a person gets **one push** to their phone (never one per question — `notify.sh ask --count N` bundles them; `ASK_CONTRACT.md` at the plugin root is the contract for both channels).
+
+You have no `Bash`; delegate the push like everything else:
+
+1. **The skill that discovers the stop sends it before returning** — `design-author` on BLOCKED; `scaffold`, `harness-forge`, `plan-lint` on their third failed round. Still say in every dispatch prompt: *"if you end in a state that waits on the user, push once per `ASK_CONTRACT.md` before returning."* A subagent reads the skill, not this file.
+2. **For a stop only you can see** (tier mismatch to confirm, a bailout you are declaring), dispatch a one-shot `general-purpose` agent to run `~/.claude/scripts/notify.sh ask` — **with the plain-language wording written by you** in the dispatch prompt.
+
+**Then still ask in the terminal.** The push is the doorbell; `AskUserQuestion` is where the answer gets captured. Delivery failure exits 0 and never halts the chain.
 
 ## Handing off between sessions
 

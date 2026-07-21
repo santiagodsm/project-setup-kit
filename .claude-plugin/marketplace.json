@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "project-setup-kit",
+  "description": "Local marketplace hosting the Project Setup Kit plugin.",
+  "owner": {
+    "name": "Santiago Diaz"
+  },
+  "plugins": [
+    {
+      "name": "project-setup-kit",
+      "description": "Walks a new project from idea to a working build harness. Interviews you, locks the stack, writes a citable design contract, scaffolds the repo, and generates the project's own build agents — sized to the build and containing only the gates the stack can actually run.",
+      "author": {
+        "name": "Santiago Diaz"
+      },
+      "category": "productivity",
+      "source": "./"
+    }
+  ]
+}

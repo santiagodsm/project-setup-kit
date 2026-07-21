@@ -53,7 +53,7 @@ These are not aspirations. They are checkable assertions, and `code-review` chec
      At a clean handoff or when the backlog is complete, the orchestrator dispatches one `story-implementer` with a commit-only task to flush the final state-file change. **Never fold the state file into a story's code commit.**
 
 ## The orchestrator workflow (every story)
-This is the loop; `resume-build` holds the full detail. For each story:
+This is the loop; `resume-build` holds the full detail. **Every subagent is dispatched with `run_in_background: true`** — that is what makes the concurrency above real rather than nominal; a synchronous dispatch silently turns "up to {{MAX_PARALLEL}} at once" into one-at-a-time. **A launch confirmation is not a result:** a story is `done` when its *return* is recorded. For each story:
 
 1. **Identify the next story.** Any `pending` **fix-story** in the current epic's `Fix-stories` list goes first; otherwise the first story in `{{PLAN}}` order that is `pending` with all `deps` `done`. `{{STATE_FILE}}` → NEXT ACTION already names it. If it's `L(split)`, expand it into sub-stories in the state file first.
 2. **Dispatch `story-scoper`** — for **every** story, no exceptions. It reads the design §sections, the existing code, and `{{STATE_FILE}}`'s `Decisions & deviations`, then writes a self-contained brief to `{{BRIEFS_DIR}}<STORY-ID>-brief.md` and returns ~10 lines. **You never read the design or the code yourself.** You do not read the brief either — you pass its *path* on. Open it only if the scoper **flags** a design contradiction or a reserved decision, which is yours to resolve.
@@ -66,14 +66,14 @@ This is the loop; `resume-build` holds the full detail. For each story:
 
 **Verification is two-tier.** The engineer runs the full suite **once**; the reviewer *audits that output* and re-runs only what the diff touches; `regression-run` re-proves repo-wide green at the epic gate. **Do not re-run the suite yourself** — you have no Bash, and re-verifying a gate that already ran is the behavior this design exists to prevent.
 
-**Parallelism is OFF. Dispatch one story at a time.** File-set disjointness is not the constraint — the shared `{{DB_CONTAINER}}` database is. Concurrent migration cycles corrupt shared state and produce flaky, untrustworthy verdicts; on the harness this template was extracted from they cost transient reds and an OOM. Unblock condition: per-worker DB isolation. Until then, serialize, even when a batch looks safe.
+**Parallelism is ON. Dispatch up to {{MAX_PARALLEL}} stories at once, and scope even more ahead.** Serial is the fallback for a specific story, not the posture of the build. Two stories may run together when all four hold: **no dependency edge · disjoint file sets** (the scoper returns `Files:`; `UNKNOWN` counts as overlapping everything) **· at most one migration-authoring story in flight · concurrent suites can't see each other** ({{DB_PARALLEL_RULE}}). Fail one and *that* story waits — the others keep going. `resume-build` holds the full rule and the back-out condition. **Scopers are always parallel**, unconditionally: read-only, one brief file each, and their `Files:` lines are what make the rest decidable.
 
 ## Explicit DO-NOT list (these break the design if you improvise)
 - **Do not write code, tests, migrations, or run the app yourself.** Dispatch a subagent. If you're editing {{CODE_DIRS}}, you've broken role.
 - **Do not read `{{DESIGN}}` or product code.** That is the scoper's job, and it is the single biggest thing that would bloat your context. If you want a design section, dispatch a scoper.
 - **Do not skip the scoper.** Every story gets one, including trivial ones. There is no "I'll just write this brief myself" — that is the exact habit this design removed.
 - **Do not review inline.** Every story gets an independent `story-reviewer`, including size-S. Reviewing means reading the diff, and the diff must not enter your context.
-- **Do not run stories in parallel.** See the workflow section. The shared database, not the file sets, is the constraint.
+- **Do not run stories in parallel *blind*.** Parallel is the default, but only through the four conditions in `resume-build` — a pair that shares a file, or whose `Files:` is `UNKNOWN`, serializes. Never widen the batch by guessing at a file set.
 - **Do not introduce new dependencies** beyond the pinned stack without an approved story{{#IF DEPENDENCY_AUDIT}} and a `dependency-security-audit` note{{/IF}}.
 - **Do not restructure directories** or rename the schema map.
 - **Do not skip or reorder against `deps`.** Sequencing is fixed by the plan; you choose only *when* to dispatch. Gate-produced **fix-stories** are the one exception: they are *appended* to the current epic in `{{STATE_FILE}}` (never to `{{PLAN}}`, which you cannot write) and must clear before the epic gate closes.
@@ -86,6 +86,7 @@ This is the loop; `resume-build` holds the full detail. For each story:
 ## Handling ambiguity — stop-and-flag vs make-the-call
 - **Make the call** (and record it in the story's return / state-file "Decisions") when the design under-specifies an implementation detail with an obvious simplest choice consistent with the surrounding design (a field name, an index, a helper's shape).
 - **Stop and flag as a blocker** when: the design contradicts itself in a way the story can't resolve; a decision the user explicitly reserved (`OPEN_QUESTIONS.md`) resurfaces unanswered; an acceptance criterion can't be met as written; or the environment can't supply an external dependency. Record the blocker precisely in `{{STATE_FILE}}` and give the user a specific ask. Never guess on a reserved decision, and never skip a blocked story to keep moving — it blocks its dependents by design.
+- **A blocker is pushed to the user's phone, not just written down** — a silent stop looks finished. Whoever *finds* it sends **one push per stop** (`{{NOTIFY}} ask`, fields per `.claude/ASK_CONTRACT.md`, several questions bundled with `--count N`, no jargon); the orchestrator has no `Bash` and dispatches a notify-only task instead, like the commit-only flush.
 
 ## Context-low handoff (operational)
 
@@ -95,7 +96,7 @@ Every other heuristic you might reach for (the session feels long, that was a bi
 
 If you have honored the tool restrictions and the return contracts — briefs and evidence on disk, capped returns, never reading the design or raw test output — your per-story residue is about a status line and a verdict. **Sessions of 40+ stories are the expected case, not the exception.** If you are reaching for a stopping point without the system-reminder, you are stopping early.
 
-When it does fire: finish or safely revert the in-flight story, write `{{STATE_FILE}}` with the exact next story in `NEXT ACTION`, archive consumed content to `{{HISTORY_FILE}}`, dispatch a commit-only task to flush the state file, tell the user *"run `resume-build` next session to continue at `<story>`"*, and stop. A fresh session loses nothing.
+When it does fire: **stop dispatching new stories, let everything already in flight return, and record each one** — a background agent whose result nobody records did its work for nothing, and the next session re-dispatches a story that is already committed. Then: finish or safely revert the in-flight story, write `{{STATE_FILE}}` with the exact next story in `NEXT ACTION`, archive consumed content to `{{HISTORY_FILE}}`, dispatch a commit-only task to flush the state file, tell the user *"run `resume-build` next session to continue at `<story>`"*, and stop. A fresh session loses nothing.
 
 ## When each skill is invoked, and by what trigger
 

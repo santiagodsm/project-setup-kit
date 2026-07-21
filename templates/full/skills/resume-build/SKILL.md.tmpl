@@ -49,16 +49,18 @@ Run this loop continuously without waiting for the user to trigger each iteratio
    - **Any `pending` fix-story** in the current epic's `Fix-stories` list (see **Fix-stories**). These clear first — they exist because a gate found a defect, and every story built on top of an unfixed defect compounds it.
    - Otherwise, the first story in `{{PLAN}}` order whose status is `pending` and whose every `deps` story is `done`.
 
-   If an `L(split)` story is next, split it in the state file first (see **Splitting**), then take its first sub-story. If pending stories remain but none is eligible, that is a dependency deadlock, go to **Blocker**. Dispatch **one story at a time** (see **Parallelism**).
-3. **Scope.** For **every** story, dispatch a read-only **`story-scoper`** subagent. It reads the cited design sections, the `Decisions & deviations` section of the state file, and the existing code, then **writes the brief to `{{BRIEFS_DIR}}<STORY-ID>-brief.md`** and returns only a short confirmation. You do not read the design or the code yourself, ever, not even for a trivial story. **You do not need to read the brief file either** — you pass its *path* to the engineer and the reviewer. Read it only if the scoper's return flags something.
+   If an `L(split)` story is next, split it in the state file first (see **Splitting**), then take its first sub-story. If pending stories remain but none is eligible, that is a dependency deadlock, go to **Blocker**. Take **up to {{MAX_PARALLEL}} eligible stories**, not one (see **Parallelism**).
+3. **Scope — all of them at once.** For **every** story taken in step 2, dispatch a read-only **`story-scoper`** subagent **in the background** (`run_in_background: true`), launching them back to back without waiting for the first to return. It reads the cited design sections, the `Decisions & deviations` section of the state file, and the existing code, then **writes the brief to `{{BRIEFS_DIR}}<STORY-ID>-brief.md`** and returns only a short confirmation. You do not read the design or the code yourself, ever, not even for a trivial story. **You do not need to read the brief file either** — you pass its *path* to the engineer and the reviewer. Read it only if the scoper's return flags something.
    If the scoper flags a **design contradiction** or a **decision the user reserved**, that is yours to resolve or escalate; the scoper flags, it does not decide. That is the one case where you open the brief.
-4. **Dispatch the engineer.** Mark the story `in_progress` and write the state file **before** dispatching. Launch one `story-implementer` subagent, telling it to read `{{BRIEFS_DIR}}<STORY-ID>-brief.md`. Nothing else, and never this skill or the backlog. The engineer **commits on success** and returns the hash.
-5. **Review.** When the engineer returns, dispatch a fresh, independent `story-reviewer`, telling it to read `{{BRIEFS_DIR}}<STORY-ID>-brief.md` (for the AC, the authorized file list, and the required checks) and to review the engineer's commit. **No exceptions, including size-S stories.** You never review inline, because reviewing means reading the diff and the diff is not allowed in your context.
+4. **Dispatch the engineers.** Mark each story `in_progress` and write the state file **before** dispatching it. Launch one `story-implementer` subagent **in the background** per story whose `Files:` set clears the four conditions, telling it to read `{{BRIEFS_DIR}}<STORY-ID>-brief.md`. Nothing else, and never this skill or the backlog. The engineer **commits on success** and returns the hash.
+5. **Review.** When *an* engineer returns — not when all of them have — dispatch a fresh, independent `story-reviewer` **in the background** for that story, telling it to read `{{BRIEFS_DIR}}<STORY-ID>-brief.md` (for the AC, the authorized file list, and the required checks) and to review the engineer's commit. **No exceptions, including size-S stories.** You never review inline, because reviewing means reading the diff and the diff is not allowed in your context.
 6. **Decide.**
    - Verdict **PASS** → mark the story `done`, record the commit hash + deviations + decisions-to-record in the state file, go to 2.
    - Verdict **FAIL** → re-dispatch the engineer once with the reviewer's specific must-fix findings. If it fails a second review, mark the story `blocked`, record why, go to **Blocker**.
 7. **Checkpoint.** Write `{{STATE_FILE}}` after every status change. Never batch multiple stories into one state write.
 8. **Epic boundary.** When the last story of an epic is marked `done`, run the epic gate before starting the next epic.
+
+   **Drain first.** The gate runs only when **no story is `in_progress`** — every dispatched agent has returned and been recorded. A full-suite run against a tree engineers are still writing to describes a state that never existed, and an accidental GREEN would close the epic on unfinished work.
 
    **How to dispatch a gate.** `story-scoper`, `story-implementer`, and `story-reviewer` are real **agent types** — dispatch them by `subagent_type` directly. The gates (`regression-run`, `code-review`, `docs-sync`{{#IF DEPENDENCY_AUDIT}}, `dependency-security-audit`{{/IF}}{{#IF MCP_SERVERS}}, `mcp-scan`{{/IF}}{{#IF PERF_PROFILING}}, `perf-profiling`{{/IF}}) are **skills, not agents**, and you have no `Skill` tool. So dispatch a **`general-purpose` subagent** and instruct it to invoke the skill by name and follow it in full, then return the capped summary the contract requires. (The "no general-purpose fallback" rule applies only to the three story roles; it does not apply here.)
 
@@ -98,7 +100,7 @@ Briefs and evidence live on disk. Returns are capped summaries. This is what kee
 
 | Subagent | Writes to disk | Returns to you |
 |---|---|---|
-| `story-scoper` | `{{BRIEFS_DIR}}<ID>-brief.md` | ~10 lines: brief written, size, touches-DB, and any **flagged** contradiction/reserved decision. Nothing else. |
+| `story-scoper` | `{{BRIEFS_DIR}}<ID>-brief.md` | ~10 lines: brief written, size, **`Files:` (the paths this story may touch)**, touches-DB, adds-migration, and any **flagged** contradiction/reserved decision. Nothing else. |
 | `story-implementer` | `{{REVIEWS_DIR}}<ID>-impl.md` (raw check output) | ~200 words: done/blocked, files touched, verification result, **commit hash**, **today's ISO date**, AC met/not-met, decision headlines, out-of-scope notes. No code dumps. |
 | `story-reviewer` | `{{REVIEWS_DIR}}<ID>-review.md` (full evidence) | ~180 words: PASS/FAIL, one line per AC, evidence-file quality, what it re-ran, **must-fix list**, decisions-to-record, scope clean/dirty. |
 | `regression-run` | `{{REVIEWS_DIR}}regression-<EPIC-ID>-r<N>.md` | ~150 words: GREEN/RED, **report filename + today's ISO date**, per-suite counts, **numbered** failures with probable owning story, recurrence flag, recommended fix-stories. |
@@ -156,13 +158,58 @@ Record each one in the current epic's `Fix-stories` section of the state file:
 
 Fix-stories run through the normal loop: scoper → engineer → reviewer. They take priority over plan stories (loop step 2). They must all be `done` before the epic gate closes.
 
-## Parallelism — DISABLED
+## How you dispatch — background, always
 
-**Dispatch one story at a time. Do not run engineers concurrently.**
+**Every subagent is dispatched with `run_in_background: true`. Every one, at every tier, without exception.**
 
-Reason: the engineer and the reviewer both run against a single shared live database (`{{DB_CONTAINER}}`){{#IF MIGRATION_TOOL}} and both run `{{MIGRATION_UP}}` / `{{MIGRATION_DOWN}}`{{/IF}}. Two agents migrating the same database concurrently corrupts state and produces flaky, untrustworthy verdicts. This is a correctness constraint, not a preference.
+This is not a performance preference, it is what makes the parallelism policy above *executable*. A synchronous dispatch blocks until that agent returns, so "up to {{MAX_PARALLEL}} concurrent stories" degrades to one-at-a-time with extra words: you would dispatch scoper 1, wait, dispatch scoper 2, wait. The policy would read as concurrent and run as serial, and **nothing would report the difference** — the build would just be three times slower than it claims. A policy with no execution path is the most expensive kind of harness defect, because it looks correct in every file.
 
-**Unblock condition:** per-worker database isolation (a database or schema per worker, or testcontainers spun per run) plus a scoper-reported "touches DB: yes/no" flag. Once that exists, this section can be revised to allow up to 3 concurrent engineers on stories with disjoint file sets and no DB touch. Until then, serialize. If a batch looks safe on file sets alone, it is not — the shared database is the constraint, not the files.
+### The three rules that follow from it
+
+**1. Dispatching is not waiting. Make the next dispatch immediately.**
+After launching a scoper, launch the next one. After an engineer returns and its story is compatible with what is already running, dispatch the next engineer without waiting for the reviewer. You are notified as each agent completes; you do not poll, and you do not sit idle by design.
+
+**2. Dispatched is not done. The story is `done` when its return is recorded, and not before.**
+The single most likely way to break this loop is to dispatch three engineers, see three successful launches, and treat the batch as finished. Nothing has been verified at that point — no commit hash, no reviewer verdict, no state written. **A launch confirmation is not a result.** Record only what a *return* told you.
+
+**3. Barriers drain first. A gate cannot run while work is in flight.**
+Before dispatching `regression-run` at a boundary — and before any handoff — **every story must be out of `in_progress`.** Run the gate only when nothing is in flight. A full-suite run against a tree three engineers are still writing to produces a verdict about a state that never existed, and it is the *reassuring* direction that is dangerous: an accidental GREEN closes a boundary on unfinished work.
+
+The state file's story-status section *is* your in-flight set. Nothing else tracks it, which is another reason step 7's "write after every status change" is not negotiable under concurrency.
+
+### When an agent doesn't come back
+
+If a dispatched story produces no return and the others have long since finished, do not re-dispatch it blindly — you may end up with two engineers on one story, in one tree, both committing. Mark it `blocked` with what you know, note that it was dispatched and never returned, and follow the **Blocker protocol** (the push is the right channel: this is exactly the failure a human needs to see). A story dispatched twice is worse than a story stopped once.
+
+## Parallelism — ON by default
+
+**Dispatch as many stories concurrently as the four conditions below allow, up to {{MAX_PARALLEL}} at once.** Serial is the fallback, not the default. A build that runs one story at a time when three were safe is not being careful, it is being slow for nothing — and across a backlog this size that is days.
+
+**Why this flipped.** These templates came from a build whose every test ran against one shared database, so two engineers migrating concurrently corrupted each other — transient reds, and eventually an OOM. That was a real constraint and it is **gone**: `scaffold` now builds per-worker isolation *before* this harness is generated. The old rule outlived its reason, which is the most expensive kind of rule, because it kept enforcing a cost after the danger was removed. What follows is what genuinely remains.
+
+### The four conditions — all four, checked pairwise across everything in flight
+
+1. **No dependency edge.** Neither story appears in the other's `deps`, transitively. The plan's ordering is absolute and this never relaxes.
+2. **Disjoint file sets.** The scoper returns `Files:` — the paths that story will create or modify. Two stories may run together only if those sets do not intersect. **`Files: UNKNOWN` intersects everything**: that story runs alone.
+3. **At most one migration-authoring story in flight.** {{#IF MIGRATION_TOOL}}Two stories that each add a `{{MIGRATION_TOOL}}` revision chain off the same head and produce a branched history that `{{MIGRATION_UP}}` then refuses or resolves wrongly. **Per-worker test isolation does not help here** — the conflict is in the migration directory, which is shared *source*, not shared data. The scoper reports `Adds migration: yes/no`.{{/IF}}
+4. **Concurrent test runs cannot see each other.** {{DB_PARALLEL_RULE}}
+
+Fail any condition and **that story waits — the rest keep running.** Do not drop the whole batch to serial because one story is uncertain; one vague brief should cost one story's concurrency, not the build's.
+
+### Scopers always run in parallel. No conditions.
+
+Scope the next {{MAX_PARALLEL}} eligible stories **at once**, before dispatching any engineer. A scoper is read-only and writes exactly one brief file named for its own story — it cannot collide with anything. This is free throughput and it is also what *makes* the decision above possible: you need the `Files:` lines before you can tell which stories are compatible.
+
+### What the engineers must honor for this to be safe
+
+Both are already in `story-implementer`; they become load-bearing under concurrency:
+
+- **Stage explicit paths only.** `git add <the brief's authorized files>`. **Never `git add -A` or `git add .`** — under concurrency that sweeps another engineer's in-progress work into your commit, and the reviewer's `git show <hash>` out-of-scope gate then passes it, because from inside that diff it looks intentional.
+- **Retry a lock, don't work around it.** Concurrent `git commit` can collide on `.git/index.lock`. Wait a second and retry, up to five times. Never delete a lock file — the other engineer is mid-write.
+
+### When you are wrong about this
+
+If two concurrent stories produce a merge-damaged file, a review FAIL neither engineer can explain, or a red that vanishes on re-run: **drop to serial for the rest of the epic, say so in the state file with the two story IDs, and do not re-enable within the epic.** A flaky verdict is worth more than the throughput — the whole two-tier verification model rests on a green meaning something. Then treat the overlap as a `Files:` reporting defect in the scoper, because that is what it is.
 
 ## Splitting `L(split)` stories
 
@@ -179,6 +226,10 @@ Stop the loop and surface to the user only for a **genuine** blocker:
 - `regression-run` is RED at an epic boundary with a failure no fix-story can obviously address.
 
 Mark the story `blocked` with a precise reason in the state file, write the file, and present a short, specific ask. Do **not** skip the story and move on. A blocked story blocks its dependents by design.
+
+### Then reach the user off-terminal
+
+Most blockers arrive **already pushed** — whoever found one has `Bash` and says so in its return; never double-send. For a blocker only you can see (a dependency deadlock, a twice-failed review, a repair loop at its bound), dispatch a one-shot notify task: a `general-purpose` subagent that runs `{{NOTIFY}} ask` with the four `.claude/ASK_CONTRACT.md` fields — **worded by you, in plain language, in the dispatch prompt.** An agent handed "notify the user about STORY-14" produces something unanswerable. **One push per stop**, however many questions it carries (`--count N` bundles them). Delivery failure exits 0; the ask is already in the state file.
 
 ## Bootstrap
 
@@ -250,6 +301,7 @@ You are **not** a writer of `{{PLAN}}`. The backlog is fixed. Gate findings beco
 6. Engineers and reviewers get the path to the scoper's brief. Never the full backlog, never prior story history, never this skill.
 7. Never skip, reorder against `deps`, or mark optional any story from `{{PLAN}}`. Sequencing is fixed by the plan; you choose only when to dispatch. **Exception:** fix-stories produced by a gate are *appended* to the current epic and must clear before the next epic starts. Appending a gate's fix-story is not reordering the plan.
 8. **Don't re-verify what a gate already verified.** The engineer runs the checks, the reviewer re-runs the diff-affected subset and audits the engineer's raw output, `regression-run` proves full green at each epic boundary. Trust their reported runs. You have no Bash tool by design. If a verdict is genuinely ambiguous, dispatch a subagent to re-verify; do not do it yourself.
-9. One story at a time. Parallelism is disabled until DB isolation exists.
+9. **Parallel by default, up to {{MAX_PARALLEL}}** — gated on the four conditions. Scopers always parallel. A story that fails a condition waits alone; the batch does not.
+9a. **Every subagent is dispatched `run_in_background: true`.** Synchronous dispatch turns rule 9 into a lie that nothing detects. **A launch confirmation is not a result** — record only what a return told you, and drain every in-flight story before a gate or a handoff.
 10. The epic gate runs at every epic boundary, in this order and no other: **`regression-run` → `code-review` → fix-stories → `regression-run` again → `docs-sync` last.** `code-review` before `docs-sync` (or it judges the diff against a design rewritten to match it). `docs-sync` last (or deviations from the fix-stories never reach the design and vanish when the epic closes). Neither is skippable.
 11. Stop only for: backlog complete, genuine blocker, or the context system-reminder. **There is no story quota.**

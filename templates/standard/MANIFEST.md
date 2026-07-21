@@ -59,12 +59,12 @@ The orchestrator has **no agent file** — it is the main session, and its restr
 
 | File | Role |
 |---|---|
-| `skills/resume-build/SKILL.md.tmpl` | **The authority.** The orchestrator loop. Holds: what this tier is and is not, **the deviation-ledger rule + the upgrade trigger**, the loop, the verification model, the return-contract table, the phase gate + its two-cycle bound, repair stories, the parallelism ban + unblock condition, the single stop signal, the 11 hard rules. |
+| `skills/resume-build/SKILL.md.tmpl` | **The authority.** The orchestrator loop. Holds: what this tier is and is not, **the deviation-ledger rule + the upgrade trigger**, the loop, the verification model, the return-contract table, the phase gate + its two-cycle bound, repair stories, the parallelism policy + its four conditions + the back-out condition, the single stop signal, the 11 hard rules. |
 | `skills/story-scoper/SKILL.md.tmpl` | Step 0 = flush the pending state-file commit (the orchestrator has no git). Then: read design + **the ledger** + code, write `{{BRIEFS_DIR}}<ID>-brief.md`, return ~10 lines incl. the override count. **Flags, never decides.** **Refuses to scope a repair story with no concrete finding rather than invent AC.** |
 | `skills/story-implementer/SKILL.md.tmpl` | Commit-only mode (first!) + normal mode. Green-baseline law. Writes **verbatim** check output to `{{REVIEWS_DIR}}<ID>-impl.md` (**overwrite on retry, never append**). **One story = one commit; `--amend` on retry.** Returns hash + ISO date. |
 | `skills/story-reviewer/SKILL.md.tmpl` | Audits the engineer's evidence file, re-runs **only diff-affected** tests, runs the **inline** type-specific checks (step 5), checks AC / design-fidelity against `{{INVARIANTS}}` / scope. Never runs the full suite. Never commits. Detects a fragment diff and FAILs it. |
 | `skills/regression-run/SKILL.md.tmpl` | The **authoritative** full-suite green gate — and the **only** gate at this tier. Runs at each **PHASE** boundary, ≥2× when red → filenames are `-r<N>`. **Numbered, self-contained findings** (each one *is* a repair story's problem statement) + attribution + **recurrence flag**. |
-| `skills/harness-doctor/SKILL.md.tmpl` | The type-checker for the harness itself. **Check 0 = unresolved `{{` / `{{#IF` (BLOCKER)**, then eleven checks — the ten from `full`, plus **check 11: tier integrity** (no archive instruction · scoper reads the ledger · no orphan gate dispatch · the upgrade trigger is present). Report only; never edits what it diagnoses. |
+| `skills/harness-doctor/SKILL.md.tmpl` | The type-checker for the harness itself. **Check 0 = unresolved `{{` / `{{#IF` (BLOCKER)**, then twelve checks — the ten from `full`, plus **check 11: tier integrity** (no archive instruction · scoper reads the ledger · no orphan gate dispatch · the upgrade trigger is present) and **check 12: the notification channel reaches somebody**. Report only; never edits what it diagnoses. |
 | `skills/test-authoring/SKILL.md.tmpl` | Level selection. The project's `{{INVARIANTS}}` are the primary property-test candidates. Unchanged from `full`. |
 
 ### Gates (`../gates/`) — **none emitted at this tier**
@@ -107,7 +107,7 @@ One row per placeholder (grouped only where the file sets are identical), grep-v
 | `{{CODE_DIRS}}` | CLAUDE, resume-build |
 | `{{STANDARDS_DOC}}` | CLAUDE, story-scoper, story-implementer, story-reviewer |
 
-**Not used at this tier (do not emit):** `{{HISTORY_FILE}}`, `{{PERF_SECTION}}`, `{{PERF_FIRST_EPIC}}`, `{{LOCKFILES}}`, `{{AUDIT_COMMANDS}}`, and the `{{#IF DEPENDENCY_AUDIT}}` / `{{#IF MCP_SERVERS}}` / `{{#IF PERF_PROFILING}}` / `{{#IF RELEASE_RUNBOOK}}` flags (all their gates are full-tier only). A flag set without its gate file emitted is an unreachable-dispatch BLOCKER. **Used at this tier:** `{{GLOSSARY_SECTION}}` (CLAUDE, scoper, and reviewer cite the §2.1 glossary) and `{{MODEL_SCOPER}}` / `{{MODEL_IMPLEMENTER}}` / `{{MODEL_REVIEWER}}` (the three agent files).
+**Not used at this tier (do not emit):** `{{HISTORY_FILE}}`, `{{PERF_SECTION}}`, `{{PERF_FIRST_EPIC}}`, `{{LOCKFILES}}`, `{{AUDIT_COMMANDS}}`, and the `{{#IF DEPENDENCY_AUDIT}}` / `{{#IF MCP_SERVERS}}` / `{{#IF PERF_PROFILING}}` / `{{#IF RELEASE_RUNBOOK}}` flags (all their gates are full-tier only). A flag set without its gate file emitted is an unreachable-dispatch BLOCKER. **Used at this tier:** `{{NOTIFY}}` (CLAUDE, resume-build, scoper, implementer, harness-doctor), `{{GLOSSARY_SECTION}}` (CLAUDE, scoper, and reviewer cite the §2.1 glossary) and `{{MODEL_SCOPER}}` / `{{MODEL_IMPLEMENTER}}` / `{{MODEL_REVIEWER}}` (the three agent files).
 
 ### Conditional flags in use
 
@@ -129,7 +129,7 @@ Carried down from `full` unchanged (1–7, 9–12), plus one that is unique to t
 8. **The deviation ledger is never archived, and the scoper always reads it.** This tier's entire compensation for having no `docs-sync`. See above. The moment either half stops holding, every later brief is built on a superseded design and nothing will tell you.
 9. **Loop caps.** Review retry: ×1, then `blocked`. Repair ↔ `regression-run`: **same failure survives 2 cycles → `blocked`** (a repair can pass its own review and still not clear the red; unbounded, you mint a new one forever). Harness forge: 3 rounds.
 10. **Single stop signal.** The context/summarization `<system-reminder>`. **There is no story quota and no session cap.** Every soft heuristic fires long before real context pressure and costs a full resume cycle for nothing. `harness-doctor` check 8 greps for reintroduced residue.
-11. **Parallelism DISABLED.** The constraint is the **shared database**, not file-set disjointness. Unblock condition: per-worker DB isolation.
+11. **Parallelism ON by default, up to `{{MAX_PARALLEL}}`.** Gated on four conditions checked pairwise: no dependency edge · disjoint `Files:` sets from the scoper · one migration-authoring story in flight · concurrent suites isolated (`{{DB_PARALLEL_RULE}}`). **Scopers are always parallel, unconditionally.** **Every subagent is dispatched `run_in_background: true`** — without that the policy has no execution path and runs serial while reading as parallel. Corollaries: a launch confirmation is not a result; gates and handoffs drain every in-flight story first. A story failing a condition waits alone; the batch does not drop to serial. The old "DISABLED until DB isolation" rule was inherited from a build with a shared database — `scaffold` now builds isolation as a hard gate one step earlier, so the ban was enforcing a cost after its danger was gone.
 12. **Green-baseline law.** Zero failing tests. A "pre-existing" or "environmental" red is **never** an excuse to pass a story. An environment the standard workflow cannot make green is *itself* the defect.
 
 ---
@@ -138,3 +138,18 @@ Carried down from `full` unchanged (1–7, 9–12), plus one that is unique to t
 
 - **`code-review`'s composite-diff pass has no substitute.** Story-level review sees one diff; `regression-run` sees test failures, not code smells. Cross-story security and a11y defects that break no test are **not caught at this tier**. That is the honest cost of `standard`, it is why the upgrade trigger exists, and `{{INVARIANTS}}` in `story-reviewer` step 7 is the only partial mitigation. Do not paper over this in the generated harness.
 - **`code-review`'s "read `Decisions & deviations` as an overrides layer" rule** has nowhere to live, since the gate is gone. Its *reasoning* survives in the scoper (an entry beats the design text) — which is where it mattered most anyway.
+
+---
+
+## The notification channel (every tier)
+
+`harness-forge` copies two files into the repo, verbatim from the plugin root, and they are not tier-scaled:
+
+| File | Role |
+|---|---|
+| `.claude/scripts/notify.sh` | `{{NOTIFY}}`. Pushes an ask to the owner's phone via Pushover. **Refuses to send** an ask missing what's stuck / two options / a recommendation. Never fails its caller: a delivery problem exits 0 and prints to stderr, because a notification that can fail a build stops the build for a reason unrelated to the code. |
+| `.claude/ASK_CONTRACT.md` | What a question must contain to be answerable from a lock screen, and the no-jargon rule. Cited by every file that asks the user anything. |
+
+**Who calls it:** whoever *discovers* the blocker — they have `Bash` and they have the detail. **The orchestrator has no `Bash` and must not be given any**; it dispatches a notify-only task, exactly as it dispatches a commit-only task to flush the state file.
+
+**No `Notification` hook is emitted into the repo.** The user installs one globally in `~/.claude/settings.json`; a per-project copy double-fires, and a channel that cries wolf gets muted before the one time it mattered.

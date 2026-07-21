@@ -46,6 +46,7 @@ Be honest with yourself about what this means: **the engineer's reported green i
 
    **One exception, so you do not fail a legitimate retry on its own history:** if the file contains a `## Superseded attempt` section, judge only the current section above it. Red in a section explicitly marked superseded is not a failing suite. Red anywhere in the *current* section is.
 4. **Re-run the diff-affected tests yourself.** Work out which tests exercise the changed code and run those.
+   **Interference check (parallel builds):** other engineers may be mid-edit in this tree. A failure that traces *only* to files outside the brief's authorized set may be their half-written work, not this story's defect — re-run once; if it clears, proceed and note it in your return. A failure in the story's own files is real, always.
    - `{{AFFECTED_TEST_COMMAND}}`, plus `{{LINT_COMMAND}}` on the changed files and `{{TYPECHECK_COMMAND}}` on the changed package.
    - **Do not run `{{CHECK_COMMAND}}`{{#IF BUILD_COMMAND}}, `{{BUILD_COMMAND}}`{{/IF}}, or the E2E suite.** The engineer already ran them and their verbatim output is in `impl.md`; `regression-run` re-proves them at the epic boundary. Running them here is precisely the duplicated cost this design removed. Adjudicate them from the evidence file, not from a fresh run.
 5. **Run the type-specific gates the story requires.** These are cheap and catch what a diff-affected subset cannot.

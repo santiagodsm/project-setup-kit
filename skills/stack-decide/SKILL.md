@@ -82,6 +82,8 @@ Specify:
 
 `OPEN_QUESTIONS.md` holds what the user reserved. **Do not resolve them.** If a reserved question blocks a stack choice, say so, lock what you can, and record the blocked part as a new OQ. Locking a decision the user reserved is the one unforgivable move here — they will not notice until it is load-bearing.
 
+**Every question you put to the user obeys `ASK_CONTRACT.md`** (plugin root): what's actually stuck in plain words, at least two options *with what each one means in practice*, and which you'd pick and why. No jargon they haven't used first. A question the user can't answer comes back as "you decide" — which is a decision they were never shown, recorded as locked when it was really abandoned.
+
 ## One ADR namespace, shared with the design
 
 You number ADRs from **ADR-001**. `design-author` continues from wherever you stopped — if you end at ADR-006, its first is ADR-007. **Never restart the numbering.**

@@ -53,6 +53,9 @@ Every `{{VAR}}` in `templates/**`. `harness-forge` resolves all of them before w
 | `{{AUDIT_COMMANDS}}` | `STACK.md` | `pip-audit`, `npm audit` |
 | `{{PERF_SECTION}}` | `DESIGN.md` §8 | `§8.1` |
 | `{{PERF_FIRST_EPIC}}` | `PLAN.md` | `EPIC-09` |
+| **`{{MAX_PARALLEL}}`** | forge, from the isolation `scaffold` built — **`standard` and `full` only; the `small` tier has one agent and nothing to run alongside it, so neither parallelism placeholder appears there** | `3` — concurrent engineers. **3 is the default and the right answer for almost every project.** Raise to 4–5 only when the check command is genuinely fast (< ~60s) and isolation is per-worker; drop to `1` only when `{{DB_PARALLEL_RULE}}` says isolation does not exist *and* every story touches the DB. `1` is a defect being reported, not a configuration. |
+| **`{{DB_PARALLEL_RULE}}`** | forge, from `scaffold`'s returned isolation strategy | **Resolve to one literal sentence** stating what is actually true. Three canonical values, below. Never leave it abstract — this sentence is the only place the harness records whether concurrent test runs are safe, and an agent reading a vague one will assume the permissive reading. |
+| **`{{NOTIFY}}`** | fixed — the notifier `harness-forge` copies into every repo | `.claude/scripts/notify.sh` — **resolve to the bare path, no backticks and no `./` prefix.** Every template already wraps it (in backticks, or inside a bash block), so a decorated value nests and produces a command that does not run. It is not configurable and not stack-dependent; the file is copied verbatim from the plugin root and the path must match it exactly or every ask silently runs nothing. |
 | `{{MODEL_SCOPER}}` | forge, by role (see below) | `sonnet` |
 | `{{MODEL_IMPLEMENTER}}` | forge, by role | `opus` |
 | `{{MODEL_REVIEWER}}` | forge, by role | `opus` |
@@ -133,3 +136,19 @@ Resolve the condition, then **delete the markers**. A `{{#IF}}` left in a genera
 2. **A placeholder with no source is a gap, not a guess.** Go back to `STACK.md` or the repo and get the real value. If it genuinely doesn't exist, the feature it belongs to shouldn't be in the harness — drop the gate rather than invent the command.
 3. **Confirm every path with `ls`.** A `{{MIGRATION_DIR}}` that doesn't exist means every brief quoting it is wrong.
 4. **Never leave a placeholder "for later."** There is no later. The generated harness is forked into the target repo and nobody comes back to it.
+
+---
+
+## `{{DB_PARALLEL_RULE}}` — resolve to one of these, verbatim
+
+`scaffold` returns its test-isolation strategy. Map it:
+
+| `scaffold` built | Resolve to |
+|---|---|
+| Per-worker isolation (testcontainers, DB-per-worker, schema-per-worker) | `Satisfied structurally — {{DB_ISOLATION}} gives every worker its own database, so concurrent suites cannot see each other. Nothing to check per story.` |
+| No database in tests | `No test touches a database, so there is nothing to isolate and this condition is always met.` |
+| A database, but **no** per-worker isolation | `**Per-worker DB isolation does not exist.** Any story whose scoper returned \`touches DB: yes\` runs alone; DB-free stories still run concurrently. This is a scaffold defect, not a steady state — report it and get it fixed, because it costs concurrency on every story for the life of the build.` |
+
+**Substitute `{{DB_ISOLATION}}` inside the first sentence for the literal strategy** (`testcontainers, one DB per pytest-xdist worker`). It is the same trap as `{{COMMIT_FORMAT}}`: a resolved value that still carries `{{` drags a placeholder into the harness and trips the check-0 grep.
+
+The third value must **name itself as a defect.** A harness that quietly serializes is one nobody ever fixes: the cost is invisible and permanent, and each session assumes the previous one had a reason.

@@ -88,6 +88,10 @@ The brief's `OVERRIDES` section names mid-build decisions that supersede the des
 7. **Commit on success, and return the hash. This is mandatory.**
    When the suite is green, stage only the files the brief authorized and commit, using the message format the brief's `COMMIT` line gives. Return the short hash.
 
+   **`git add <explicit paths>`. Never `git add -A`, never `git add .`, never `git add -u`.** Another engineer may be working in this tree right now. A wildcard stage sweeps their in-progress files into *your* commit — and the reviewer's out-of-scope gate reads `git show <hash>`, so from inside that diff the stolen work looks intentional and passes. The story's diff stops being the story, silently.
+
+   **If `git commit` fails on `.git/index.lock`, wait ~1s and retry, up to five times.** That is another engineer committing; the lock is correct and transient. **Never delete a lock file** — it means interrupting a write that is in progress, and you will corrupt the index for both of you.
+
    Why this is not optional: the reviewer reviews **your commit's diff** (`git show <hash>`). If you leave work uncommitted, the next story's engineer builds on top of your uncommitted tree, and the reviewer's diff becomes the *cumulative* changes of several stories. The out-of-scope gate silently stops working, and the orchestrator's state file records `commit n/a` for a story it cannot later locate. One commit per story is what makes every downstream gate addressable.
 
    **If this is a retry after a review FAIL: amend, do not add a second commit.** You were given the reviewer's must-fix list and the story already has a commit. Fix the findings and `git commit --amend` so the story remains **exactly one commit**. If you add a fix commit instead, the reviewer's second pass sees only the fix delta — so its AC check and its out-of-scope check run against a fragment of the story, and the gate you just failed silently stops working on the retry. One story, one commit, always. Return the new hash.
@@ -110,5 +114,7 @@ The orchestrator holds this in context for the whole session. Keep it **under ~2
 - **Decisions:** the *headline* of each under-specified detail you settled from the brief's `SAFE FOR ENGINEER TO SETTLE` list (full rationale in the file), so future stories stay consistent.
 - **Out-of-scope notes / flags:** anything you touched or noticed outside the story, for the orchestrator to log. Include any gap you found in the scoper's brief.
 - If **blocked:** the precise reason, what you tried, and what is needed to unblock.
+
+**If blocked, send ONE push before returning** — you have `Bash`, the orchestrator does not: `{{NOTIFY}} ask` with the four fields from `.claude/ASK_CONTRACT.md` (what's stuck in plain words · two options with real consequences · your pick and why · what waits). **Say in your return that you pushed**, so nothing double-sends. Delivery failure exits 0 — not a second blocker.
 
 Do not include code dumps, diffs, or file contents in your return. The reviewer reads the diff directly.

@@ -22,7 +22,7 @@ Dispatch `story-scoper` for **<STORY-ID>** (<title>). Next because <all deps don
 
 **ENV:** <current DB head / migration head, if any>. `{{CHECK_COMMAND}}` is self-contained-green ({{CHECK_PRECONDITIONS}}).
 
-**PARALLELISM IS OFF.** Serialize every story — the shared `{{DB_CONTAINER}}` database, not file-set disjointness, is the constraint. Unblock condition: per-worker DB isolation, which does not exist yet.
+**PARALLELISM IS ON — up to {{MAX_PARALLEL}} stories at once, scopers unconditionally.** Co-dispatch a pair only when all four hold: no dependency edge · disjoint `Files:` sets (scoper-reported; `UNKNOWN` overlaps everything) · at most one migration-authoring story in flight · {{DB_PARALLEL_RULE}} A story failing a condition waits alone — the batch keeps running. Full rule and back-out condition: `resume-build` → **Parallelism**.
 
 ---
 
@@ -97,6 +97,8 @@ Each is minted from a **numbered** finding in `regression-run`'s return. The orc
 ## Story status
 
 Legend: `pending` · `in_progress` · `done` · `blocked`. Details (size, deps, AC) live in `{{PLAN}}` — **status only here.**
+
+**Several stories may be `in_progress` at once — that is the harness working, not a bug.** Parallelism is on (up to `{{MAX_PARALLEL}}`); the orchestrator marks each story `in_progress` before dispatching it and writes this file after every return. A single `in_progress` line during a multi-story batch means a write was missed.
 
 ### PHASE <N> — <name>
 

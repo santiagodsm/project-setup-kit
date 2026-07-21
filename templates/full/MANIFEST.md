@@ -29,7 +29,7 @@ The orchestrator has **no agent file** — it is the main session, and its restr
 
 | File | Role |
 |---|---|
-| `skills/resume-build/SKILL.md.tmpl` | **The authority.** The orchestrator loop. Where `CLAUDE.md` and this disagree, this wins. Holds: the loop, the verification model, the return-contract table, the epic-gate order + reasoning in both directions, the fix-story `source:` pointer contract, the parallelism ban + unblock condition, the single stop signal, the 11 hard rules. |
+| `skills/resume-build/SKILL.md.tmpl` | **The authority.** The orchestrator loop. Where `CLAUDE.md` and this disagree, this wins. Holds: the loop, the verification model, the return-contract table, the epic-gate order + reasoning in both directions, the fix-story `source:` pointer contract, the parallelism policy + its four conditions + the back-out condition, the single stop signal, the 11 hard rules. |
 | `skills/story-scoper/SKILL.md.tmpl` | Step 0 = flush the pending state-file commit (the orchestrator has no git). Then: read design + code + `Decisions & deviations`, write `{{BRIEFS_DIR}}<ID>-brief.md`, return ~10 lines. **Flags, never decides.** Refuses to scope a fix-story whose `source:` pointer it cannot resolve rather than invent AC. |
 | `skills/story-implementer/SKILL.md.tmpl` | Commit-only mode (first!) + normal mode. Green-baseline law. Writes **verbatim** check output to `{{REVIEWS_DIR}}<ID>-impl.md` (**overwrite on retry, never append**). **One story = one commit; `--amend` on retry.** Returns hash + ISO date. |
 | `skills/story-reviewer/SKILL.md.tmpl` | Audits the engineer's evidence file, re-runs **only diff-affected** tests, runs the type gates, checks AC / design-fidelity / scope. Never runs the full suite. Never commits. Detects a fragment diff (engineer added a commit instead of amending) and FAILs it. |
@@ -105,6 +105,7 @@ One row per placeholder (grouped only where the file sets are identical), grep-v
 | `{{PERF_FIRST_EPIC}}` | `PLAN.md` — first epic with a hot surface | `EPIC-12` | CLAUDE, resume-build, perf-profiling |
 | `{{GLOSSARY_SECTION}}` | `DESIGN.md` §2.1 | `§2.1` | CLAUDE, story-scoper, story-reviewer, code-review, mcp-scan |
 | `{{MODEL_SCOPER}}` `{{MODEL_IMPLEMENTER}}` `{{MODEL_REVIEWER}}` | forge, by role | `sonnet` / `opus` / `opus` | the three agent files |
+| `{{NOTIFY}}` | fixed | `.claude/scripts/notify.sh` | CLAUDE, resume-build, story-scoper, story-implementer, harness-doctor |
 
 ### Conditional **flags** (boolean; presence gates a whole gate)
 
@@ -134,7 +135,7 @@ Every one of these was paid for by a real defect. If a forge-time edit would bre
 10. **Fold-based archive rule.** A decision leaves the state file **only when `docs-sync` reports it folded into the design.** Not on epic completion. The scoper reads the design + this section and *never* the history file — archive early and every later brief quotes superseded facts with full confidence.
 11. **Loop caps.** Review retry: ×1, then `blocked`. Fix-story ↔ regression: **same failure survives 2 cycles → `blocked`** (a fix-story can pass its own review and still not clear the red; unbounded, you mint a new one forever). Harness forge: 3 rounds.
 12. **Single stop signal.** The context/summarization `<system-reminder>`. **There is no story quota and no session cap** — the explicit "40+ stories is the expected case" language exists because every soft heuristic ("natural stopping point", "that was a big story") fires long before real context pressure and costs a full resume cycle for nothing. `harness-doctor` check 8 greps for reintroduced residue.
-13. **Parallelism DISABLED.** The constraint is the **shared database**, not file-set disjointness. Unblock condition: per-worker DB isolation. Until then, serialize even when a batch looks safe.
+13. **Parallelism ON by default, up to `{{MAX_PARALLEL}}`.** Gated on four conditions checked pairwise: no dependency edge · disjoint `Files:` sets from the scoper · one migration-authoring story in flight · concurrent suites isolated (`{{DB_PARALLEL_RULE}}`). **Scopers are always parallel, unconditionally.** **Every subagent is dispatched `run_in_background: true`** — without that the policy has no execution path and runs serial while reading as parallel. Corollaries: a launch confirmation is not a result; gates and handoffs drain every in-flight story first. A story failing a condition waits alone; the batch does not drop to serial. The old "DISABLED until DB isolation" rule was inherited from a build with a shared database — `scaffold` now builds isolation as a hard gate one step earlier, so the ban was enforcing a cost after its danger was gone.
 14. **Green-baseline law.** Zero failing tests. A "pre-existing" or "environmental" red is **never** an excuse to pass a story — the story that surfaces it either fixes it or is `blocked` with the red test named. An environment the standard workflow cannot make green is *itself* the defect.
 
 ---
@@ -145,3 +146,18 @@ Two things were generalized rather than mechanically substituted, and the forge 
 
 - **Hearth's domain invariants** (evidence ladder / SourceBadge, urgency ladder, household isolation, proposals-never-in-confirmed-slots, agent-never-approves-its-own-proposal, typed-service-with-audit-and-outbox-per-write) are collapsed into `{{INVARIANTS}}`. They were *specific and checkable*, which is exactly why they worked. A generated harness whose `{{INVARIANTS}}` block is vague has a `code-review` gate that reports green without looking. Per `PLACEHOLDERS.md`, **do not invent them** — if the design is thin, emit without and flag the design as the gap.
 - **Hearth's schema standard** (`§46`: uuidv7 PKs, `household_id`, `version`, audit columns, `archived_at`, CHECK-constrained states, FK RESTRICT, the 4-tier sensitivity taxonomy, the schema-name map) is generalized in `db-migration-review` to "the project's required column set / value set / schema map." The *checklist structure* survives; the concrete column names must come from `{{SCHEMA_SECTION}}` + `{{STANDARDS_DOC}}`. A generated `db-migration-review` whose checklist item 1 still says "the project's required column set" without a `{{STANDARDS_DOC}}` to resolve it is a gate that passes everything.
+
+---
+
+## The notification channel (every tier)
+
+`harness-forge` copies two files into the repo, verbatim from the plugin root, and they are not tier-scaled:
+
+| File | Role |
+|---|---|
+| `.claude/scripts/notify.sh` | `{{NOTIFY}}`. Pushes an ask to the owner's phone via Pushover. **Refuses to send** an ask missing what's stuck / two options / a recommendation. Never fails its caller: a delivery problem exits 0 and prints to stderr, because a notification that can fail a build stops the build for a reason unrelated to the code. |
+| `.claude/ASK_CONTRACT.md` | What a question must contain to be answerable from a lock screen, and the no-jargon rule. Cited by every file that asks the user anything. |
+
+**Who calls it:** whoever *discovers* the blocker — they have `Bash` and they have the detail. **The orchestrator has no `Bash` and must not be given any**; it dispatches a notify-only task, exactly as it dispatches a commit-only task to flush the state file.
+
+**No `Notification` hook is emitted into the repo.** The user installs one globally in `~/.claude/settings.json`; a per-project copy double-fires, and a channel that cries wolf gets muted before the one time it mattered.

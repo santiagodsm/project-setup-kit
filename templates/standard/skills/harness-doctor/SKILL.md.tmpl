@@ -127,7 +127,14 @@ Whatever the harness claims about itself, verify mechanically:
 - If it claims the orchestrator's context stays flat, check nothing forces it to read raw test output, a diff, or the design.
 - If it claims single-writer on a file, check for a second writer.
 - If it claims a gate is mandatory, check it has a dispatcher and a failure path.
-- If it claims parallelism is disabled, check no file still plans a parallel dispatch (including the state file's `NEXT ACTION`).
+- **Parallelism: check the policy against the isolation that actually exists — in both directions.** This is the gate-manifest check applied to concurrency, and it fails both ways:
+  - Harness says **serial / one-at-a-time**, but `scaffold` built per-worker isolation → **MAJOR.** The build runs at a fraction of its speed forever, on a constraint that was removed before the harness existed. It is invisible: a slow build looks exactly like a careful one, and every session assumes the last one had a reason.
+  - Harness permits **concurrent engineers**, but there is no per-worker DB isolation and stories touch the DB → **BLOCKER.** Concurrent suites corrupt each other and produce flaky verdicts, which is worse than slow: the two-tier verification model rests on a green meaning something.
+  - `{{DB_PARALLEL_RULE}}` resolved to something vague, or paraphrased rather than one of the three canonical sentences → **MAJOR.** An agent reading a hedge takes the permissive reading.
+  - The scoper's return contract omits **`Files:`** while the orchestrator gates concurrency on it → **BLOCKER.** The orchestrator is deciding co-dispatch on data nobody returns, so it will either serialize everything or guess.
+  - The harness states a concurrency policy but **never tells the orchestrator to dispatch in the background** → **BLOCKER.** This is the policy-with-no-execution-path defect and it is invisible by construction: a synchronous dispatch blocks until that agent returns, so "up to N concurrent" runs strictly one-at-a-time while every file still reads as parallel. Nothing is wrong, nothing reports, the build is simply N times slower than it claims. Grep for the background-dispatch instruction; its absence is the finding.
+  - A gate or a handoff is described **without a drain precondition** (no story left `in_progress`) → **MAJOR.** A full-suite gate run while engineers are still writing describes a state that never existed, and the dangerous direction is a false GREEN closing a boundary on unfinished work.
+  - Anything treats a **dispatch as a completion** — marking a story `done`, or writing a commit hash, from a launch rather than a return → **BLOCKER.** Under background dispatch that records outcomes that never happened.
 
 ### 11. Tier integrity (STANDARD)
 
@@ -137,6 +144,22 @@ This harness is the **standard** tier. Verify it has not silently half-become so
 - **The scoper reads the ledger.** `story-scoper` must be instructed to read `Decisions & deviations` before every brief, to treat an entry as beating the design text, and to report the override count in its return. If any of those three is missing, the deviation guarantee is not actually wired up — **BLOCKER**.
 - **No orphan gate.** `code-review`, `docs-sync`, and the migration/contract/token gate skills do not exist at this tier. If a file *dispatches* one, it is an unreachable dispatch — **BLOCKER**. If a file merely *explains* that the `full` tier has them (as the upgrade trigger does), that is correct and not a finding.
 - **The upgrade trigger is present.** `CLAUDE.md` and `resume-build` must both state the condition under which this tier is the wrong tier (ledger size, wanting a composite-diff review, build length) and say to regenerate at `full` rather than hand-bolt a gate on. A tier that cannot tell you it has been outgrown will be outgrown silently.
+
+### 12. The notification channel reaches somebody
+
+This harness tells its agents to push a blocker to the owner's phone. If that path is broken the failure is **silent in both directions**: the agent runs a command that isn't there, the script it expected exits 0 by design, and nobody is told the build stopped. Everything reports fine. Nobody is coming.
+
+| | |
+|---|---|
+| `{{NOTIFY}}` exists and is **executable** | missing or non-executable → **BLOCKER** |
+| Every path any harness file names for it resolves to that same file | mismatch → **BLOCKER** — the agent runs nothing |
+| `.claude/ASK_CONTRACT.md` exists | missing → **MAJOR** — pushes will send, and they will be unanswerable |
+| `.gitignore` covers `.env` / `*.env` | missing → **MAJOR** |
+| Every agent told to call it has `Bash` | missing → **BLOCKER** (check 1, applied here) |
+| The **orchestrator** is told to *dispatch a notify-only task* | told to run the script itself → **BLOCKER** — it has no `Bash`; the instruction cannot execute, so the agent improvises or skips |
+| No `Notification` hook in this repo's `.claude/settings.json` | present → **MINOR** — double-fires against the user's global hook, and a channel that cries wolf gets muted |
+
+**Do not run `{{NOTIFY}} selftest`.** It sends a real push and nobody asked to be buzzed.
 
 ## Output
 

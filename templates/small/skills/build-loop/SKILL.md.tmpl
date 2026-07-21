@@ -122,6 +122,8 @@ Stop and surface to the user only for a **genuine** blocker:
 
 Mark the story `blocked` in `{{STATE_FILE}}` with a precise reason, what you tried, and a **specific ask**. Then stop. **Do not skip a blocked story and carry on** — it blocks its dependents by design, and a build that routes around its own blockers arrives somewhere nobody designed.
 
+**Then send ONE push, before you stop** — `{{NOTIFY}} ask` with the four fields from `.claude/ASK_CONTRACT.md` (what's stuck in plain words · two options with real consequences · your pick and why · what waits; several questions = one `--count N` push). A blocked build with nobody watching stays blocked until someone guesses past the gate. Delivery failure exits 0 — the ask is already in `{{STATE_FILE}}`; stop as normal.
+
 **Never guess on a reserved decision.** The design's open register exists because someone honestly did not know; filling it in with something plausible turns an honest gap into a confident fiction, and every later story inherits it.
 
 ## When to stop

@@ -27,7 +27,7 @@ The author wrote it and is the worst possible judge of whether their own accepta
 ### 1. Dependency cycles — BLOCKER
 Build the graph. Traverse it. A cycle **deadlocks the orchestrator**: pending stories remain, none is eligible, and it will sit there. Report the exact cycle (`S-03.2 → S-04.1 → S-03.2`).
 
-Also flag **false dependencies** — a `deps` that isn't a real ordering constraint. Each one needlessly serializes work that could have run in parallel, and nobody ever goes back and removes them.
+Also flag **false dependencies** — a `deps` that isn't a real ordering constraint. Each one needlessly serializes work that could have run in parallel, and nobody ever goes back and removes them. **This is no longer a theoretical cost:** the generated harness dispatches up to `MAX_PARALLEL` stories concurrently and a dependency edge is the *first* of its four gating conditions, so every false dep is throughput deleted for the life of the build. Ask of each edge: would the second story actually fail, or produce a wrong result, if the first had not landed? "It's tidier in this order" is not a dependency.
 
 ### 2. Untestable acceptance criteria — BLOCKER
 The big one. For every AC, ask: **could two competent reviewers disagree about whether this is met?** If yes, it is untestable, and it will pass review forever while nothing gets built.

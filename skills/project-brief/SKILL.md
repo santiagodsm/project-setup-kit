@@ -43,6 +43,8 @@ You are here to prevent these specifically. Each one is silent — the doc looks
 
 **2. Then interview, in batches.** Use `AskUserQuestion` with real options and their tradeoffs, not open-ended prompts. People choose better than they generate. Batch related questions; don't drip one at a time.
 
+**Every question obeys `ASK_CONTRACT.md`** (at the plugin root — read it once, now). In short: say what is actually stuck in plain words, give at least two options *with what each one means in practice*, and say which you would pick and why. No jargon the user has not used first. This is step 1 of the chain and the person you are talking to may not be an engineer at all — a question they cannot answer becomes a gap they wave off, and a waved-off gap becomes something a later agent invents.
+
 Cover, in roughly this order:
 
 | | Ask until you have |

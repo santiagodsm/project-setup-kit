@@ -87,6 +87,7 @@ Every message ends with the `Co-Authored-By` trailer from the environment rules.
 
 - **Make the call** when the design under-specifies an implementation detail and there is an obvious simplest choice consistent with the surrounding design (a field name, an index, a helper's shape). **Record it** in `{{STATE_FILE}}` → `Decisions & deviations`, one line.
 - **Stop and ask** when: the design contradicts itself; a decision the design's open register explicitly reserved resurfaces; an acceptance criterion cannot be met as written; or the environment cannot supply an external dependency. Record the blocker in `{{STATE_FILE}}` with a specific ask. **Never guess on a reserved decision, and never skip a blocked story to keep moving** — it blocks its dependents by design.
+- **Then push the ask** — **one push per stop** (`{{NOTIFY}} ask`, fields per `.claude/ASK_CONTRACT.md`, several questions bundled with `--count N`, no jargon). A silent stop looks finished.
 
 ## When to stop
 

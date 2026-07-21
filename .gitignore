@@ -5,4 +5,13 @@ _testbed/
 HARNESS_DOCTOR.md
 PLAN_LINT.md
 
+# Secrets. The real Pushover credentials live in ~/.claude/pushover.env, outside
+# every repo, so no `git add` can reach them. A project-local .env is only for
+# overriding that — it is ignored here and in every harness this kit generates.
+.env
+.env.*
+!.env.example
+*.env
+!*.env.example
+
 .DS_Store

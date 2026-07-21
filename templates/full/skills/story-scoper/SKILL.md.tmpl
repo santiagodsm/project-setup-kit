@@ -39,6 +39,8 @@ Why this chore is yours: the orchestrator writes the state file *after* the engi
 
 This is a mechanical chore, not a role change. **Never commit anything else**, and never amend an engineer's code commit.
 
+**Under parallel dispatch you race the other scopers for this chore.** If git says nothing to commit, another scoper already flushed it — that is success, continue. If the commit fails on `.git/index.lock`, wait ~1s and retry up to five times; never delete the lock.
+
 ## Procedure
 
 1. **Read the story.**
@@ -53,6 +55,8 @@ This is a mechanical chore, not a role change. **Never commit anything else**, a
 5. **Read the standards that apply.** `CLAUDE.md` always.{{#IF STANDARDS_DOC}} `{{STANDARDS_DOC}}` and design {{SCHEMA_SECTION}} for schema work.{{/IF}}{{#IF TOKENS_FILE}} `{{TOKENS_FILE}}` semantic tokens for UI work.{{/IF}} Include the commit-message format from `CLAUDE.md` in the brief.
 6. **Extract the concrete facts.** The engineer must build from your brief **without opening `{{DESIGN}}`**. If the design gives DDL, quote it. If it gives an API contract, quote it. If it gives a component state matrix, quote it. A brief that says "see {{SCHEMA_SECTION}}" has failed its only job.
 7. **Flag, do not decide.** If the design **contradicts itself**, **under-specifies** something material, or **reserves a decision to the user**, put it under `OPEN / FLAGGED` and stop short of choosing. That call belongs to the orchestrator or the user. Under-specified *trivia* the engineer can safely settle goes under `SAFE FOR ENGINEER TO SETTLE`.
+
+   **If a flag only the user can clear, send ONE push before returning** (`{{NOTIFY}} ask`, fields per `.claude/ASK_CONTRACT.md`; several flags = one `--count N` push, never one each). Recommending is not deciding — the flag stays open until the user chooses. Say in your return that you pushed.
 8. **State DB touch.** Does this story create or run a migration, or write to the live database? The orchestrator and reviewer gate on it.
 9. **Write the brief** to `{{BRIEFS_DIR}}<STORY-ID>-brief.md` (create the dir if missing). Then return your ten lines.
 
@@ -102,11 +106,16 @@ The orchestrator holds this in context for the whole session, and it does **not*
 
 ```
 Brief written: {{BRIEFS_DIR}}<ID>-brief.md
-Story: <ID> (size <S/M/L>) — touches DB: yes/no
+Story: <ID> (size <S/M/L>) — touches DB: yes/no — adds migration: yes/no
+Files: <every path this story will create or modify, comma-separated — or UNKNOWN>
 Design sections read: §<refs>
 Overrides applied from the state file: <count, or none>
 FLAGGED (orchestrator must resolve before dispatch): <one line each, or "none">
 ```
+
+**`Files:` is what decides whether this story can run alongside another**, so it is a contract, not a hint. List the paths you authorized in the brief — the same set, no wider. Two stories run concurrently only when their `Files:` sets do not intersect.
+
+**If you cannot pin the set, write `UNKNOWN`.** That is a legitimate answer and it costs one story's concurrency. Guessing narrow is the failure that matters: two engineers then edit the same file at once, and the damage surfaces as a review FAIL neither of them can explain, or as a red that vanishes on re-run. **A wrong `Files:` is worse than `UNKNOWN`**, because `UNKNOWN` is handled correctly and a wrong one is trusted.
 
 If `FLAGGED` is anything other than "none", the orchestrator will open the brief. If it is "none", it dispatches the engineer straight at the file. Do not pad this return with the brief's contents; that would defeat the whole design.
 

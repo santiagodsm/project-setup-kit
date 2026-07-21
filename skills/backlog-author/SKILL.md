@@ -49,6 +49,8 @@ This is not bureaucracy, and do not be helpful about it. `design-author` deliber
 
 A blocked chain that asks one question is working correctly.
 
+**Every question you put to the user obeys `ASK_CONTRACT.md`** (plugin root): what's actually stuck in plain words, at least two options *with what each one means in practice*, and which you'd pick and why. No jargon they haven't used first. A question the user can't answer comes back as "you decide" — which is a decision they were never shown, recorded as locked when it was really abandoned.
+
 ## The unit of work
 
 A story is **one vertical slice** that a single agent can build, verify, and commit in one pass.

@@ -12,11 +12,13 @@
 
 | File | What it is | Placeholders used |
 |---|---|---|
-| `CLAUDE.md.tmpl` | The operating manual. Tier declaration · **What this tier gave up** (self-review is a real weakening; nothing folds deviations into the design) · **the upgrade trigger** · project structure · pinned stack · **`{{CHECK_COMMAND}}`** · the project `{{INVARIANTS}}` · **the four rules that do not bend** · commit format · ambiguity protocol · the single stop signal. | `{{PROJECT}}` `{{PROJECT_ONE_LINER}}` `{{PROJECT_STRUCTURE}}` `{{DESIGN}}` `{{PLAN}}` `{{STATE_FILE}}` `{{CODE_DIRS}}` `{{STACK_SUMMARY}}` `{{LANGUAGE}}` `{{FRAMEWORK}}` `{{DATABASE}}` `{{TEST_FRAMEWORK}}` `{{CHECK_COMMAND}}` `{{CHECK_PRECONDITIONS}}` `{{INVARIANTS}}` `{{COMMIT_FORMAT}}` `{{BRANCH}}` `{{DOD_SECTION}}` `{{GLOSSARY_SECTION}}` · cond: `{{MIGRATION_TOOL}}` `{{MIGRATION_DIR}}` `{{MIGRATION_UP}}` `{{MIGRATION_DOWN}}` `{{FRONTEND_CHECK_COMMAND}}` `{{TOKENS_FILE}}` `{{SCHEMA_SECTION}}` |
+| `CLAUDE.md.tmpl` | The operating manual. Tier declaration · **What this tier gave up** (self-review is a real weakening; nothing folds deviations into the design) · **the upgrade trigger** · project structure · pinned stack · **`{{CHECK_COMMAND}}`** · the project `{{INVARIANTS}}` · **the four rules that do not bend** · commit format · ambiguity protocol · the single stop signal. | `{{PROJECT}}` `{{PROJECT_ONE_LINER}}` `{{PROJECT_STRUCTURE}}` `{{DESIGN}}` `{{PLAN}}` `{{STATE_FILE}}` `{{CODE_DIRS}}` `{{STACK_SUMMARY}}` `{{LANGUAGE}}` `{{FRAMEWORK}}` `{{DATABASE}}` `{{TEST_FRAMEWORK}}` `{{CHECK_COMMAND}}` `{{CHECK_PRECONDITIONS}}` `{{INVARIANTS}}` `{{COMMIT_FORMAT}}` `{{BRANCH}}` `{{DOD_SECTION}}` `{{GLOSSARY_SECTION}}` `{{NOTIFY}}` · cond: `{{MIGRATION_TOOL}}` `{{MIGRATION_DIR}}` `{{MIGRATION_UP}}` `{{MIGRATION_DOWN}}` `{{FRONTEND_CHECK_COMMAND}}` `{{TOKENS_FILE}}` `{{SCHEMA_SECTION}}` |
 | `STATE_FILE.md.tmpl` | `{{STATE_FILE}}` = **`PROGRESS.md` at the repo root** (not `docs/`). Sections: NEXT ACTION · Standing facts · Session log · **Decisions & deviations (never delete a line)** · Blockers · Story status · Progress (with the ~15-story upgrade trigger in the counts). Written after **every** story. | `{{PROJECT}}` `{{DESIGN}}` `{{PLAN}}` `{{STATE_FILE}}` `{{CHECK_COMMAND}}` `{{CHECK_PRECONDITIONS}}` `{{BRANCH}}` · cond: `{{FRONTEND_CHECK_COMMAND}}` `{{MIGRATION_TOOL}}` `{{MIGRATION_UP}}` `{{MIGRATION_DOWN}}` |
-| `skills/build-loop/SKILL.md.tmpl` | **The one skill.** Read the plan → pick the next story with deps done → read the design slice **+ the deviation ledger** → build → run `{{CHECK_COMMAND}}` → **self-review against the AC, one bullet at a time, with citations** → commit (one story, one commit) → write state → repeat. Plus: the blocker protocol, the single stop signal, the upgrade trigger, and eight non-bending rules. | `{{PROJECT}}` `{{DESIGN}}` `{{PLAN}}` `{{STATE_FILE}}` `{{CHECK_COMMAND}}` `{{CHECK_PRECONDITIONS}}` `{{TEST_FRAMEWORK}}` `{{COMMIT_FORMAT}}` `{{INVARIANTS}}` (via CLAUDE.md) `{{GLOSSARY_SECTION}}` · cond: `{{FRONTEND_CHECK_COMMAND}}` `{{MIGRATION_TOOL}}` `{{MIGRATION_UP}}` `{{MIGRATION_DOWN}}` `{{SCHEMA_SECTION}}` |
+| `skills/build-loop/SKILL.md.tmpl` | **The one skill.** Read the plan → pick the next story with deps done → read the design slice **+ the deviation ledger** → build → run `{{CHECK_COMMAND}}` → **self-review against the AC, one bullet at a time, with citations** → commit (one story, one commit) → write state → repeat. Plus: the blocker protocol (**which pushes the ask via `{{NOTIFY}}` — the builder has `Bash`**), the single stop signal, the upgrade trigger, and eight non-bending rules. | `{{PROJECT}}` `{{DESIGN}}` `{{PLAN}}` `{{STATE_FILE}}` `{{CHECK_COMMAND}}` `{{CHECK_PRECONDITIONS}}` `{{TEST_FRAMEWORK}}` `{{COMMIT_FORMAT}}` `{{INVARIANTS}}` (via CLAUDE.md) `{{GLOSSARY_SECTION}}` `{{NOTIFY}}` · cond: `{{FRONTEND_CHECK_COMMAND}}` `{{MIGRATION_TOOL}}` `{{MIGRATION_UP}}` `{{MIGRATION_DOWN}}` `{{SCHEMA_SECTION}}` |
 
 **No agents.** No `agents/` directory. The builder *is* the session.
+
+**No parallelism, and this one is structural rather than a trade.** The heavier tiers run up to `{{MAX_PARALLEL}}` stories concurrently because they have separate scoper/engineer/reviewer agents to run concurrently. This tier has **one** agent that does all three jobs in sequence for a single story — there is nothing here to run alongside anything. Serial is not a caution being exercised; it is what one loop means. **Do not "enable parallelism" at this tier.** If the build is big enough that concurrency would pay, that is the ~15-story upgrade trigger firing: regenerate at `standard`, which has the roles to parallelize.
 
 **No gates.** No `regression-run`, no `code-review`, no `docs-sync`, no migration/contract/token gates, no epic or phase boundaries, no fix-stories.
 
@@ -51,3 +53,18 @@ The `build-loop` skill says this in its own voice, in its second section, becaus
 **If the build passes ~15 stories, or you catch yourself wanting a gate, or the ledger has grown enough that you no longer trust the design — the tier was wrong. Regenerate at `standard`. Do not hand-bolt a gate on.**
 
 **A small harness silently carrying a large build is the characteristic failure mode of this tier.** It does not break loudly. It keeps saying "done", story after story, while nobody but the author has looked at anything.
+
+---
+
+## The notification channel (every tier)
+
+`harness-forge` copies two files into the repo, verbatim from the plugin root, and they are not tier-scaled:
+
+| File | Role |
+|---|---|
+| `.claude/scripts/notify.sh` | `{{NOTIFY}}`. Pushes an ask to the owner's phone via Pushover. **Refuses to send** an ask missing what's stuck / two options / a recommendation. Never fails its caller: a delivery problem exits 0 and prints to stderr, because a notification that can fail a build stops the build for a reason unrelated to the code. |
+| `.claude/ASK_CONTRACT.md` | What a question must contain to be answerable from a lock screen, and the no-jargon rule. Cited by every file that asks the user anything. |
+
+**Who calls it:** whoever *discovers* the blocker — they have `Bash` and they have the detail. **The orchestrator has no `Bash` and must not be given any**; it dispatches a notify-only task, exactly as it dispatches a commit-only task to flush the state file.
+
+**No `Notification` hook is emitted into the repo.** The user installs one globally in `~/.claude/settings.json`; a per-project copy double-fires, and a channel that cries wolf gets muted before the one time it mattered.

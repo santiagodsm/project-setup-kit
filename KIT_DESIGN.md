@@ -75,12 +75,50 @@ The `BACKLOG BLOCKED` → user → `design-author` AMEND loop is **deliberately 
 **KD-014 — `setup-project` dispatches every step as a subagent. It never invokes a skill itself.**
 Its tools are `Read/Write/Edit/Agent/Skill/AskUserQuestion/ToolSearch` — **no `Bash`, no `Grep`, no `Glob`** — and a skill's `allowed-tools` **intersects down** with whoever loads it.
 
-So if the orchestrator invoked a step directly: `scaffold` could not run the check command. `stack-decide` could not search, and would lock a stack from stale training data. `harness-doctor` could not grep, glob, or run git — silently disabling four of its twelve checks, and it would report **CLEAN on a harness it never inspected.**
+So if the orchestrator invoked a step directly: `scaffold` could not run the check command. `stack-decide` could not search, and would lock a stack from stale training data. `harness-doctor` could not grep, glob, or run git — silently disabling four of its thirteen checks, and it would report **CLEAN on a harness it never inspected.**
 
 Every one of those failures is silent. The skill runs, produces plausible output, reports success. Dispatching every step is what keeps the orchestrator's context flat *and* gives each skill its full toolset. The two goals point the same way.
 
 **KD-015 — Tier changes must rebuild the gate manifest, not just the tier marker.**
 Manifest rows are tier-conditioned *at write time*. A tier-mismatch re-forge that rewrites `<!-- TIER -->` but not `STACK.md` produces a **gateless "standard" harness** — `harness-forge` reads "only the gates in the manifest," finds none; `harness-doctor` compares that harness against the same stale manifest and pronounces it CLEAN. Three independent checks, all agreeing, all wrong. Hence `stack-decide`'s RE-TIER mode, and hence the four-step loop-back.
+
+**KD-016 — Every gate that waits on a human pushes to the human. And the question has a fixed shape.**
+
+The kit is built on gates that stop rather than guess (KD-003, the `BACKLOG BLOCKED` verdict, the blocker protocol). Each one produces a *stopped run waiting on a person* — and **a stopped run is externally indistinguishable from a finished one.** The observed failure is not that the gate didn't fire; it is that it fired at 2am, nobody knew, and hours later a human told the next agent to carry on past it. The gate worked and cost nothing.
+
+So the channel is part of the harness, not an add-on: `scripts/notify.sh` (Pushover), copied into every generated repo, called by whoever *discovers* the blocker. **The orchestrator, at every tier, has no `Bash` and does not get any** — it dispatches a notify-only task, the same shape as the commit-only task it already dispatches to flush the state file. Same for `setup-project`, which delegates the push exactly as it delegates every step (KD-014). The restriction is load-bearing; the notification does not get to erode it.
+
+Three consequences that are decisions, not details:
+
+- **`ASK_CONTRACT.md` is enforced, not documented.** `notify.sh ask` exits 2 without *what's stuck*, *two options with their real consequences*, and *a recommendation*. A question that can't be answered from a lock screen doesn't get answered — it gets *"you decide"*, which is a decision the user was never shown, recorded downstream as **locked** when it was abandoned. That is the same laundering failure KD-003 exists to prevent, arriving through the question instead of the design. The no-jargon rule is the part nothing can check mechanically and the part that decides whether a reply comes.
+- **Delivery never fails a caller.** `ask`/`info`/`hook` exit 0 on any delivery error. A notifier that can fail a build halts it for a reason unrelated to the code, and that failure reads as a product defect. `selftest` is the only loud mode, and `harness-doctor` check 12 audits the wiring — because a broken channel fails *silently in both directions*, which is precisely the defect class the doctor exists for.
+- **Exactly one `Notification` hook, installed globally by the user.** Generated repos deliberately emit none. A per-project hook fires on top of the global one; a channel that buzzes twice for nothing gets muted, and then it is not there the one time it mattered.
+- **The channel fires only when something is required of the user, and once per stop.** The hook filters to Claude-is-waiting payloads and drops everything else; `ask` bundles a multi-question stop into one `--count N` summary push rather than one push per question. Both guard the same asset: a channel that buzzes for nothing — or five times for one thing — gets muted, and then it is not there the one time it mattered. The per-question detail (options, implications, recommendation) lives at the terminal and in `OPEN_QUESTIONS.md`; the push is the doorbell, not the questionnaire.
+
+
+**KD-017 — Parallelism is ON by default, and derived from the isolation `scaffold` built. It is never a constant.**
+
+The templates were extracted from a build whose tests all shared one database, so they hardcoded `Parallelism — DISABLED`, with the stated unblock condition *"per-worker DB isolation, plus a scoper-reported touches-DB flag."*
+
+**Both halves of that condition were satisfied elsewhere in this kit and nothing connected them.** `scaffold` (step 4) makes per-worker isolation a hard gate — it is called "the single constraint that determines whether the harness can ever run stories in parallel." The scoper's return already carried `touches DB`. So `harness-forge` (step 5) was emitting a permanent serialization whose reason had been removed one step earlier, on every project, forever.
+
+This is the same defect class as an unrunnable gate (KD-004), inverted: **a constraint that outlived its cause.** And it is worse to detect, because an unrunnable gate at least reports something false, while a needlessly serial build reports nothing at all — it just takes three times as long, and every session assumes the last one had a reason.
+
+So the policy is **resolved, like the gate manifest**: `harness-forge` reads what `scaffold` actually built and emits `{{MAX_PARALLEL}}` plus one of three literal `{{DB_PARALLEL_RULE}}` sentences — the third of which **names itself as a defect**, because a harness that quietly serializes is one nobody ever fixes.
+
+Four conditions gate a pair of in-flight stories: **no dependency edge · disjoint file sets · at most one migration-authoring story · concurrent suites isolated.** Three notes on the shape:
+
+- **Scopers are unconditionally parallel.** Read-only, one brief file each. This is free throughput nobody was taking, and it is also load-bearing: the `Files:` lines it returns are what make the other decision possible at all. The mechanism that enables concurrency is the same one that makes it safe.
+- **A failing condition costs one story, not the batch.** Dropping everything to serial on one vague brief is how a default quietly reverts to the old behavior.
+- **Migrations serialize even under perfect test isolation.** The conflict is two revisions chaining off one head in a shared *source* directory — not shared data. Isolation is the wrong fix and would look like it worked.
+
+**Background dispatch is the execution path, and it is part of the decision.** `run_in_background: true` on every subagent the generated harness launches. Without it the policy above is nominal: a synchronous dispatch blocks until that agent returns, so "up to `{{MAX_PARALLEL}}` concurrent" runs strictly one-at-a-time while every file still reads as parallel. **Nothing detects that** — no gate fails, no report lies, the build is just N times slower than it claims, which is the same invisibility that let the original ban survive. A policy stated without its mechanism is not a weaker version of the policy; it is the *appearance* of one, which is worse, because it stops anyone from looking.
+
+Two corollaries follow and are stated wherever the rule is: **a launch confirmation is not a result** (a story is `done` when its return is recorded, never when its dispatch succeeded), and **barriers drain first** (a gate or a handoff requires nothing left `in_progress` — a full-suite run against a tree three engineers are still writing to describes a state that never existed, and the dangerous direction is a false GREEN closing a boundary on unfinished work).
+
+**`setup-project` is deliberately the exception and dispatches its own chain synchronously.** Its steps are strictly sequential — each one's output is the next one's input — so background dispatch buys no wall-clock and risks advancing before a step finished, which is the failure that skill exists to prevent. The rule is one rule in both places: *dispatch in the background exactly when there is other work to do meanwhile.* Only its notify-only dispatch is backgrounded, since nothing waits on a push.
+
+**`Files: UNKNOWN` is a first-class answer.** A wrong file set is worse than an admitted one: `UNKNOWN` is handled correctly, a wrong one is trusted. Same principle as §11's register — an honest gap needs a legitimate home, or it gets laundered into a confident claim one step downstream.
 
 ---
 

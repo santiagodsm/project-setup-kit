@@ -47,9 +47,9 @@ Before you flag a single absent gate, read the tier and the manifest. Otherwise 
 
 So, for every gate: in the manifest? in the harness? Both, or neither. Any mismatch is a finding.
 
-## The twelve checks
+## The thirteen checks
 
-Each is grounded in a defect class that has actually shipped in a hand-written harness. Run all twelve.
+Each is grounded in a defect class that has actually shipped in a hand-written harness. Run all thirteen.
 
 ### 0. Unresolved placeholders (run this FIRST — it is the cheapest and the most dangerous to skip)
 
@@ -148,7 +148,14 @@ Whatever the harness claims about itself, verify mechanically:
 - If it claims the orchestrator's context stays flat, check nothing forces it to read raw test output, a diff, or the design.
 - If it claims single-writer on a file, check for a second writer.
 - If it claims a gate is mandatory, check it has a dispatcher and a failure path.
-- If it claims parallelism is disabled, check no file still plans a parallel dispatch (including the state file's `NEXT ACTION`).
+- **Parallelism: check the policy against the isolation that actually exists — in both directions.** This is the gate-manifest check applied to concurrency, and it fails both ways:
+  - Harness says **serial / one-at-a-time**, but `scaffold` built per-worker isolation → **MAJOR.** The build runs at a fraction of its speed forever, on a constraint that was removed before the harness existed. It is invisible: a slow build looks exactly like a careful one, and every session assumes the last one had a reason.
+  - Harness permits **concurrent engineers**, but there is no per-worker DB isolation and stories touch the DB → **BLOCKER.** Concurrent suites corrupt each other and produce flaky verdicts, which is worse than slow: the two-tier verification model rests on a green meaning something.
+  - `the DB-parallel rule` resolved to something vague, or paraphrased rather than one of the three canonical sentences → **MAJOR.** An agent reading a hedge takes the permissive reading.
+  - The scoper's return contract omits **`Files:`** while the orchestrator gates concurrency on it → **BLOCKER.** The orchestrator is deciding co-dispatch on data nobody returns, so it will either serialize everything or guess.
+  - The harness states a concurrency policy but **never tells the orchestrator to dispatch in the background** → **BLOCKER.** This is the policy-with-no-execution-path defect and it is invisible by construction: a synchronous dispatch blocks until that agent returns, so "up to N concurrent" runs strictly one-at-a-time while every file still reads as parallel. Nothing is wrong, nothing reports, the build is simply N times slower than it claims. Grep for the background-dispatch instruction; its absence is the finding.
+  - A gate or a handoff is described **without a drain precondition** (no story left `in_progress`) → **MAJOR.** A full-suite gate run while engineers are still writing describes a state that never existed, and the dangerous direction is a false GREEN closing a boundary on unfinished work.
+  - Anything treats a **dispatch as a completion** — marking a story `done`, or writing a commit hash, from a launch rather than a return → **BLOCKER.** Under background dispatch that records outcomes that never happened.
 
 ### 11. Gate manifest fidelity (the check nobody else performs)
 Cross-check `STACK.md`'s gate manifest against the gates actually in `.claude/skills/`.
@@ -167,6 +174,24 @@ Cross-check `STACK.md`'s gate manifest against the gates actually in `.claude/sk
 | **DEFERRED** | either | **BLOCKER** — `harness-forge` was supposed to resolve this row to yes/no and write it back. An unresolved row means a gate nobody ever decided, and I cannot tell whether its presence or absence is correct. |
 
 Also verify each present gate's commands actually exist (the `make` target, the `npm` script). A gate invoking a command that isn't defined is a gate that fails on first use and then gets quietly disabled by whoever hits it.
+
+### 12. The notification channel reaches somebody
+
+The harness tells its agents to push a blocker to the user's phone. If that path is broken, the failure is **silent in both directions**: the agent runs a command that isn't there, the script it expected exits 0 by design, and the user is never told the build stopped. Everything reports fine. Nobody is coming.
+
+| | |
+|---|---|
+| `.claude/scripts/notify.sh` exists and is **executable** | missing or non-executable → **BLOCKER** |
+| Every path any harness file names for it resolves to that same file | mismatch → **BLOCKER** (the agent runs nothing) |
+| `.claude/ASK_CONTRACT.md` exists | missing → **MAJOR** — the pushes will send, and they will be unanswerable |
+| `.gitignore` covers `.env` / `*.env` | missing → **MAJOR** |
+| Every agent instructed to call it has `Bash` in its grant | missing → **BLOCKER** (this is check 1, applied here) |
+| The **orchestrator** is told to *dispatch a notify-only task*, not to run the script | told to run it directly → **BLOCKER** — it has no `Bash`; the instruction is unexecutable, and the agent will improvise or skip |
+| No `Notification` hook in the target repo's `.claude/settings.json` | present → **MINOR** — it double-fires against the user's global hook, and a channel that cries wolf gets muted |
+
+**Do not run `notify.sh selftest`.** It sends a real push. You are auditing, and nobody asked to be buzzed.
+
+Skip this check entirely if the harness genuinely has no notification channel — but say so in the report as a MINOR, with the consequence stated: this build cannot tell anyone it stopped.
 
 ## Output
 

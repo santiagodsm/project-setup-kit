@@ -240,6 +240,20 @@ or
 
 `backlog-author` reads `DESIGN.md` and **refuses to run** on `BACKLOG BLOCKED`. That banner is the entire enforcement mechanism. Emit it, always, even when clear.
 
+### On BLOCKED, send ONE push — before you return
+
+A blocked chain waits on a human; if nobody is at the terminal it waits indefinitely, and long silences get resolved by guessing. So push — but **one push for the whole stop, never one per question**. Five buzzes for one stop teaches the user to mute the channel.
+
+```bash
+~/.claude/scripts/notify.sh ask --count <N> \
+  --what "1) <question one, one plain-language line>. 2) <question two>. ..." \
+  --blocks "<what stays stopped — sections and story count>"
+```
+
+If exactly **one** question blocks, send the four-field form instead (`--what/--option/--option/--recommend`) so it is answerable from the lock screen. Either way, obey `ASK_CONTRACT.md` (plugin root): the `--what` lines are the *situation* in a non-engineer's words — translate the §11 register entries, do not paste them. The full options + recommendations live in your return and `OPEN_QUESTIONS.md`.
+
+If `~/.claude/scripts/notify.sh` is missing, use `scripts/notify.sh` at the plugin root; if neither exists, note it once and carry on. Delivery failure exits 0 — never a reason to stop.
+
 ## AMEND mode — closing the gate
 
 When the user answers a blocking question, **you** are re-dispatched to fold the answer in. You are not starting over.
