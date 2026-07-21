@@ -112,7 +112,7 @@ Briefs and evidence live on disk. Returns are capped summaries. This is what kee
 {{#IF MCP_SERVERS}}| `mcp-scan` (conditional) | `{{REVIEWS_DIR}}mcp-scan-<EPIC-ID>.md` | ~150 words: **numbered** findings by severity + report filename. |{{/IF}}
 | `docs-sync` (epic gate, last) | `{{DESIGN}}`, ADRs, open register | ~100 words: doc edits made; **which `Decisions & deviations` entries are now folded (safe to archive) and which are not (must stay)**. Never writes the state file. |
 
-**Every gate must return its findings numbered and name its report file.** You never open those reports — you build each fix-story's `source:` pointer from the return alone. A finding returned without `#N` and a filename cannot become a scopable fix-story.
+**Every gate must return its findings numbered and name its report file.** You never open those reports — you write each fix-story's state-file line (the `finding:` text verbatim plus the `source:` pointer) from the return alone. A finding returned without `#N` and a filename, or too vague to paste, cannot become a scopable fix-story.
 
 **You have no clock and no Bash.** Any date you write into the state file comes from a subagent's return (`story-implementer` and `regression-run` both report it). Do not invent one, and do not leave a placeholder.
 
@@ -150,11 +150,13 @@ Record each one in the current epic's `Fix-stories` section of the state file:
 
 ```
 ### Fix-stories — EPIC-0X  (must all be done before the epic gate closes)
-- [pending] F-0X.1 <one-line title> — source: {{REVIEWS_DIR}}code-review-EPIC-0X.md, finding #3 [blocker]
-- [done]    F-0X.2 <one-line title> — source: {{REVIEWS_DIR}}regression-EPIC-0X-r1.md, finding #1 — commit def456
+- [pending] F-0X.1 <one-line title> — finding: "<the gate's finding, verbatim from its return>" [blocker] — source: {{REVIEWS_DIR}}code-review-EPIC-0X.md #3
+- [done]    F-0X.2 <one-line title> — finding: "<verbatim>" — source: {{REVIEWS_DIR}}regression-EPIC-0X-r1.md #1 — commit def456
 ```
 
-**The `source:` pointer is load-bearing: it is the only place the fix-story's acceptance criteria exist.** You never read the gate report yourself — you build this pointer entirely from the gate's *return*, which is why every gate is required to return its findings **numbered** (`#1`, `#2`) alongside the exact report filename. Copy both verbatim. If a gate returns a finding without a number, or without its filename, **ask it again rather than guessing**: the `story-scoper` is instructed to refuse a fix-story whose pointer it cannot resolve, rather than invent acceptance criteria, so a sloppy pointer stalls the gate instead of silently producing a wrong fix.
+**The `finding:` text is load-bearing: it is the fix-story's acceptance criteria, and this state file is its tracked home.** You hold the text already — it came back in the gate's numbered return — so copying it costs nothing. It must live here because the gate reports sit in a **gitignored** directory: a `source:` pointer alone means a fresh clone silently loses the AC of every open fix-story. Anything load-bearing lives in a tracked file; ephemeral evidence may be untracked, acceptance criteria may not.
+
+The **`source:` pointer** stays alongside as the route to the finding's full detail — the failure scenario, the fix sketch — which the scoper reads when the report exists. You never read the gate report yourself: you write the whole line from the gate's *return*, which is why every gate must return its findings **numbered** (`#1`, `#2`) alongside the exact report filename. If a gate returns a finding without a number, without its filename, or too vague to paste as a `finding:`, **ask it again rather than guessing**: the `story-scoper` is instructed to refuse a fix-story whose finding it cannot recover, rather than invent acceptance criteria, so a sloppy return stalls the gate instead of silently producing a wrong fix.
 
 `regression-run` writes one report per run within a gate (`-r1`, `-r2`, …), so a fix-story minted from the second run points at `-r2`. Do not collapse them.
 
@@ -165,6 +167,10 @@ Fix-stories run through the normal loop: scoper → engineer → reviewer. They 
 **Every subagent is dispatched with `run_in_background: true`. Every one, at every tier, without exception.**
 
 This is not a performance preference, it is what makes the parallelism policy above *executable*. A synchronous dispatch blocks until that agent returns, so "up to {{MAX_PARALLEL}} concurrent stories" degrades to one-at-a-time with extra words: you would dispatch scoper 1, wait, dispatch scoper 2, wait. The policy would read as concurrent and run as serial, and **nothing would report the difference** — the build would just be three times slower than it claims. A policy with no execution path is the most expensive kind of harness defect, because it looks correct in every file.
+
+### What a dispatch carries — and nothing else
+
+Return contracts cap what comes back; this caps what goes out. Every dispatch prompt carries exactly four things: the **role/task**, the **story ID**, the **paths** the agent must read (the brief at `{{BRIEFS_DIR}}<ID>-brief.md`, a commit hash to `git show`), and the **inline values the agent cannot get from disk** (a reviewer's must-fix list on a retry, a pasted gate finding, the `model:` override, plain-language ask wording for a notify task). Nothing else — never the contents of a file that is on disk, never the backlog, never prior-story history. A prompt that pastes what a path could carry defeats the same design the return caps protect, from the other direction — and nothing detects it, because the work still succeeds; your context just stops being flat, and sessions quietly shorten.
 
 ### The three rules that follow from it
 
@@ -272,8 +278,8 @@ LONG-LIVED. Read at resume; do not archive; do not let it rot.
 
 ## Fix-stories (from gates — NOT in {{PLAN}}; run first, must clear before the epic gate closes)
 ### EPIC-0X
-- [pending] F-0X.1 <title> — source: {{REVIEWS_DIR}}code-review-EPIC-0X.md, finding #3 [blocker]
-- [done]    F-0X.2 <title> — source: {{REVIEWS_DIR}}regression-EPIC-0X-r1.md, finding #1 — commit def456
+- [pending] F-0X.1 <title> — finding: "<verbatim from the gate's return>" [blocker] — source: {{REVIEWS_DIR}}code-review-EPIC-0X.md #3
+- [done]    F-0X.2 <title> — finding: "<verbatim>" — source: {{REVIEWS_DIR}}regression-EPIC-0X-r1.md #1 — commit def456
 (empty if none)
 
 ## Story status
@@ -300,7 +306,7 @@ You are **not** a writer of `{{PLAN}}`. The backlog is fixed. Gate findings beco
 3. Every story gets a `story-scoper` before an engineer. No exceptions.
 4. Every story gets an independent `story-reviewer` against its acceptance criteria before `done`. No exceptions, including trivial stories.
 5. The state file is written after **every** story, before the next one starts, and only by you.
-6. Engineers and reviewers get the path to the scoper's brief. Never the full backlog, never prior story history, never this skill.
+6. A dispatch carries the role, the story ID, the paths to read, and only the inline values the agent cannot get from disk. Engineers and reviewers get the *path* to the scoper's brief — never pasted file contents, never the full backlog, never prior story history, never this skill.
 7. Never skip, reorder against `deps`, or mark optional any story from `{{PLAN}}`. Sequencing is fixed by the plan; you choose only when to dispatch. **Exception:** fix-stories produced by a gate are *appended* to the current epic and must clear before the next epic starts. Appending a gate's fix-story is not reordering the plan.
 8. **Don't re-verify what a gate already verified.** The engineer runs the checks, the reviewer re-runs the diff-affected subset and audits the engineer's raw output, `regression-run` proves full green at each epic boundary. Trust their reported runs. You have no Bash tool by design. If a verdict is genuinely ambiguous, dispatch a subagent to re-verify; do not do it yourself.
 9. **Parallel by default, up to {{MAX_PARALLEL}}** — gated on the four conditions. Scopers always parallel. A story that fails a condition waits alone; the batch does not.

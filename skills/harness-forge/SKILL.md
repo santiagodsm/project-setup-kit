@@ -113,7 +113,7 @@ Generated harnesses break in exactly these five places.
 
 **2. Artifact ownership.** Every read has exactly one writer. Draw the table. Orphan read → the agent invents the file. Two writers on the state file → clobbered mid-story. A report with no declared path, while something else builds a pointer into it → unconstructable.
 
-**3. Return contracts.** The orchestrator does not read the files, so everything it needs is in the *returns*. It records a commit hash and a date and has no Bash and no clock → the engineer returns both. It builds `source: <report>, finding #3` → every gate returns findings **numbered**, with its report filename.
+**3. Return contracts — and their dispatch mirror.** The orchestrator does not read the files, so everything it needs is in the *returns*. It records a commit hash and a date and has no Bash and no clock → the engineer returns both. It writes each fix-story's state-file line — the finding's text **verbatim** plus `source: <report> #3` — from the return alone → every gate returns findings **numbered**, self-contained, with its report filename (the finding text must live in the tracked state file, because the reports are gitignored and vanish on a fresh clone). The symmetric rule binds dispatches: a prompt carries the role, the ID, the paths to read, and only the values the callee cannot get from disk — never the contents of a file that is on disk.
 
 **4. Dispatch reachability.** Story roles are **agents** → `subagent_type`. Gates are **skills, not agents** → the orchestrator has no `Skill` tool, so it dispatches a general-purpose subagent told to invoke the skill. State this, or the gate is unreachable and gets quietly skipped.
 

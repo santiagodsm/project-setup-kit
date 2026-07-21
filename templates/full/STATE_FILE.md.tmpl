@@ -76,11 +76,11 @@ Every entry is tagged with the story that produced it and the epic it constrains
 
 ## Fix-stories (from gates — NOT in `{{PLAN}}`; run first, must clear before the epic gate closes)
 
-The `source:` pointer is **load-bearing: it is the only place the fix-story's acceptance criteria exist.** The orchestrator builds it from the gate's *return* alone (which is why every gate must return findings **numbered** with its report filename) and never opens the report. The scoper resolves the pointer; if it cannot, it **refuses to scope rather than invent AC**.
+The **`finding:` text is load-bearing: it is the fix-story's acceptance criteria, and this file is its tracked home.** The orchestrator writes the whole line from the gate's *return* alone (which is why every gate must return findings **numbered** with its report filename) and never opens the report. The `source:` pointer is the route to the finding's full detail — but the reports are **gitignored**, so a pointer alone would lose every open fix-story's AC on a fresh clone. The scoper scopes from the `finding:` text, reads the report for detail when it exists, and **refuses to scope rather than invent AC** if it can recover neither.
 
 ### <EPIC-ID>
-- `[pending]` **F-XX.1** <one-line title> — source: `{{REVIEWS_DIR}}code-review-<EPIC-ID>.md`, finding #3 [blocker]
-- `[done]` **F-XX.2** <one-line title> — source: `{{REVIEWS_DIR}}regression-<EPIC-ID>-r1.md`, finding #1 — commit `<hash>`
+- `[pending]` **F-XX.1** <one-line title> — finding: "<verbatim from the gate's return>" [blocker] — source: `{{REVIEWS_DIR}}code-review-<EPIC-ID>.md` #3
+- `[done]` **F-XX.2** <one-line title> — finding: "<verbatim>" — source: `{{REVIEWS_DIR}}regression-<EPIC-ID>-r1.md` #1 — commit `<hash>`
 
 (empty if none)
 

@@ -111,4 +111,4 @@ Not a style preference. A question that can't be answered in four seconds gets n
 
 ## Design notes
 
-`KIT_DESIGN.md` holds the locked decisions (KD-001…015) and the rationale. Read it before changing anything here.
+`KIT_DESIGN.md` holds the locked decisions (KD-001…018) and the rationale. Read it before changing anything here.

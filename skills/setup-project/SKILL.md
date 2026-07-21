@@ -103,6 +103,8 @@ Do not generalize the harness's rule to here, and do not generalize this excepti
 
 The restriction is deliberate: it is what keeps your context flat across a chain that spans sessions. Dispatch, take the capped return, record it, move on. Read a produced file only when you need one specific value from it (the `<!-- GATE -->` banner, the `<!-- TIER -->` marker, the first eligible story).
 
+**What a dispatch carries:** the skill name, the mode if any (AMEND / FIX / RE-TIER), the inputs by *path*, and only the values the skill cannot read from disk — the numbered findings from a prior return, the user's answers to blocking questions, plain-language ask wording for a notify task. Never paste a produced file's contents into a prompt: the skill reads files itself, with better tools than you have, and everything you paste sits in your context for the rest of the chain.
+
 Write `SETUP_PROGRESS.md` **after every step**. Setup spans sessions. A crash should cost at most one step.
 
 ## Reaching the user when the chain stops

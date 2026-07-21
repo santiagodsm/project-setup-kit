@@ -83,10 +83,10 @@ Keep every entry to **one concrete line** an engineer could build against. Tag i
 
 ### Repair stories (from a RED `regression-run` — NOT in `{{PLAN}}`; run first, must clear before the phase gate closes)
 
-Each is minted from a **numbered** finding in `regression-run`'s return. The orchestrator holds that return in context and pastes the finding's text straight into the scoper's dispatch prompt — **it never opens the report file.** Record the finding's report + number here only as an audit trail; the acceptance criteria travel in the dispatch prompt, not through this line.
+Each is minted from a **numbered** finding in `regression-run`'s return. The orchestrator writes the finding's text **verbatim** onto the `finding:` line — this tracked file is the AC's home, because the report is gitignored and the orchestrator's context does not survive a handoff — and pastes that text into the scoper's dispatch prompt. **It never opens the report file**; the report + number reference is the audit trail.
 
-- `[pending]` **R-<N>.1** <one-line title> — from `regression-<PHASE>-r1.md` finding #3
-- `[done]` **R-<N>.2** <one-line title> — from `regression-<PHASE>-r1.md` finding #1 — commit `<hash>`
+- `[pending]` **R-<N>.1** <one-line title> — finding: "<verbatim from the gate's return>" — from `regression-<PHASE>-r1.md` #3
+- `[done]` **R-<N>.2** <one-line title> — finding: "<verbatim>" — from `regression-<PHASE>-r1.md` #1 — commit `<hash>`
 
 (empty if none)
 

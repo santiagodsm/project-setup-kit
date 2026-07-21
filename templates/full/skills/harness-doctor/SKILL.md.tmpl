@@ -78,10 +78,12 @@ Every component someone is told to invoke must be invocable **by that caller, wi
 For every producer→consumer pair, does the producer's **declared return** contain everything the consumer's procedure requires? The consumer cannot read the producer's mind, and often cannot read the producer's file either.
 
 - The orchestrator must record a commit hash and a date, but has **no Bash and no clock**, and no subagent's return contract carries either.
-- The orchestrator must build a pointer like `source: <report>, finding #3`, but never reads gate reports, and no gate's return contract carries the finding **number**.
+- The orchestrator must write a fix-story line — verbatim finding text plus `source: <report> #3` — but never reads gate reports, and no gate's return contract carries the finding **number** or a pasteable finding text. Related: acceptance criteria whose only home is a **gitignored** report — load-bearing content in an untracked file is lost on a fresh clone.
 - A gate writes `report-<EPIC>-<date>.md` but is dispatched twice per gate cycle → same filename, silent overwrite, and every pointer into the first report now resolves to different content.
 
 This check finds the subtlest bugs. Trace at least one full happy path end to end, naming every input at every hop.
+
+Then check the inverse — **excess**. A return contract or dispatch instruction that carries what a named file already holds: a return that includes the brief's or report's contents, a dispatch told to paste a file an agent could read by path. **MAJOR.** Nothing fails when this rots in — the work still succeeds — the orchestrator's context just stops being flat, and sessions quietly shorten. Sufficiency breaks loudly at the next hop; excess never breaks at all, which is exactly why it must be audited. (Bounded inline values the consumer cannot get from disk — a pasted gate finding, a model override, ask wording — are correct, not excess.)
 
 ### 5. Doc-vs-skill contradiction
 `CLAUDE.md`, the skills, and the state file's operating-facts must agree. When they disagree, the agent obeys whichever it read most recently or most literally — which is not the one you meant.

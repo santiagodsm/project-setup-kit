@@ -57,7 +57,7 @@ Your value over `story-reviewer` is the **composite**. Story review sees one dif
 
 Write the detail to `{{REVIEWS_DIR}}code-review-<EPIC-ID>.md` (gitignored; create the dir if missing). **Number every finding.** For each: severity (blocker/major/minor), `file:line`, the defect, the concrete failure scenario, the fix, and CONFIRMED vs PLAUSIBLE.
 
-The numbering is load-bearing. Each finding becomes a fix-story whose state-file line reads `source: {{REVIEWS_DIR}}code-review-<EPIC-ID>.md, finding #3`. A scoper reads that finding and turns it into acceptance criteria — **your finding is the only place that fix-story's AC will ever exist.** A vague or unnumbered finding becomes a fix-story with invented AC, and an engineer confidently fixing the wrong thing.
+The numbering is load-bearing. Each finding becomes a fix-story whose state-file line carries **your returned finding text verbatim** (that text *is* the fix-story's AC — recorded in the tracked state file, because this report is gitignored and vanishes on a fresh clone) plus `source: {{REVIEWS_DIR}}code-review-<EPIC-ID>.md #3` pointing at your full detail. A vague or unnumbered finding becomes a fix-story with invented AC, and an engineer confidently fixing the wrong thing.
 
 **Return to the orchestrator: severity-ranked headlines only, one line each, under ~150 words.** The orchestrator holds your return in context for the entire remaining session and has no way to discard it. An epic-composite review essay pasted into a return is a permanent tax on every story that follows. Format:
 
@@ -69,7 +69,7 @@ CODE-REVIEW <EPIC-ID> — <n> blocker / <n> major / <n> minor. Detail: {{REVIEWS
 RECOMMENDATION: safe to proceed | fix blockers first
 ```
 
-**Every headline must carry its `#N`, matching the numbering in your report file.** The orchestrator never reads your report — it builds each fix-story's pointer (`source: {{REVIEWS_DIR}}code-review-<EPIC-ID>.md, finding #2`) purely from this return. Omit the number and the pointer cannot be constructed, the scoper cannot locate the finding, and it will refuse to scope the fix-story rather than invent acceptance criteria. The gate then stalls.
+**Every headline must carry its `#N`, matching the numbering in your report file, and be self-contained enough to paste as a fix-story's `finding:` line.** The orchestrator never reads your report — it writes each fix-story's state-file line (verbatim finding + `source: {{REVIEWS_DIR}}code-review-<EPIC-ID>.md #2`) purely from this return. Omit the number, or return a headline too vague to act on, and the scoper will refuse to scope the fix-story rather than invent acceptance criteria. The gate then stalls.
 
 Findings become **fix-stories** the orchestrator appends to the current epic. You do not open, schedule, or write stories yourself, and you do not write `{{STATE_FILE}}`. A blocker that is a **security or data-loss defect** should be called out as such — those are the only findings the orchestrator escalates rather than schedules.
 

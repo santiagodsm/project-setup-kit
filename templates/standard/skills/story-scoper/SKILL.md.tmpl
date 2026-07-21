@@ -66,11 +66,12 @@ This is a mechanical chore, not a role change. **Never commit anything else**, a
 
 ## The brief file (`{{BRIEFS_DIR}}<STORY-ID>-brief.md`)
 
-This is read by **both** the engineer and the reviewer. The reviewer checks the diff against your `FILES` list and your `VERIFY WITH` list, so those two sections are contracts, not suggestions. Aim for one page. No preamble, no restating the design in prose.
+This is read by **both** the engineer and the reviewer — but not the same way, and the `CONTRACTS:` line is the disclosure map that says so. The reviewer judges against `AC`, `FILES`, and `VERIFY WITH` (plus `OVERRIDES` and the quoted facts, for design fidelity); `REUSE THESE SEAMS` and `SAFE FOR ENGINEER TO SETTLE` exist for the engineer alone. `FILES` and `VERIFY WITH` are contracts, not suggestions. Aim for one page. No preamble, no restating the design in prose.
 
 ```
 STORY: <ID> — <title>  (size: S/M/L)
 TOUCHES DB: yes / no
+CONTRACTS: engineer — every section · reviewer — AC, FILES, VERIFY WITH (+ OVERRIDES and the facts, for design fidelity)
 DESIGN: §<refs> — distilled below. The engineer should NOT need to open the design.
 OVERRIDES: <every Decisions & deviations entry that supersedes the design text — this tier has no docs-sync, so the design will NEVER be corrected>  (or "none")
 
