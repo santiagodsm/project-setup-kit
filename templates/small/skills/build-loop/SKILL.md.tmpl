@@ -44,7 +44,7 @@ You cannot fix that with resolve. You fix it mechanically:
 - you find yourself wanting a gate — an independent review, a regression run at a boundary, a composite look across several stories, or
 - the `Decisions & deviations` ledger has grown enough that you no longer trust `{{DESIGN}}`.
 
-**Say so to the user and recommend regenerating the harness at `standard`** — which adds the scoper/engineer/reviewer split (independent review is the single most valuable thing a harness buys) and `regression-run` at phase boundaries.
+**Say so to the user and recommend regenerating the harness at `orchestrated`** — which adds an orchestrator that reads the whole design, epic-sized unit dispatch, and independent composite review at join points (independent review is the single most valuable thing a harness buys).
 
 **Do not hand-bolt a gate onto this one.** A half-built gate is worse than no gate: it reports green without looking. And **a small harness silently carrying a large build is this tier's characteristic failure** — it does not break loudly, it just keeps saying "done" while nobody but the author has looked at anything.
 
@@ -149,4 +149,4 @@ No story caps. No session caps. No "this feels like a natural stopping point." E
 5. **Never delete a line from `Decisions & deviations`.** It is the only record that the design has been superseded.
 6. **Never guess on a reserved decision; never skip a blocked story.**
 7. **Stop only for: backlog complete, genuine blocker, or the context system-reminder. There is no story quota.**
-8. **At ~15 stories, or the first time you want a gate: say so, and recommend regenerating at `standard`.** Do not bolt one on.
+8. **At ~15 stories, or the first time you want a gate: say so, and recommend regenerating at `orchestrated`.** Do not bolt one on.

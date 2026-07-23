@@ -1,7 +1,7 @@
 ---
 name: api-contract-sync
 version: 1.0.0
-description: "Keep the client's typed API bindings in sync with the backend contract and fail on drift. Use after any backend endpoint/schema change and as a CI gate before frontend stories consume an endpoint."
+description: "Keep the client's typed API bindings in sync with the backend contract and fail on drift. Use after any backend endpoint/schema change and as a CI gate before frontend code consumes an endpoint."
 allowed-tools:
   - Read
   - Grep
@@ -16,16 +16,16 @@ metadata:
 
 # api-contract-sync
 
-> **Emitted only when `{{CONTRACT_GEN_COMMAND}}` is set.** A project with no generated client does not get this gate — and `story-reviewer` must not reference it.
+> **Emitted only when `{{CONTRACT_GEN_COMMAND}}` is set.** A project with no generated client does not get this gate — and nothing in the harness may reference it.
 
 The design commits to a **generated** typed client. Drift between the backend contract and that client is a bug class this skill prevents.
 
 ## Two modes — pick by caller. Getting this wrong breaks the review gate.
 
-- **WRITE mode** — caller is `story-implementer` (or a human in a story). Run `{{CONTRACT_GEN_COMMAND}}`, regenerate the client in place, and **commit the regenerated artifacts with the story**.
-- **CHECK-ONLY mode** — caller is `story-reviewer`, `regression-run`, or CI. **Never write the client in place. Never commit.** Regenerate into a temp dir, diff, report.
+- **WRITE mode** — caller is a **unit agent** mid-unit (or a human). Run `{{CONTRACT_GEN_COMMAND}}`, regenerate the client in place, and **commit the regenerated artifacts with the unit's work**.
+- **CHECK-ONLY mode** — caller is **the orchestrator at a join**, `join-review`, or CI. **Never write the client in place. Never commit.** Regenerate into a temp dir, diff, report.
 
-  A reviewer that regenerates and commits the client is modifying the code it is supposed to be independently judging, and the story's out-of-scope gate then passes on a diff the reviewer itself created.
+  A reviewer that regenerates and commits the client is modifying the code it is supposed to be independently judging, and the join review then passes on a diff the reviewer itself created.
 
 If you were not told which mode, **you are in CHECK-ONLY.** Assume the safe one.
 
@@ -35,15 +35,15 @@ If you were not told which mode, **you are in CHECK-ONLY.** Assume the safe one.
 2. Regenerate the client — in place (WRITE mode) or into a temp dir (CHECK-ONLY).
 3. Diff against the committed client.
 4. If they differ:
-   - **CHECK-ONLY / CI:** **fail** and report the drift. The client is stale; the change author regenerates and commits it. Stop here.
-   - **WRITE (in a story):** regenerate, commit the client with the story, and confirm the frontend still type-checks (`{{TYPECHECK_COMMAND}}`).
+   - **CHECK-ONLY / CI:** **fail** and report the drift. The client is stale; the owning unit's agent regenerates and commits it. Stop here.
+   - **WRITE (mid-unit):** regenerate, commit the client with the unit's work, and confirm the frontend still type-checks (`{{TYPECHECK_COMMAND}}`).
 5. Verify the uniform error-contract shape and the pagination envelope are represented in the client types.
 
-## The failure this gate does NOT catch (know it, and cover it in the story)
+## The failure this gate does NOT catch (know it, and cover it in the unit)
 
 Drift ≠ downstream-consumer breakage. A regeneration can be *drift-free* by this gate's definition and still red the frontend type-check, because the generator renamed a schema key on a name collision and an existing consumer still imports the old name.
 
-**So in WRITE mode, after regenerating, always run `{{TYPECHECK_COMMAND}}` and fix any renamed-schema consumer within the same story.** The drift check alone will pass and the build will still be broken.
+**So in WRITE mode, after regenerating, always run `{{TYPECHECK_COMMAND}}` and fix any renamed-schema consumer within the same unit.** The drift check alone will pass and the build will still be broken.
 
 ## Guardrails
 

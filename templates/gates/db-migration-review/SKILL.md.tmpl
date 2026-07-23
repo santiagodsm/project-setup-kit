@@ -8,8 +8,8 @@ allowed-tools:
   - Glob
   - Bash
   # Write stays even though this gate writes nothing (writes: []): allowed-tools
-  # intersect down, and story-reviewer loads this gate mid-review — dropping Write
-  # here would strip the reviewer of the tool its own review file needs.
+  # intersect down, and a unit agent may load this gate mid-unit — dropping Write
+  # here would strip that agent of a tool the rest of its work needs.
   - Write
 metadata:
   role: reviewer
@@ -19,7 +19,7 @@ metadata:
 
 # db-migration-review
 
-> **Emitted only when `{{MIGRATION_TOOL}}` is set.** A project with no migration tool does not get this gate — and `story-reviewer` must not reference it.
+> **Emitted only when `{{MIGRATION_TOOL}}` is set.** A project with no migration tool does not get this gate — and nothing in the harness may reference it.
 
 Review a migration for standards compliance, safety, and fidelity to the design DDL.
 
@@ -40,8 +40,8 @@ Review a migration for standards compliance, safety, and fidelity to the design 
 
 Prove `{{MIGRATION_UP}}` → `{{MIGRATION_DOWN}}` → `{{MIGRATION_UP}}` on a database that is **not** the live dev DB. Which one depends on who called you:
 
-- **Called by `story-reviewer` (per-story gate):** use a **scratch database on the existing `{{DB_CONTAINER}}` container**. {{DB_ISOLATION}} — run the cycle, then drop it. Cheap, isolated, no container spin-up. **Never run the cycle against the live database on `{{DB_CONTAINER}}`** — that is the database other checks depend on, and a full downgrade against it destroys the state the rest of the story's tests need. This is not theoretical: on the project this gate came from, running the story-review and the migration review concurrently against the shared dev DB caused transient reds and an OOM. A scratch DB removes the contention entirely.
-- **Called by `regression-run` (epic gate) or before a release:** use a **genuinely fresh {{DATABASE}}**. An epic stacks several migrations, and stacked migrations from a clean slate are exactly where reversibility breaks. A scratch DB on a warm container is not sufficient there.
+- **Called by a unit agent (mid-unit):** use a **scratch database on the existing `{{DB_CONTAINER}}` container**. {{DB_ISOLATION}} — run the cycle, then drop it. Cheap, isolated, no container spin-up. **Never run the cycle against the live database on `{{DB_CONTAINER}}`** — that is the database other checks depend on, and a full downgrade against it destroys the state the rest of the unit's tests need. This is not theoretical: on the project this gate came from, running the test suite and the migration cycle concurrently against the shared dev DB caused transient reds and an OOM. A scratch DB removes the contention entirely.
+- **Called by the orchestrator at a join, or before a release:** use a **genuinely fresh {{DATABASE}}**. A join stacks several migrations, and stacked migrations from a clean slate are exactly where reversibility breaks. A scratch DB on a warm container is not sufficient there.
 
 ## Output
 

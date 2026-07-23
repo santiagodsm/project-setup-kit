@@ -1,0 +1,76 @@
+# PROGRESS — {{PROJECT}}
+
+**Read this file cold to know exactly where the build stands and what to dispatch next.**
+Updated after every dispatch and every return, never batched, so a crash or context reset loses at most one unit's status.
+
+- Design contract: `{{DESIGN}}` (locked ADRs + open register + your dated `> AMENDED` rulings).
+- Backlog: `{{PLAN}}` (stories + ACs; **`## Dispatch units`** is what you dispatch from).
+- Operating rules: `CLAUDE.md`. The loop: `.claude/skills/orchestrate-build`.
+
+**Harness tier: ORCHESTRATED. The orchestrator is the ONLY writer of this file.** Unit agents report back in their return; you record it here. Two writers is how a source of truth gets clobbered mid-unit.
+
+**Statuses: `todo` · `wip` · `done` · `blocked` · `partial`.** `partial` is first-class, not a euphemism: it means the unit's return declared work owed (named in its row), and the owed work is scheduled. **A row marked `done` that is not done is a silently wrong number** — `partial` exists so nobody has a reason to write one.
+
+---
+
+## NEXT ACTION
+
+Dispatch **U<N>** (<title>) — brief per the 7-part skeleton in `orchestrate-build`; owned tree `<tree>`; live in parallel: <none | U<M> on `<tree>`>. Next because <deps done / next in unit order / join drained>.
+
+**ENV:** <migration head / running services / anything a session would otherwise re-discover>. `{{CHECK_COMMAND}}` is self-contained-green ({{CHECK_PRECONDITIONS}}).
+
+---
+
+## Standing facts (stable — do not let this rot)
+
+- **Git:** remote `origin` = <url>; branch `{{BRANCH}}`. Unit agents commit their own tree ({{COMMIT_FORMAT}} + trailer); the orchestrator commits this file and design rulings.
+- **Walking skeleton (U0):** run it with `<command>`, expect `<what a healthy run shows>`. **Re-verify at every join** — it is the continuously-running integration check.
+- **Parallelism:** cap {{MAX_PARALLEL}}, file-tree disjointness only, `run_in_background: true`. {{DB_PARALLEL_RULE}}
+- **Joins:** drain (nothing `wip`) → `{{CHECK_COMMAND}}` → skeleton re-run → `join-review` (opus) → conditional gates whose trigger tree changed → record → commit.
+- **Env facts (do not re-discover):** <toolchain versions, ports, network availability>.
+- **Repo-side TODOs (user-only):** <credentials, CI, branch protection — anything unreachable from here>.
+
+---
+
+## Dispatch units
+
+Status only here — member stories, trees, deps, and ACs live in `{{PLAN}}` → Dispatch units.
+
+| Unit | Title | Status | Commits | Note |
+|---|---|---|---|---|
+| U0 | <walking skeleton> | todo | | must be shown running against real data before U1 dispatches |
+| U1 | <title> | todo | | |
+| U2 | <title> | todo | | e.g. `partial` — <exactly what is owed, from the unit's return> |
+
+**Joins:** J1 after <U0> — <GREEN <date> / RED: why / not yet run> · review: `{{REVIEWS_DIR}}join-review-J1.md`, <n> findings, <fixed how>.
+
+---
+
+## Session log (most recent first)
+
+- <ISO date> — U<N> returned: <one line from its report — done/partial, what it could not verify>. Gate <green/red>. Skeleton <runs/broken>. **Next: <dispatch>.**
+
+---
+
+## Escalations & rulings (append-only)
+
+Each line is a contradiction or reserved decision an agent stopped on, and how it was settled. Rulings also live in `{{DESIGN}}` as `> AMENDED (<date>, <unit>):` blocks — this log is the index.
+
+- <ISO date> **U<N>** — <the question in one line> → **RULED:** <ruling + design citation>; amended `{{DESIGN}}` §<n>.
+- <ISO date> **U<N>** — <question> → **ASKED USER** (reserved in the open register); waiting / answered: <answer>.
+
+---
+
+## Decisions & deviations (NEVER DELETE A LINE FROM HERE)
+
+Deviations from the design that were *not* worth a design amendment — implementation-detail calls a unit made and reported. An entry here beats the design text; read it before writing any brief that touches the same area.
+
+- **U<N>**: <the decision future units must respect, stated concretely enough to build against>.
+
+---
+
+## Blockers (clear before dependents dispatch)
+
+- **U<N>**: <precise reason + what was tried + the specific ask pushed via the notifier>.
+
+(empty if none)

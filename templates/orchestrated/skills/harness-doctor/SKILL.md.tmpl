@@ -1,0 +1,88 @@
+---
+name: harness-doctor
+version: 2.0.0
+description: "Audit the {{PROJECT}} build harness itself (CLAUDE.md + .claude/skills/* + {{STATE_FILE}}) for unresolved placeholders, contradictions, unreachable dispatches, reintroduced per-story machinery, and broken concurrency wiring. Run after ANY edit to the harness and before the first build session of a newly generated one — not on a schedule. Use when the user says 'check the harness', 'audit the skills', 'did I break the orchestration'."
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+  - Write
+metadata:
+  role: reviewer
+  reads: [CLAUDE.md, .claude/skills/**/SKILL.md, {{STATE_FILE}}, .gitignore, build files]
+  writes: [{{REVIEWS_DIR}}harness-doctor-<date>.md — never a skill, never CLAUDE.md, never product code]
+---
+
+# harness-doctor — audit the harness, not the product
+
+The harness is a distributed system whose components are prose files. Nothing type-checks it: a skill can demand a tool it was never granted, reference a command that does not exist, or contradict `CLAUDE.md`, and everything looks fine until an agent improvises past the gap and a check you believe in has quietly stopped running. You are the type-checker. You **report only** — a doctor that rewrites the thing it is diagnosing has destroyed the audit.
+
+Read all of: `CLAUDE.md`, every `.claude/skills/*/SKILL.md`, `{{STATE_FILE}}`, `.gitignore`, and enough of the build files to verify that commands the skills invoke exist. Then check claims against the repo with bash/git. A path a skill references either exists or is a declared template placeholder; there is no third option.
+
+### 0. Unresolved placeholders   <!-- PLACEHOLDER-LITERAL --> (run this FIRST)
+
+```bash
+PATTERN='{{'   # PLACEHOLDER-LITERAL — the tag keeps this one line out of its own results
+grep -rn -e "$PATTERN" --include='*.md' --exclude-dir=.git \
+  CLAUDE.md .claude/ {{STATE_FILE}} 2>/dev/null | grep -v 'PLACEHOLDER-LITERAL'
+```
+
+**Zero hits. Every hit is a BLOCKER.** An unresolved placeholder does not throw: an agent reading a check command left as a placeholder will infer a plausible command, run it, and report green — the verification you believe in has silently stopped. Same for a stray `#IF` conditional block whose markers were never deleted.
+
+**Why the filter, and why it is line-scoped:** this skill must *name* the pattern to search for it, so the one line above that quotes it is tagged `PLACEHOLDER-LITERAL` and filtered out — otherwise you flag yourself on every run, forever. **Filter the tagged line, never the whole file** — this file also carries real placeholders that must resolve, and excluding it wholesale ships a doctor whose own report path is a literal placeholder.
+
+### 1. Tool sufficiency — and deliberate affordance, not just deliberate restriction
+
+Does each skill's `allowed-tools` cover everything its own procedure demands? `orchestrate-build` needs Bash (it runs `{{CHECK_COMMAND}}`, commits, calls the notifier), Agent (dispatches), Write/Edit (state file, AMENDED blocks). `join-review` needs Write (its report) and Bash (narrow re-runs).
+
+**The orchestrator's full toolset is the tier's design, not a leak.** Older tiers denied the orchestrator Bash/Grep/Glob; this one reverses that on purpose (HARNESS-REDESIGN.md §2.1). A finding that "fixes" the orchestrator back into a tool-starved dispatcher — or that adds a restriction because another tier had one — is itself the defect. Read why a tool is present or absent before flagging.
+
+### 2. Reintroduced per-story machinery — grep for it explicitly
+
+This tier's predecessor died of ceremony. Flag as **MAJOR** (BLOCKER if wired into the loop) any of: a scoper role or "dispatch an agent to write the brief"; a per-unit independent reviewer; per-unit evidence files the orchestrator must audit; fix-story minting; an epic-gate chain that runs twice; a full `{{CHECK_COMMAND}}` required inside every unit. Review exists once per join (`join-review`); briefs are written by the orchestrator from its own reading. Anything else is the old harness growing back under new names.
+
+### 3. Single writer, single authority
+
+- `{{STATE_FILE}}` has exactly one writer: the orchestrator. Grep every skill for instructions to update/write the state file — a second writer is a clobber waiting to happen. **BLOCKER.**
+- `{{DESIGN}}` is written by exactly one hand for exactly one purpose: the orchestrator's dated `> AMENDED` blocks. A skill telling anyone else to edit the design → **BLOCKER.**
+- The invariants block lives in `CLAUDE.md` **once**. A skill restating it (rather than pointing at it) → **MAJOR** — the copy diverges from the original and agents obey whichever they read last.
+- Where files disagree, the declared authority is `orchestrate-build`. If no file says so, that is a finding.
+
+### 4. Dispatch reachability and gate wiring
+
+- Everything someone is told to invoke must be invocable by that caller with that caller's tools. Gate skills (`join-review`{{#IF MIGRATION_TOOL}}, `db-migration-review`{{/IF}}{{#IF CONTRACT_GEN_COMMAND}}, `api-contract-sync`{{/IF}}{{#IF TOKENS_FILE}}, `design-token-lint`{{/IF}}{{#IF DEPENDENCY_AUDIT}}, `dependency-security-audit`{{/IF}}{{#IF MCP_SERVERS}}, `mcp-scan`{{/IF}}{{#IF PERF_PROFILING}}, `perf-profiling`{{/IF}}) are dispatched from `orchestrate-build`'s join step — verify each referenced skill exists on disk and each skill on disk has a dispatcher. Dead skills are gates you think you have and don't.
+- A gate wired as a per-unit or per-story duty instead of a join-point dispatch → **MAJOR** (check 2's failure mode by another route).{{#IF RELEASE_RUNBOOK}} `release-runbook` must have no join-step dispatcher — user-ask only.{{/IF}}
+- `join-review`'s dispatch carries `model: opus` as a literal; unit dispatches carry **no** model override. Either inverted → **MAJOR.**
+
+### 5. Concurrency wiring — policy without an execution path is invisible
+
+- The background-dispatch instruction (`run_in_background: true`) exists in `orchestrate-build`. Absent → **BLOCKER**: "up to {{MAX_PARALLEL}} concurrent" then runs strictly one-at-a-time while every file still reads as parallel.
+- Joins, gates, and handoffs all state the **drain** precondition (nothing `wip`). Missing anywhere → **MAJOR** — the dangerous direction is a false green closing a join on unfinished work.
+- Anything treating a **launch as a completion** (recording `done` from a dispatch rather than a return) → **BLOCKER.**
+- `{{DB_PARALLEL_RULE}}` resolved to something vague or paraphrased rather than one canonical sentence → **MAJOR** — an agent reading a hedge takes the permissive reading.
+
+### 6. The walking skeleton is wired, not just praised
+
+U0-first appears in `CLAUDE.md`, `orchestrate-build`, and the plan's unit table; the join procedure includes the skeleton re-run; `{{STATE_FILE}}` has a slot for the skeleton's run command. A harness that names the skeleton but never re-verifies it has the rule without the mechanism → **MAJOR.**
+
+### 7. Early-stop residue and loop bounds
+
+Grep for unit caps, session caps, "~N units", "natural stopping point", "a reasonable amount of work". The harness declares one stop signal (backlog complete · genuine blocker · context system-reminder); any file offering a second → **MAJOR.** Every retry described anywhere must carry a bound.
+
+### 8. Paths, commands, and the notification channel
+
+- Every command a skill invokes (`{{CHECK_COMMAND}}`, `{{AFFECTED_TEST_COMMAND}}`, `{{LINT_COMMAND}}`, `{{TYPECHECK_COMMAND}}`) exists in the build files. Every named path exists. `{{REVIEWS_DIR}}` is gitignored (`git check-ignore -v`).
+- `{{NOTIFY}}` exists and is executable (missing → **BLOCKER**); `.claude/ASK_CONTRACT.md` exists (missing → **MAJOR**). **The orchestrator is told to call it directly — it has Bash.** An instruction to dispatch a notify-only task instead is dead ceremony from the tool-starved tier → **MINOR**, but flag it. Do not run `{{NOTIFY}} selftest` — it sends a real push.
+
+## Output
+
+Write full detail to `{{REVIEWS_DIR}}harness-doctor-<ISO-date>.md`. **Number every finding**; per finding: `#N`, severity, the files that disagree (with `file:line` quotes), the concrete runtime failure it produces, the fix. Severities: **BLOCKER** — the harness will fail or silently skip a check on the next run; **MAJOR** — a contradiction an agent will resolve wrongly under pressure; **MINOR** — stale reference, wrong today and load-bearing later.
+
+**Return a capped summary (~150 words):** counts by severity, the report filename, one numbered line per BLOCKER and MAJOR. Do not paste the report.
+
+## Guardrails
+
+- **Report only.** Someone else fixes; you diagnose.
+- **Verify against the repo, not the prose.** A skill asserting a file exists is not evidence; `ls` is.
+- **Trace, don't skim.** Walk one full happy path — session start → U0 dispatch → return → join → next dispatch — naming every input at every hop. Returning "clean" on a harness that has never been doctored means you skimmed.

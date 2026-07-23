@@ -1,7 +1,7 @@
 ---
 name: backlog-author
 version: 0.1.0
-description: "Turn DESIGN.md into PLAN.md — epics, stories, sizes, dependencies, and testable acceptance criteria, each citing the design section it implements. Refuses to run while design-author's verdict is BACKLOG BLOCKED. Step 6 of project setup. Use when the user says 'write the backlog', 'break this into stories', 'plan the build'."
+description: "Turn DESIGN.md into PLAN.md — epics, stories, sizes, dependencies, and testable acceptance criteria, each citing the design section it implements. On the orchestrated tier, also groups stories into dispatch units. Refuses to run while design-author's verdict is BACKLOG BLOCKED. Step 6 of project setup. Use when the user says 'write the backlog', 'break this into stories', 'plan the build'."
 allowed-tools:
   - Read
   - Write
@@ -28,7 +28,7 @@ You get **three rounds**. If the same acceptance criteria keep coming back untes
 ---
 
 
-Every agent in the generated harness trusts `PLAN.md` absolutely. The scoper reads acceptance criteria from it. The reviewer gates on those exact criteria. The orchestrator sequences on `deps`. Nothing second-guesses it.
+Every agent in the generated harness trusts `PLAN.md` absolutely. The orchestrator writes unit briefs from it and sequences on `deps`. Unit agents read acceptance criteria from it. `join-review` gates on those exact criteria. Nothing second-guesses it.
 
 Which means: **a plausible-sounding acceptance criterion that cannot be tested will pass review forever while nothing gets built.** The story goes green, the epic closes, and the feature does not exist. That is the failure you are here to prevent.
 
@@ -101,6 +101,22 @@ A design section with no story is the most common silent failure here: the desig
 
 Group stories into epics along **domain** lines, not layer lines. Order epics so that each one ends at a demonstrable state. Foundation first (repo, schema baseline, auth), then domains, then the cross-cutting work that needs them all.
 
+## Dispatch units — orchestrated tier only
+
+If `PRD.md` carries `<!-- TIER: orchestrated -->`, there is one final authoring step after the stories are written. (On `<!-- TIER: small -->` the plan is unchanged — stop at the coverage map.)
+
+The orchestrated build harness dispatches **epic-sized units, not stories**. Stories stay exactly as written above — IDs, ACs, sizes, deps untouched; they become the checklist *inside* a unit's brief. Your job is to group them into a `## Dispatch units` section in `PLAN.md`.
+
+Each unit carries: an **ID** (`U0`, `U1`, …), a **name**, its **member story IDs**, **the file trees it owns** (read them off the member stories' design citations), its **dependencies on other units**, and a one-line **"why this is one unit"**.
+
+**Sizing.** A unit is as much work as fits one agent's context while staying coherent — usually one architectural layer or one cohesive feature set. A ~60-story backlog should come out around 8–15 units. The merge rule (ORCHESTRATION.md): **"if unit N's agent must re-read unit N−1's output to understand its own job, they are one unit."** Any two units where the second would re-read the first's output get merged, whatever that does to the count.
+
+**U0 is always the walking skeleton** — the thinnest vertical slice through every layer that ends with a runnable artifact a user can see against real data. Name concretely what "runnable" means for this stack: a window opens, a server answers a request, a CLI runs end to end. U0's stories may be thin slices *of* later stories — that is expected, not a defect; note the overlap explicitly on the unit so later units know the skeleton code already exists. This is not optional polish: real data finds defect classes no synthetic fixture can, and a build that defers the first real run is accumulating unpriced risk (ORCHESTRATION.md §2.7).
+
+**The LAST unit is always integration**: every-contract-entry-answers coverage, a run against real data, fixtures crossing every numeric limit the design states, and probing each gate to demonstrate it can go red.
+
+**File trees must be pairwise disjoint wherever units are meant to run in parallel.** Where two units genuinely must touch one tree, add an explicit dependency edge between them instead of sharing it.
+
 ## Output — `PLAN.md`
 
 ```markdown
@@ -127,6 +143,13 @@ AC:
 | §11.5 recurring | S-09.1 | ✓ (deferrable gap, scheduled) |
 | §7.3 real-time | — | OUT OF SCOPE v1 |
 
+## Dispatch units          ← orchestrated tier only
+| ID | Name | Stories | Owns (file trees) | Deps | Why one unit |
+|---|---|---|---|---|---|
+| U0 | Walking skeleton | S-00.1, S-03.1(thin) | src/... | none | thinnest runnable slice; overlaps S-03.x — skeleton code exists when U3 starts |
+| U1 | <layer or feature set> | S-01.1…S-01.4 | src/... | U0 | one migration, one schema |
+| U<last> | Integration | S-<...> | test/integration/... | all | contract coverage, real data, limit fixtures, gate red-probes |
+
 ## Totals
 N stories (N S · N M · N L(split)) across N epics. Tier: <tier>.
 ```
@@ -142,6 +165,7 @@ N stories (N S · N M · N L(split)) across N epics. Tier: <tier>.
 - [ ] Every `L` is marked `L(split)` with sub-stories named.
 - [ ] No story is a layer.
 - [ ] Story count is roughly consistent with the tier. If it isn't, the tier was wrong — say so now, because the harness has already been sized to it.
+- [ ] Orchestrated tier only: every story sits in exactly one unit · U0 is a vertical slice with its "runnable" named concretely · the last unit is integration · parallel units' file trees are disjoint, with a dependency edge wherever they are not.
 
 ## Return (~130 words)
 
@@ -149,6 +173,7 @@ N stories (N S · N M · N L(split)) across N epics. Tier: <tier>.
 - **Coverage: N design sections, N with stories, N explicitly out of scope.** Any section with neither is a defect — name it.
 - Dep graph: acyclic, confirmed.
 - Deferrable register entries scheduled: N.
+- Orchestrated tier: unit count, and what U0's runnable artifact concretely is.
 - **The story you are least confident is testable as written.** Say which and why — that is the one that will pass review while building nothing.
 
 `setup-project` will now dispatch `plan-lint`. It is not optional, and you cannot skip it — you wrote this plan, which makes you the worst possible judge of whether its acceptance criteria are actually checkable. Every one of them feels obviously testable to the person who just wrote it.

@@ -1,6 +1,6 @@
 # SMALL-tier harness template — manifest
 
-**Not a subtraction from `full`.** `standard` is `full` minus gates; `small` is a genuinely different shape — **one role, one loop, one skill** — and it is written to be honest about what that costs rather than to look like a shrunken version of something bigger.
+**Not a subtraction from `orchestrated`.** `small` is a genuinely different shape — **one role, one loop, one skill** — and it is written to be honest about what that costs rather than to look like a shrunken version of something bigger.
 
 **For:** < ~15 stories (KD-002). Weekend and side projects.
 
@@ -18,7 +18,7 @@
 
 **No agents.** No `agents/` directory. The builder *is* the session.
 
-**No parallelism, and this one is structural rather than a trade.** The heavier tiers run up to `{{MAX_PARALLEL}}` stories concurrently because they have separate scoper/engineer/reviewer agents to run concurrently. This tier has **one** agent that does all three jobs in sequence for a single story — there is nothing here to run alongside anything. Serial is not a caution being exercised; it is what one loop means. **Do not "enable parallelism" at this tier.** If the build is big enough that concurrency would pay, that is the ~15-story upgrade trigger firing: regenerate at `standard`, which has the roles to parallelize.
+**No parallelism, and this one is structural rather than a trade.** The `orchestrated` tier runs up to `{{MAX_PARALLEL}}` unit agents concurrently on disjoint file trees. This tier has **one** agent working one story at a time — there is nothing here to run alongside anything. Serial is not a caution being exercised; it is what one loop means. **Do not "enable parallelism" at this tier.** If the build is big enough that concurrency would pay, that is the ~15-story upgrade trigger firing: regenerate at `orchestrated`, which has parallel unit agents.
 
 **No gates.** No `regression-run`, no `code-review`, no `docs-sync`, no migration/contract/token gates, no epic or phase boundaries, no fix-stories.
 
@@ -46,11 +46,11 @@ The `build-loop` skill says this in its own voice, in its second section, becaus
 
 - **The builder self-reviews.** The author is judging their own work. That is precisely the conflict of interest an independent reviewer removes, and it is not fixable with resolve — you read your own diff already believing it is correct, seeing what you meant rather than what you typed. Accepted, because at this size the orchestration overhead exceeds its value. Mitigated **mechanically**: per-AC citation, reading the diff cold as a diff, and letting the tests be the reviewer you don't have (which is why a red suite is non-negotiable and why a test that never went red proves nothing).
 - **No cross-story regression gate.** The full suite runs on every story instead — which is the same coverage at this scale, and would not be at 50 stories.
-- **Nothing folds deviations into the design.** Same hazard as `standard`, same compensation: a ledger that is never pruned.
+- **Nothing folds deviations into the design.** (The `orchestrated` tier's orchestrator writes dated AMENDED rulings into the design; this tier has no such actor.) Compensation: a ledger that is never pruned.
 
 ### The upgrade trigger (in `CLAUDE.md`, in `STATE_FILE.md`, and in the skill's rules)
 
-**If the build passes ~15 stories, or you catch yourself wanting a gate, or the ledger has grown enough that you no longer trust the design — the tier was wrong. Regenerate at `standard`. Do not hand-bolt a gate on.**
+**If the build passes ~15 stories, or you catch yourself wanting a gate, or the ledger has grown enough that you no longer trust the design — the tier was wrong. Regenerate at `orchestrated`. Do not hand-bolt a gate on.**
 
 **A small harness silently carrying a large build is the characteristic failure mode of this tier.** It does not break loudly. It keeps saying "done", story after story, while nobody but the author has looked at anything.
 
@@ -65,6 +65,6 @@ The `build-loop` skill says this in its own voice, in its second section, becaus
 | `.claude/scripts/notify.sh` | `{{NOTIFY}}`. Pushes an ask to the owner's phone via Pushover. **Refuses to send** an ask missing what's stuck / two options / a recommendation. Never fails its caller: a delivery problem exits 0 and prints to stderr, because a notification that can fail a build stops the build for a reason unrelated to the code. |
 | `.claude/ASK_CONTRACT.md` | What a question must contain to be answerable from a lock screen, and the no-jargon rule. Cited by every file that asks the user anything. |
 
-**Who calls it:** whoever *discovers* the blocker — they have `Bash` and they have the detail. **The orchestrator has no `Bash` and must not be given any**; it dispatches a notify-only task, exactly as it dispatches a commit-only task to flush the state file.
+**Who calls it:** whoever *discovers* the blocker — they have `Bash` and they have the detail. At this tier that is always the builder; in `orchestrated`, unit agents and the orchestrator alike call it directly.
 
 **No `Notification` hook is emitted into the repo.** The user installs one globally in `~/.claude/settings.json`; a per-project copy double-fires, and a channel that cries wolf gets muted before the one time it mattered.

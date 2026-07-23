@@ -1,7 +1,7 @@
 ---
 name: dependency-security-audit
 version: 1.0.0
-description: "Audit {{PROJECT}}'s dependencies and security posture: vulnerable packages, license issues, supply-chain risk, and the design's threat-model controls. Folded into the epic gate when the epic added or bumped a dependency, and unconditionally every 4th epic. Also use before a release."
+description: "Audit {{PROJECT}}'s dependencies and security posture: vulnerable packages, license issues, supply-chain risk, and the design's threat-model controls. Dispatched by the orchestrator at a join when the join added or bumped a dependency, and unconditionally every 4th join. Also use before a release."
 allowed-tools:
   - Read
   - Grep
@@ -13,7 +13,7 @@ allowed-tools:
 metadata:
   role: reviewer
   reads: [lockfiles, SBOM, the design's security section, CLAUDE.md, {{STATE_FILE}} (Dependency additions)]
-  writes: [{{REVIEWS_DIR}}security-audit-<EPIC-ID>.md — never {{STATE_FILE}}, never {{PLAN}}, never product code]
+  writes: [{{REVIEWS_DIR}}security-audit-<JOIN-ID>.md — never {{STATE_FILE}}, never {{PLAN}}, never product code]
 ---
 
 # dependency-security-audit
@@ -25,7 +25,7 @@ Two parts: dependency hygiene and application-security posture.
 - **Vulnerabilities:** scan the lockfiles ({{LOCKFILES}}) with the stack's auditors ({{AUDIT_COMMANDS}}); report CVEs with severity + fixed version.
 - **Licenses:** flag copyleft or otherwise incompatible licenses for this project's distribution model.
 - **Supply chain:** flag unpinned / unmaintained / typosquat-risk packages; confirm lockfiles are committed and CI installs from them.
-- **Minimalism:** the harness forbids introducing dependencies casually (`CLAUDE.md` do-not list). **Flag any dependency added outside an approved story** — cross-check the state file's `Dependency additions` section against the lockfile diff.
+- **Minimalism:** the harness forbids introducing dependencies casually (`CLAUDE.md` do-not list). **Flag any dependency no unit's brief or recorded decision approved** — cross-check the state file's `Dependency additions` section against the lockfile diff.
 
 ## Application-security posture (the design's security section)
 
@@ -41,7 +41,7 @@ Two parts: dependency hygiene and application-security posture.
 - License findings.
 - Security-posture checklist (ok / gap) with design-section references.
 
-Write the detail to **`{{REVIEWS_DIR}}security-audit-<EPIC-ID>.md`** and return a capped summary (~150 words) plus that filename. The orchestrator holds your return in context for the rest of the session; **do not paste CVE dumps into it.**
+Write the detail to **`{{REVIEWS_DIR}}security-audit-<JOIN-ID>.md`** (a join is identified by the unit(s) that closed it, e.g. `U3`) and return a capped summary (~150 words) plus that filename. The orchestrator holds your return in context for the rest of the session; **do not paste CVE dumps into it.**
 
-- Recommended fix-stories, ranked by severity. You **recommend**; the orchestrator records them in `{{STATE_FILE}}` under `Fix-stories`. Do not open stories, do not edit the state file, and do not edit `{{PLAN}}` (the backlog is fixed). Never mark a high-severity item "accepted" without an explicit user decision — return that as an *ask*, and the orchestrator records it.
-- **Number every finding, and make each one self-contained.** The orchestrator's fix-story line carries **your returned finding text verbatim** (that text becomes the fix-story's AC, in the tracked state file — this report is gitignored) plus `source: {{REVIEWS_DIR}}security-audit-<EPIC-ID>.md #2` for the full detail. Give each a stable number, the affected package + version, the CVE or control, and the concrete fix (target version, code change). A vague finding becomes a fix-story with invented AC.
+- Recommended fixes, ranked by severity. You **recommend**; the orchestrator fixes each finding directly or via one follow-up dispatch to the owning unit's agent, and records finding + resolution in `{{STATE_FILE}}`'s join row. Do not fix anything yourself, do not edit the state file, and do not edit `{{PLAN}}` (the backlog is fixed). Never mark a high-severity item "accepted" without an explicit user decision — return that as an *ask*, and the orchestrator records it.
+- **Number every finding, and make each one self-contained.** The orchestrator's join row carries **your returned finding text verbatim** (the state file is tracked; this report is gitignored) plus `source: {{REVIEWS_DIR}}security-audit-<JOIN-ID>.md #2` for the full detail. Give each a stable number, the affected package + version, the CVE or control, and the concrete fix (target version, code change). A vague finding gets the wrong fix.

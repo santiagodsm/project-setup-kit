@@ -11,16 +11,24 @@
 **KD-001 — Generator, not framework.**
 The kit emits a bespoke harness per project. It does not ship a parameterized universal harness with a config layer. Rationale: a generic scoper that doesn't know your ORM writes vague briefs; the value of a good scoper is precisely that it knows your stack. Baking the specifics in beats parameterizing them.
 
-**KD-002 — Tiered harness output.**
-`harness-forge` emits one of three tiers, chosen at setup by build size:
+**KD-002 — Tiered harness output.** *(AMENDED 2026-07-23 — see KD-019 and `HARNESS-REDESIGN.md`.)*
+`harness-forge` emits one of two tiers, chosen at setup by build size:
 
 | Tier | Emits | For |
 |---|---|---|
-| **small** | `CLAUDE.md` + plan + a single build loop. No gates, no epic boundaries. | < ~15 stories. Weekend/side projects. |
-| **standard** | + scoper/implementer/reviewer split, `regression-run`, `harness-doctor` | ~15–50 stories. |
-| **full** | + epic gates, `code-review`, `docs-sync`, migration/contract/token gates, fix-stories | 50+ stories, multi-session, months. |
+| **small** | `CLAUDE.md` + plan + a single build loop. No gates, no subagents. | < ~15 stories. Weekend/side projects. |
+| **orchestrated** | `CLAUDE.md` + `orchestrate-build` + `join-review` + `harness-doctor` + manifest gates. Epic-sized dispatch units, full gates at joins only. | ~15+ stories. |
 
 A tier can be upgraded in place later. Rationale: a heavyweight harness on a small project gets bypassed, and **a bypassed harness is worse than none — it lies about what is being checked.**
+
+> **AMENDED 2026-07-23.** The original ladder had three tiers (`small`/`standard`/`full`); `standard`
+> and `full` mandated a scoper→implementer→reviewer chain per story (3–7 subagent dispatches each,
+> full suite per story, a twice-running multi-gate epic boundary). Measured head-to-head on the same
+> product with the same design docs, that harness finished 8 of 62 stories while a hand-run
+> epic-unit orchestration finished the whole build in the same elapsed time (~19 dispatches total).
+> The per-story granularity pays the context-re-establishment toll per story and leaves no actor
+> holding the whole product — the two failure modes recorded in `HARNESS-REDESIGN.md` §1/§1a. Both
+> heavy tiers are replaced by `orchestrated` (KD-019).
 
 **KD-003 — Distribution: Claude Code plugin.**
 Skills + agents + commands, versioned and installable. Improvements propagate to new projects. Generated harnesses are forked into the target repo and are expected to diverge.
@@ -54,7 +62,7 @@ A verdict that lives only in an agent's return message **evaporates** — the ne
 
 | Signal | Marker | Written by | Read by |
 |---|---|---|---|
-| Build tier | `<!-- TIER: small\|standard\|full -->` in `PRD.md` | `project-brief` (and `setup-project`, **only** on a tier-mismatch re-forge) | `design-author`, `stack-decide` (RE-TIER), `harness-forge`, `plan-lint`, `setup-project` |
+| Build tier | `<!-- TIER: small\|orchestrated -->` in `PRD.md` | `project-brief` (and `setup-project`, **only** on a tier-mismatch re-forge) | `design-author`, `stack-decide` (RE-TIER), `harness-forge`, `plan-lint`, `setup-project` |
 | Backlog gate | `<!-- GATE: BACKLOG BLOCKED\|CLEAR -->` on line 1 of `DESIGN.md` | `design-author` | `backlog-author` |
 | Register status | `Status: NOT SPECIFIED — BLOCKING\|DEFERRABLE` | `design-author` | `backlog-author`, `plan-lint` |
 | Gate manifest | table in `STACK.md` | `stack-decide` (and `harness-forge`, **only** to resolve the `DEFERRED` perf row) | `harness-forge`, `harness-doctor` |
@@ -86,7 +94,7 @@ Manifest rows are tier-conditioned *at write time*. A tier-mismatch re-forge tha
 
 The kit is built on gates that stop rather than guess (KD-003, the `BACKLOG BLOCKED` verdict, the blocker protocol). Each one produces a *stopped run waiting on a person* — and **a stopped run is externally indistinguishable from a finished one.** The observed failure is not that the gate didn't fire; it is that it fired at 2am, nobody knew, and hours later a human told the next agent to carry on past it. The gate worked and cost nothing.
 
-So the channel is part of the harness, not an add-on: `scripts/notify.sh` (Pushover), copied into every generated repo, called by whoever *discovers* the blocker. **The orchestrator, at every tier, has no `Bash` and does not get any** — it dispatches a notify-only task, the same shape as the commit-only task it already dispatches to flush the state file. Same for `setup-project`, which delegates the push exactly as it delegates every step (KD-014). The restriction is load-bearing; the notification does not get to erode it.
+So the channel is part of the harness, not an add-on: `scripts/notify.sh` (Pushover), copied into every generated repo, called by whoever *discovers* the blocker. `setup-project` has no `Bash` and delegates the push exactly as it delegates every step (KD-014). *(AMENDED 2026-07-23: the original rule also stripped `Bash` from the generated build orchestrator at every tier. KD-019 reverses that for the `orchestrated` tier — its orchestrator holds the full contract and runs join gates itself, so it has full tools and calls `notify.sh` directly. The no-Bash restriction now binds `setup-project` only.)*
 
 Three consequences that are decisions, not details:
 
@@ -120,6 +128,14 @@ Two corollaries follow and are stated wherever the rule is: **a launch confirmat
 
 **`Files: UNKNOWN` is a first-class answer.** A wrong file set is worse than an admitted one: `UNKNOWN` is handled correctly, a wrong one is trusted. Same principle as §11's register — an honest gap needs a legitimate home, or it gets laundered into a confident claim one step downstream.
 
+> **AMENDED 2026-07-23.** The mechanics above predate KD-019 and name story roles that no longer
+> exist. The decision itself stands unchanged — parallelism ON by default, derived from scaffold's
+> isolation, background dispatch, launch-confirmation-is-not-a-result, barriers drain first — but
+> the unit of scheduling is now the **dispatch unit**, and the file sets compared for disjointness
+> are the units' owned trees declared in `PLAN.md` → `## Dispatch units` (written by
+> `backlog-author`), not per-story scoper returns. Units whose trees are meant to run in parallel
+> must be pairwise disjoint by construction; migrations still serialize.
+
 **KD-018 — Agents hand off files and pointers, never payloads. Disclosure is scoped to the consumer.**
 
 The kit's spine already has this shape: briefs, evidence, and reviews live on disk; returns are capped summaries; the orchestrator passes paths and has no tools to read what it shouldn't. KD-010 governs cross-step *signals* (markers in files) but says nothing about *payloads* — which is why the same handoff pattern got reinvented five times with five naming conventions and no shared rule. KD-018 names the rule the tiers were independently implementing, and closes the gaps it exposes.
@@ -133,6 +149,47 @@ The kit's spine already has this shape: briefs, evidence, and reviews live on di
 **A handoff artifact is a primitive: ID-keyed name, exactly one writer, a stated lifecycle.** And the corollary that is a live defect today: **anything load-bearing must live in a *tracked* file.** The `full` tier declares the `source:` pointer "the only place the fix-story's acceptance criteria exist" — and it points into a gitignored directory. A clean clone silently loses the AC of every open fix-story. So: the state-file line for a repair/fix story carries the finding's text (one line, tracked, already in the orchestrator's hands from the gate's return); the report pointer stays as audit trail, never as the sole copy. Ephemeral evidence may be untracked; acceptance criteria may not.
 
 **The doctor audits excess, not only sufficiency.** Check 4 asks whether a producer's return carries everything its consumer needs. Its inverse — a return or dispatch prompt carrying what a file already holds — is this KD's rot mode, and it is invisible by construction: nothing fails, context just grows until sessions shorten. A framework whose violations are silent gets exactly one defense here, and it is the doctor.
+
+> **AMENDED 2026-07-23 — the unit-brief carve-out (KD-019).** In the `orchestrated` tier, the
+> dispatch brief for a unit travels **in the dispatch prompt**, not as a file. It is the
+> orchestrator's own synthesis (traps, boundaries, escalation triggers) — already held in context,
+> crossing exactly one hop — plus *pointers* into `PLAN.md`/`DESIGN.md` for everything on disk.
+> The threshold above still governs: a brief that pastes design sections or story ACs a path could
+> carry violates this KD exactly as before. The tier-specific examples above (`standard` pasting a
+> regression finding, `full` building `source:` pointers) describe retired tiers; the rule they
+> illustrated is unchanged.
+
+**KD-019 — The `orchestrated` tier: epic-sized units, a contract-holding orchestrator, gates at joins.**
+*(2026-07-23. Replaces the `standard` and `full` tiers. Evidence and full rationale:
+`HARNESS-REDESIGN.md`; the source methodology is the build recorded in the Claude Lens repo's
+`ORCHESTRATION.md`.)*
+
+The dominant cost in agentic builds is **context re-establishment**, not work: every agent boundary
+pays a large fixed cost to load context. A harness that dispatches per story pays it per story —
+and per-story acceptance criteria are all locally satisfiable while the point of the product lives
+between stories, so a story-granular build can go all-green and still miss what the app is for.
+The generated harness therefore:
+
+1. gives the orchestrator **full tools** and has it read the entire design contract once, up front
+   — it writes section-cited briefs, rules on escalations in one round trip with a citation, and
+   amends `DESIGN.md` with dated rulings (the inverse of the retired tool-starved dispatcher);
+2. dispatches **epic-sized units** from `PLAN.md` → `## Dispatch units` (merge rule: *if unit N's
+   agent must re-read unit N−1's output to understand its own job, they are one unit*) — roughly
+   10–15 units for a ~60-story backlog, stories surviving as the checklist inside a unit;
+3. builds a **walking skeleton first** (U0: the thinnest vertical slice that runs against real
+   data) and keeps it runnable — real data finds defect classes no synthetic fixture can, and every
+   week the user cannot look at the product is unpriced risk;
+4. runs **full gates at join points only** (unit agents verify with scoped commands); one
+   composite-diff `join-review` per join replaces per-story independent review — measured, the
+   join-point composite caught real defects that 22 consecutive per-story first-pass PASSes missed,
+   so review earns its cost exactly once per join;
+5. ends with an **integration unit**: an exhaustive "every contract entry answers" test, a
+   real-data run, fixtures that cross every numeric limit the design states, and gate red-probing.
+
+What was deliberately kept from the retired tiers: independent review (moved to joins), the
+notification channel, the state-file single-writer rule, capped fix loops, and the design-doc
+citation discipline. What was deliberately dropped: per-story scoper/reviewer dispatches, evidence
+files, fix-story minting, and the twice-running epic-gate chain — the measured cost centers.
 
 ---
 
@@ -148,7 +205,7 @@ Order is the product. Each step is an input to the next; running them out of ord
 | 3 | `design-author` | `DESIGN.md` (§1–§12) + `<!-- GATE -->` | `BACKLOG CLEAR` | → user → `design-author` **AMEND** → recheck |
 | 4 | `scaffold` | The repo + the check command | green from cold **and** red when broken | re-dispatch (3 rounds), then ask the user |
 | 5 | `harness-forge` | `CLAUDE.md` + `.claude/**` | `harness-doctor`: zero BLOCKERs | 3 rounds, then fail |
-| 6 | `backlog-author` | `PLAN.md` | refuses unless step 3 is CLEAR | — |
+| 6 | `backlog-author` | `PLAN.md` (+ `## Dispatch units` on the orchestrated tier) | refuses unless step 3 is CLEAR | — |
 | 7 | `plan-lint` | `PLAN_LINT.md` | zero BLOCKERs **and zero MAJORs** | → 6 **FIX mode** (3 rounds) · tier mismatch → **1 → 2 (RE-TIER) → 5 → 7** |
 | 8 | seed + `harness-doctor` | first story in the state file | zero BLOCKERs | → **5** with the numbered findings (3 rounds), then fail |
 
@@ -170,7 +227,7 @@ Setup is done when 7 and 8 are clean. Then: run the generated harness.
 
 1. `design-author` — risk-first. Prove the output is genuinely citable before building seven skills around it.
 2. `harness-doctor` — needed before anything is generated, so we can verify what we generate.
-3. `harness-forge` + the three tier templates.
+3. `harness-forge` + the tier templates.
 4. `scaffold`.
 5. `project-brief` + `stack-decide` (the interview; more effort here than in any generator).
 6. `backlog-author` + `plan-lint`.

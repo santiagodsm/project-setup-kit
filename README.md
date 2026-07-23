@@ -39,13 +39,11 @@ That's it. It runs the chain and asks you things.
 
 ## Parallelism is the default, not the reward
 
-The generated harness dispatches **up to 3 stories concurrently**, and scopes further ahead than that. Serial is what a *specific* story falls back to, not the posture of the build.
+The generated harness dispatches **up to 3 units concurrently**. Serial is what a *specific* unit falls back to, not the posture of the build.
 
-Two stories run together when four things hold: **no dependency edge · disjoint file sets · at most one migration-authoring story in flight · concurrent test suites can't see each other.** Fail one and that story waits while the rest keep going — one vague brief costs one story's concurrency, never the build's.
+Two units run together when four things hold: **no dependency edge · disjoint owned file trees · at most one migration-authoring unit in flight · concurrent test suites can't see each other.** The trees are declared per unit in `PLAN.md`'s dispatch-unit table, so disjointness is decided at planning time, not discovered mid-build. Fail a condition and that unit waits while the rest keep going.
 
-The mechanism that makes it safe is the same one that makes it fast: **scopers always run in parallel, unconditionally**, and each returns a `Files:` line naming exactly what its story will touch. That is what the orchestrator compares. A scoper that can't pin the set writes `Files: UNKNOWN`, which is a legitimate answer costing one story's concurrency — a *wrong* file set is far worse, because `UNKNOWN` is handled correctly and a wrong one is trusted.
-
-**The mechanism ships with the policy.** Every subagent is dispatched `run_in_background: true` — otherwise "up to 3 at once" blocks on each agent in turn and runs strictly serial while every file still reads as parallel, and *nothing detects that*: no gate fails, the build is just three times slower than it claims. Two rules come with it — **a launch confirmation is not a result** (a story is done when its return is recorded), and **gates and handoffs drain first** (a full-suite run against a tree engineers are still writing to describes a state that never existed). `setup-project`'s own chain is the deliberate exception and runs synchronously: its steps feed each other, so there is nothing to overlap.
+**The mechanism ships with the policy.** Every subagent is dispatched `run_in_background: true` — otherwise "up to 3 at once" blocks on each agent in turn and runs strictly serial while every file still reads as parallel, and *nothing detects that*: no gate fails, the build is just three times slower than it claims. Two rules come with it — **a launch confirmation is not a result** (a unit is done when its return is recorded), and **gates and handoffs drain first** (a full-suite run against a tree agents are still writing to describes a state that never existed). `setup-project`'s own chain is the deliberate exception and runs synchronously: its steps feed each other, so there is nothing to overlap.
 
 **None of this is configured, it's derived.** `stack-decide` requires a test-isolation decision, `scaffold` builds it as a hard gate, and `harness-forge` emits the concurrency the result actually supports — the same way it emits only the gates the stack can run. If isolation is missing, the harness says so *in a sentence that calls itself a defect*, because a build that quietly serializes is one nobody ever fixes: the cost is invisible and permanent, and each session assumes the last one had a reason.
 
@@ -57,9 +55,14 @@ The harness is sized to the build. Ceremony you don't need gets bypassed, and a 
 
 | Tier | | Harness |
 |---|---|---|
-| **small** | < ~15 stories | One build loop. No gates. |
-| **standard** | ~15–50 | Scoper / implementer / independent reviewer. Regression gate. |
-| **full** | 50+ | Epic gates, `docs-sync`, fix-stories, the full set. |
+| **small** | < ~15 stories | One build loop. No gates, no subagents. |
+| **orchestrated** | ~15+ | One orchestrator that reads the whole design contract and dispatches epic-sized units — walking skeleton first, full gates and composite review at join points, stack gates where the manifest says so. |
+
+Why not per-story dispatch? Measured head-to-head on the same product, a per-story harness
+(3–7 subagent dispatches per story, full suite per story) finished 8 of 62 stories in the time an
+epic-unit orchestration finished the whole build — and story-granular acceptance criteria can all
+pass while the assembled product misses its point. `KIT_DESIGN.md` KD-019 and `HARNESS-REDESIGN.md`
+carry the full argument.
 
 ---
 

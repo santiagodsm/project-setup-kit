@@ -112,28 +112,26 @@ Test isolation: <per-worker DB strategy, or "no DB in tests">.
 ## Gate manifest  (harness-forge reads this; ONLY these gates are emitted)
 Tier: <from PRD.md's TIER marker>
 
-| Gate | small | standard | full | Stack condition |
-|---|---|---|---|---|
-| regression-run            | **no** | yes | yes | — |
-| code-review               | **no** | **no** | yes | — |
-| docs-sync                 | **no** | **no** | yes | — |
-| db-migration-review       | **no** | **inline** | yes | a migration tool exists |
-| api-contract-sync         | **no** | **inline** | yes | the client is generated from a spec |
-| design-token-lint         | **no** | **inline** | yes | a token system exists |
-| dependency-security-audit | **no** | **no** | yes | there are third-party deps |
-| mcp-scan                  | **no** | **no** | yes | the project ships or dispatches MCP servers/tools |
-| perf-profiling            | **no** | **no** | DEFERRED | see below |
-| release-runbook           | **no** | **no** | yes | a deploy target exists |
+| Gate | small | orchestrated | Stack condition |
+|---|---|---|---|
+| db-migration-review       | **no** | yes | a migration tool exists |
+| api-contract-sync         | **no** | yes | the client is generated from a spec |
+| design-token-lint         | **no** | yes | a token system exists |
+| dependency-security-audit | **no** | yes | there are third-party deps |
+| mcp-scan                  | **no** | yes | the project ships or dispatches MCP servers/tools |
+| perf-profiling            | **no** | DEFERRED | see below |
+| release-runbook           | **no** | yes | a deploy target exists |
 
-**Three values, and `inline` is not the same as `yes`:**
+**Two values:**
 
-- **`yes`** → `harness-forge` emits the gate as its own skill file.
+- **`yes`** → `harness-forge` emits the gate as its own skill file; the generated orchestrator invokes it at join points when the gate's trigger tree changed.
 - **`no`** → not emitted. **Emitting it anyway is a BLOCKER**, because at that tier nothing dispatches it: an orphan skill file is a gate you believe you have and don't.
-- **`inline`** → the *check* exists but not as a separate skill. At `standard` there is no epic gate to dispatch one, so the migration cycle, the contract-drift check, and the token lint are folded **into `story-reviewer` step 5**. The check runs; it just isn't a file.
+
+(`regression-run`, `code-review` and `docs-sync` no longer appear: the full suite at joins, the composite `join-review`, and design amendments are tier-core in `orchestrated` — built into `orchestrate-build`/`join-review`, not manifest-selected. KD-019.)
 
 **Every row is `no` on `small`.** That is KD-002 working, not an oversight — including `release-runbook`, even when a deploy target exists. A small harness's only skill is `build-loop`, which has no dispatch path for a gate, so any gate you mark `yes` there becomes an unreachable orphan.
 
-**`perf-profiling` is the one you cannot decide.** It depends on whether §8 ends up with numeric targets, and the design is written *after* you. Mark it **`DEFERRED`** on full tier (`no` on the others). `harness-forge` reads `DESIGN.md`, resolves it, and **writes the answer back into this table.** A `DEFERRED` row must not survive into the built harness — `harness-doctor` cannot classify one, and the fidelity check then silently passes on a gate nobody ever decided. Do not guess it yourself: a perf gate with no targets will invent something to measure.
+**`perf-profiling` is the one you cannot decide.** It depends on whether §8 ends up with numeric targets, and the design is written *after* you. Mark it **`DEFERRED`** on the orchestrated tier (`no` on small). `harness-forge` reads `DESIGN.md`, resolves it, and **writes the answer back into this table.** A `DEFERRED` row must not survive into the built harness — `harness-doctor` cannot classify one, and the fidelity check then silently passes on a gate nobody ever decided. Do not guess it yourself: a perf gate with no targets will invent something to measure.
 
 ## ADR numbering handoff
 Last ADR issued here: **ADR-00N**. `design-author` continues at ADR-00N+1.

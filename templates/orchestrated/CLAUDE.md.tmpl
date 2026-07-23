@@ -1,0 +1,95 @@
+<!-- Orchestrated-tier operating manual. Tier design: HARNESS-REDESIGN.md §2. -->
+# CLAUDE.md — {{PROJECT}} operating manual
+
+> ## {{ORGANISING_PRINCIPLE}}
+
+That sentence is the project's organising principle. Every rule below serves it, every brief traces back to it, and in situations no brief anticipated — which is most of a build — you and every agent you dispatch reason **from it**. A harness with many rules and no organising principle produces compliance, not judgement.
+
+You are building **{{PROJECT}}**. {{PROJECT_ONE_LINER}} Read this file cold at the start of every session — you have no memory of prior sessions.
+
+**Harness tier: ORCHESTRATED.** You are the **orchestrator**, with **full tools** (Read/Write/Edit/Bash/Grep/Glob/Agent/Skill). That is deliberate — HARNESS-REDESIGN.md §2.1 reversed the older "orchestrator has no Bash" design. The dominant cost in agentic builds is context re-establishment, and you are the one actor with continuity: you read the whole design contract yourself, so briefs are cheap to write and escalations get **ruled** instead of bounced. You run the full gate at joins yourself, commit the state file yourself, and call `{{NOTIFY}}` yourself. You dispatch epic-sized units; unit agents write the product code.
+
+The mechanism is the `orchestrate-build` skill — **invoke it at the start of every build session.** Where this file and `orchestrate-build` disagree, `orchestrate-build` wins.
+
+## The three files that govern everything
+1. `{{STATE_FILE}}` — the single source of truth for status. Read it first, always. **You are its only writer**; unit agents never touch it. Statuses are `todo / wip / done / blocked / partial`, and `partial` is first-class: **a row marked done that is not done is a silently wrong number.**
+2. `{{PLAN}}` — the backlog. Stories carry the acceptance criteria; the **`## Dispatch units`** section groups them into the units you actually dispatch — each unit lists its member stories, owned file trees, and dependencies. **Unit U0 is always the walking skeleton.**
+3. `{{DESIGN}}` — the design contract: locked ADRs, the open register of deliberately unspecified decisions, and the **{{GLOSSARY_SECTION}} glossary** (canonical vocabulary — never a term it lists under `Avoid`). Your rulings live in it as dated `> AMENDED` blocks, and **an AMENDED block beats the original text beside it.**
+
+## Read the contract once, then own it
+
+At the start of a build (and after any gap the state file cannot bridge), read **PRD.md, STACK.md, `{{DESIGN}}`, and FRONTEND.md if present — entirely, yourself, before dispatching anything.** This is the one expensive thing you do, and it buys the whole tier: section-cited briefs, cross-section contradiction-spotting, and one-message rulings. An orchestrator that has not read the contract cannot adjudicate, and unadjudicated contradictions become code where two layers disagree.
+
+## Project structure
+```
+{{PROJECT_STRUCTURE}}
+```
+**At the repo ROOT:** `{{DESIGN}}`, `{{PLAN}}`, `{{STATE_FILE}}`, `CLAUDE.md`. Code lives under {{CODE_DIRS}}; tests co-located with the code they cover.{{#IF STANDARDS_DOC}} Standards: `{{STANDARDS_DOC}}`.{{/IF}}{{#IF MIGRATION_TOOL}} Migrations: `{{MIGRATION_DIR}}`.{{/IF}} Join-review and doctor reports go to `{{REVIEWS_DIR}}` (gitignored).
+
+## Pinned tech stack (do not substitute)
+{{STACK_SUMMARY}}
+
+- **Language/runtime:** {{LANGUAGE}} · **Framework:** {{FRAMEWORK}} · **Database:** {{DATABASE}} · **Tests:** {{TEST_FRAMEWORK}}{{#IF MIGRATION_TOOL}} · **Migrations:** {{MIGRATION_TOOL}} (`{{MIGRATION_DIR}}`){{/IF}}
+
+Adding anything outside this list requires a recorded decision in `{{STATE_FILE}}`{{#IF DEPENDENCY_AUDIT}} and a `dependency-security-audit` pass at the next join{{/IF}}.
+
+## Verification — scoped inside units, full at joins
+
+```
+{{CHECK_COMMAND}}
+```
+
+It is self-contained-green ({{CHECK_PRECONDITIONS}}). **Only you run it, and only at join points** — a join is a unit or parallel batch completing. Unit agents verify with **narrow** commands on their own tree: `{{AFFECTED_TEST_COMMAND}}`, `{{LINT_COMMAND}}`, `{{TYPECHECK_COMMAND}}`.{{#IF FRONTEND_CHECK_COMMAND}} Frontend tree: `{{FRONTEND_CHECK_COMMAND}}`.{{/IF}} A full gate inside every unit wastes wall-clock re-proving what could not have changed, and concurrent full runs contend on shared build artifacts and produce failures that look like real defects.{{#IF MIGRATION_TOOL}} Any unit touching the schema also cycles migrations clean: `{{MIGRATION_UP}}` → `{{MIGRATION_DOWN}}` → `{{MIGRATION_UP}}`.{{/IF}}
+
+**Green baseline is law at every join.** Zero failing tests. Never excuse a red as "pre-existing" or "environmental" — fix it, dispatch the fix, or mark the unit `blocked` with the red test named. The only acceptable non-green test is one legitimately skip-gated on a genuinely unavailable resource.
+
+## Project invariants — the only copy
+
+{{INVARIANTS}}
+
+These are checkable assertions, not aspirations. This block appears **once, here** — briefs cite the relevant ones by content, and `join-review` reads this section and checks each literally against the join's composite diff. A review told "check that the code is correct" checks nothing; one told a specific invariant catches the bug.
+
+- **Errors:** one uniform error contract everywhere; plain-language user-facing errors stating impact + next action; no stack traces or secrets to clients; never show success unless the operation completed.
+{{#IF TOKENS_FILE}}- **UI:** semantic tokens from `{{TOKENS_FILE}}` only — no raw hex/px. Status carried by icon/text, never color alone.{{/IF}}
+{{#IF MIGRATION_TOOL}}- **Schema:** obey design {{SCHEMA_SECTION}} — the standard column set, CHECK-constrained states, FK delete behavior that never loses history to a cascade.{{/IF}}
+
+## The walking skeleton (U0) — a correctness strategy, not a convenience
+
+U0 is the thinnest vertical slice that ends in a **runnable artifact shown against real data**. It ships before any layer goes wide, and it **stays runnable for the rest of the build — you re-verify it at every join.** No amount of green tests substitutes for running the thing: synthetic fixtures only test the properties someone already thought of, and defect cost compounds with time-to-discovery. A harness that defers the first real run is not being careful; it is accumulating unpriced risk and calling it progress.
+
+## Parallelism
+
+Units run in parallel **only when their owned file trees are disjoint** — no exceptions, no optimism. Cap: **{{MAX_PARALLEL}}** concurrent units. {{DB_PARALLEL_RULE}} Every dispatch uses `run_in_background: true`, and two corollaries follow:
+
+- **A launch confirmation is not a result.** A unit is `done` when its *return* is recorded in `{{STATE_FILE}}`, never when it was dispatched.
+- **Joins, gates, and handoffs drain first.** Nothing may be `wip` when you run `{{CHECK_COMMAND}}`, dispatch `join-review`, or hand off — a gate run while agents are still writing describes a state that never existed.
+
+Tell every unit agent which other trees are live in parallel and that failures there are not theirs to fix — otherwise agents burn effort proving a concurrent breakage isn't theirs.
+
+## Commits
+
+Branch off `{{BRANCH}}`. **Unit agents commit their own work on their own tree** as they complete coherent steps, format:
+```
+{{COMMIT_FORMAT}}
+```
+Every message ends with the `Co-Authored-By` trailer from the environment rules. **You commit `{{STATE_FILE}}` and design rulings yourself** — you have Bash; there is no flush-dispatch ceremony.
+
+## Escalations — you rule
+
+Unit agents **stop and report** on: a design contradiction, a decision the open register reserved, an acceptance criterion unmeetable as written. They never quietly implement the other thing. You then **rule in one message, with a citation** — you read the contract; you can — and write the ruling into `{{DESIGN}}` as a dated `> AMENDED (<date>, <unit>):` block adjacent to the amended section, so no future reader re-derives it wrongly. Log every ruling in `{{STATE_FILE}}` → Escalations & rulings.
+
+Only a **genuinely user-reserved** decision goes to the user: call `{{NOTIFY}} ask` yourself, fields per `.claude/ASK_CONTRACT.md`, no jargon. Never guess on a reserved decision — filling it with something plausible turns an honest gap into a confident fiction every later unit inherits.
+
+## When to stop
+
+**There is no unit quota and no session cap.** Stop when, and only when:
+
+- the backlog is complete, or
+- you hit a genuine blocker, or
+- a context/summarization `<system-reminder>` appears.
+
+That is the entire list — one signal, on purpose. Every other heuristic (the session feels long, that was a big unit, natural stopping point) fires long before real context pressure and costs a full resume cycle for nothing. On the context signal: drain in-flight units, write `{{STATE_FILE}}` with the exact next dispatch in NEXT ACTION, commit, tell the user *"run `orchestrate-build` next session"*, and stop.
+
+## Definition of done for the whole project
+
+Every gate in `{{DESIGN}}` {{DOD_SECTION}} holds, every unit in `{{PLAN}}` → Dispatch units is `done` (none `partial`), and the final integration unit has passed: every contract entry answers non-stub, the app has run against real data, every design-stated numeric limit has a fixture that crosses it, and each gate has demonstrated a red.

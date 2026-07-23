@@ -1,7 +1,7 @@
 ---
 name: perf-profiling
 version: 1.0.0
-description: "Profile {{PROJECT}}'s surfaces against the design's performance targets and report regressions. Invoked from {{PERF_FIRST_EPIC}} onward, any earlier epic that touched a hot user-facing surface, and whenever a screen feels slow."
+description: "Profile {{PROJECT}}'s surfaces against the design's performance targets and report regressions. Invoked at every join from {{PERF_FIRST_EPIC}} onward, any earlier join that touched a hot user-facing surface, and whenever a screen feels slow."
 allowed-tools:
   - Read
   - Grep
@@ -11,7 +11,7 @@ allowed-tools:
 metadata:
   role: executor
   reads: [the running app, the design's performance-targets section]
-  writes: [{{REVIEWS_DIR}}perf-<EPIC-ID>.md — never {{STATE_FILE}}, never {{PLAN}}, never product code]
+  writes: [{{REVIEWS_DIR}}perf-<JOIN-ID>.md — never {{STATE_FILE}}, never {{PLAN}}, never product code]
 ---
 
 # perf-profiling
@@ -20,7 +20,7 @@ Measure against the design's targets; report the worst offenders with evidence. 
 
 ## Targets
 
-Read them from `{{DESIGN}}` ({{PERF_SECTION}}). If the design does not state numeric targets, **say so and stop** rather than inventing them: a perf gate with invented targets produces fix-stories nobody asked for and hides the real gap, which is that the design never committed to a number.
+Read them from `{{DESIGN}}` ({{PERF_SECTION}}). If the design does not state numeric targets, **say so and stop** rather than inventing them: a perf gate with invented targets produces fixes nobody asked for and hides the real gap, which is that the design never committed to a number.
 
 ## Method
 
@@ -34,7 +34,7 @@ Read them from `{{DESIGN}}` ({{PERF_SECTION}}). If the design does not state num
 - Per-surface measurement **vs target** (met / missed). A measurement without its target is not a finding.
 - Ranked bottlenecks with the evidence (query plan, flame graph, bundle report).
 
-Write the detail to **`{{REVIEWS_DIR}}perf-<EPIC-ID>.md`** and return a capped summary (~150 words) plus that filename. The orchestrator holds your return in context for the rest of the session; **do not paste profiles into it.**
+Write the detail to **`{{REVIEWS_DIR}}perf-<JOIN-ID>.md`** (a join is identified by the unit(s) that closed it, e.g. `U3`) and return a capped summary (~150 words) plus that filename. The orchestrator holds your return in context for the rest of the session; **do not paste profiles into it.**
 
-- Specific fix-stories (add index X, batch query Y, move Z to a background job) **recommended** to the orchestrator, which records them in `{{STATE_FILE}}` under `Fix-stories`. You do not open stories, do not edit the state file, and do not edit `{{PLAN}}` (the backlog is fixed). Never "optimize everything" — name the few that matter.
-- **Number every finding, and make each one self-contained.** The orchestrator's fix-story line carries **your returned finding text verbatim** (that text becomes the fix-story's AC, in the tracked state file — this report is gitignored) plus `source: {{REVIEWS_DIR}}perf-<EPIC-ID>.md #2` for the full detail. Give each a stable number, the `file:line`, the measured number vs the target, and the concrete fix. A vague finding becomes a fix-story with invented AC.
+- Specific fixes (add index X, batch query Y, move Z to a background job) **recommended** to the orchestrator, which fixes them directly or via one follow-up dispatch to the owning unit's agent and records finding + resolution in `{{STATE_FILE}}`'s join row. You do not fix anything, do not edit the state file, and do not edit `{{PLAN}}` (the backlog is fixed). Never "optimize everything" — name the few that matter.
+- **Number every finding, and make each one self-contained.** The orchestrator's join row carries **your returned finding text verbatim** (the state file is tracked; this report is gitignored) plus `source: {{REVIEWS_DIR}}perf-<JOIN-ID>.md #2` for the full detail. Give each a stable number, the `file:line`, the measured number vs the target, and the concrete fix. A vague finding gets the wrong fix.

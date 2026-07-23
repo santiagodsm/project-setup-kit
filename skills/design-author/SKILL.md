@@ -42,7 +42,7 @@ The register in §11 exists so that "I don't know yet" has a legitimate home. **
 
 ## Two markers you must read before writing a line
 
-**`PRD.md` → `<!-- TIER: small|standard|full -->`.** This sets your depth (below). Read the marker; do not infer the tier from prose. Four skills key off it and if each infers its own, they will each infer differently.
+**`PRD.md` → `<!-- TIER: small|orchestrated -->`.** This sets your depth (below). Read the marker; do not infer the tier from prose. Four skills key off it and if each infers its own, they will each infer differently.
 
 **`STACK.md` → "ADR numbering handoff", the last ADR number issued.** You **continue** that sequence. If `stack-decide` ended at ADR-006, your first is **ADR-007**. Never restart at ADR-001 — `harness-forge` and the generated `code-review` cite ADRs by number, and two namespaces both starting at 001 means "ADR-003" resolves to two different decisions depending on which file someone opened.
 
@@ -69,8 +69,7 @@ All twelve sections appear on every project. **What changes is how deep each goe
 | Build | Depth |
 |---|---|
 | **Small** (< ~15 stories) | Entities + DDL + endpoints + invariants + the states of each screen. ADRs only for decisions that are **expensive to reverse**. Skip the elaboration; keep the artifacts. Target: the doc a competent engineer needs, and not one line more. |
-| **Standard** (~15–50) | Add state machines, permission rules, conflict resolution, numeric NFR targets. |
-| **Full** (50+, multi-session) | Everything, including §7 cross-cutting depth, §9 infrastructure, §12 gates elaborated. |
+| **Orchestrated** (~15+ stories) | Add state machines, permission rules, conflict resolution, numeric NFR targets; on multi-month builds also §7 cross-cutting depth, §9 infrastructure, §12 gates elaborated. This doc is what lets parallel unit agents work without colliding on meaning — the glossary, numbered invariants, and named fixtures are what make short briefs possible. Density here is bought back many times over during the build. |
 
 **The artifacts never scale away.** A small project still gets literal DDL and literal contracts — those are what make a section citable, and citability is the entire point. What scales is prose, rationale, and ADR count.
 

@@ -39,13 +39,13 @@ Each step is an input to the next. Run them out of order and you get a backlog w
 | 3 | `design-author` | `DESIGN.md` | Line 1 reads `<!-- GATE: BACKLOG CLEAR -->` | **BLOCKED** → ask the user → re-dispatch `design-author` in **AMEND mode** → recheck |
 | 4 | `scaffold` | The repo | **Check command green from cold, AND red when broken.** Both verified by running them. | Re-dispatch with the specific failure. **3 rounds max**, then stop and ask the user — a toolchain that won't come up green in three tries needs a human, not a fourth agent. |
 | 5 | `harness-forge` | `CLAUDE.md` + `.claude/**` | It runs `harness-doctor` internally; **zero BLOCKERs** | 3 rounds max, then report failure |
-| 6 | `backlog-author` | `PLAN.md` | — | Refuses if step 3's gate is not CLEAR |
+| 6 | `backlog-author` | `PLAN.md` (+ `## Dispatch units` on the orchestrated tier) | — | Refuses if step 3's gate is not CLEAR |
 | 7 | `plan-lint` | `PLAN_LINT.md` | **Zero BLOCKERs and zero MAJORs** | → re-dispatch `backlog-author` in **FIX mode** with the numbered findings → re-lint. **3 rounds max**, then stop and ask the user. |
 | 8 | **Seed + final doctor** | The harness's first story | Zero BLOCKERs | → re-dispatch `harness-forge` with the numbered findings → re-doctor. **3 rounds max**, then report failure. |
 
 **Step 8 is not a repeat of step 5.** At step 5 there was no `PLAN.md`, so `harness-forge` emitted the build state file as a stub pointing at nothing. Now the plan exists and has been linted. Step 8:
 
-1. **Seed the state file** with the first eligible story, so the generated orchestrator boots pointing at real work.
+1. **Seed the state file** with the first real work — on `small`, the first eligible story; on `orchestrated`, dispatch unit **U0** (the walking skeleton) — so the generated harness boots pointing at it.
 2. Run `harness-doctor` once more over the **finished** repo — harness plus plan plus seeded state. This is the only pass that sees the whole thing assembled.
 
 ## Loop-backs (the chain is not a straight line)
@@ -54,11 +54,11 @@ Three steps can send you backwards. Each is capped — an uncapped fix loop will
 
 - **3 → user → 3 (AMEND).** Blocking questions get answered, `design-author` folds them in and recomputes the banner. No cap; it's gated on a human.
 - **7 → 6 → 7.** Lint findings go back to the author. **Max 3 rounds**, then stop and ask the user — three failed attempts at testable acceptance criteria means the design underneath is unclear, not the plan.
-- **7 → 5 (tier mismatch).** `plan-lint` compares the real story count to the tier. If they disagree, the harness at step 5 was sized against a wrong estimate — and a light harness on a heavy build has no independent reviewer and no epic gates, on exactly the project that most needs them.
+- **7 → 5 (tier mismatch).** `plan-lint` compares the real story count to the tier. If they disagree, the harness at step 5 was sized against a wrong estimate — and a `small` harness on a heavy build has no orchestrator, no join review and no gates, on exactly the project that most needs them.
 
   **This loop-back has FOUR steps. Skip either of the first two and it is a no-op that looks like a fix:**
   1. **Rewrite the `<!-- TIER: x -->` marker in `PRD.md`.** Confirm the new tier with the user first — it was their call. `harness-forge` reads the tier from that marker and nowhere else.
-  2. **Re-dispatch `stack-decide` in RE-TIER mode** to rebuild the gate manifest. This is the one everybody misses. **The manifest rows are tier-conditioned at write time** — on a `small` tier `stack-decide` wrote `no` against every gate. If you re-forge without rebuilding it, `harness-forge` reads "only the gates in the manifest," finds none, and emits a gateless "standard" harness. Then `harness-doctor` compares that harness *against the same stale manifest*, finds them consistent, and reports **CLEAN**. You end up with three independent checks all confirming a harness that has no gates at all.
+  2. **Re-dispatch `stack-decide` in RE-TIER mode** to rebuild the gate manifest. This is the one everybody misses. **The manifest rows are tier-conditioned at write time** — on a `small` tier `stack-decide` wrote `no` against every gate. If you re-forge without rebuilding it, `harness-forge` reads "only the gates in the manifest," finds none, and emits a gateless "orchestrated" harness. Then `harness-doctor` compares that harness *against the same stale manifest*, finds them consistent, and reports **CLEAN**. You end up with three independent checks all confirming a harness that has no gates at all.
   3. Re-dispatch `harness-forge`.
   4. **Re-run step 7 (`plan-lint`), then step 8.** The tier-mismatch finding is still open in `PLAN_LINT.md` and nothing else will ever clear it — `backlog-author`'s FIX mode only edits `PLAN.md`, and the tier was never the plan's fault.
 

@@ -13,7 +13,7 @@ Every `{{VAR}}` in `templates/**`. `harness-forge` resolves all of them before w
 | Placeholder | Source | Example |
 |---|---|---|
 | `{{PROJECT}}` | `PRD.md` title | `Tally` |
-| `{{TIER}}` | `PRD.md` → `<!-- TIER: x -->` | `standard` — used by forge for tier selection; not substituted into any template |
+| `{{TIER}}` | `PRD.md` → `<!-- TIER: x -->` | `orchestrated` (or `small`) — used by forge for tier selection; not substituted into any template |
 | **`{{CHECK_COMMAND}}`** | `STACK.md` → "The check command" | `cd backend && make check` |
 | `{{CHECK_PRECONDITIONS}}` | `STACK.md` | `starts hearth-pg18 automatically` |
 | `{{AFFECTED_TEST_COMMAND}}` | `STACK.md` | `pytest {paths}` |
@@ -35,10 +35,8 @@ Every `{{VAR}}` in `templates/**`. `harness-forge` resolves all of them before w
 | `{{BRANCH}}` | `scaffold` | `build/main` |
 | `{{DESIGN}}` | always | `DESIGN.md` |
 | `{{PLAN}}` | always | `PLAN.md` |
-| **`{{STATE_FILE}}`** | forge's own choice, by tier | `PROGRESS.md` (small) · `docs/IMPL_PROGRESS.md` (std/full) |
-| `{{HISTORY_FILE}}` | full tier only | `docs/IMPL_HISTORY.md` |
-| `{{BRIEFS_DIR}}` | forge's choice | `docs/_briefs/` |
-| `{{REVIEWS_DIR}}` | forge's choice | `docs/_reviews/` |
+| **`{{STATE_FILE}}`** | forge — both tiers | `PROGRESS.md`, at the repo root |
+| `{{REVIEWS_DIR}}` | forge's choice — orchestrated only (join-review + doctor reports; gitignored) | `docs/_reviews/` |
 | `{{GLOSSARY_SECTION}}` | `DESIGN.md` §2.1 | `§2.1` |
 | `{{SCHEMA_SECTION}}` | `DESIGN.md` §3 | `§3` |
 | `{{BEHAVIOR_SECTION}}` | `DESIGN.md` §5 | `§5` |
@@ -48,17 +46,15 @@ Every `{{VAR}}` in `templates/**`. `harness-forge` resolves all of them before w
 | `{{STANDARDS_DOC}}` | `scaffold`, or omit | `backend/docs/db-standards.md` |
 | `{{PROJECT_ONE_LINER}}` | `PRD.md` → What | `Shared expense tracking for roommates.` |
 | `{{PROJECT_STRUCTURE}}` | repo, confirmed with `ls` | `/backend · /mobile · /infra` |
-| `{{E2E_COMMAND}}` | `STACK.md`, or omit | `npx playwright test` — used by `regression-run` / `release-runbook` when the stack has E2E |
+| `{{E2E_COMMAND}}` | `STACK.md`, or omit | `npx playwright test` — run at join points / by `release-runbook` when the stack has E2E |
 | `{{LOCKFILES}}` | `scaffold` | `uv.lock`, `package-lock.json` |
 | `{{AUDIT_COMMANDS}}` | `STACK.md` | `pip-audit`, `npm audit` |
 | `{{PERF_SECTION}}` | `DESIGN.md` §8 | `§8.1` |
 | `{{PERF_FIRST_EPIC}}` | `PLAN.md` | `EPIC-09` |
-| **`{{MAX_PARALLEL}}`** | forge, from the isolation `scaffold` built — **`standard` and `full` only; the `small` tier has one agent and nothing to run alongside it, so neither parallelism placeholder appears there** | `3` — concurrent engineers. **3 is the default and the right answer for almost every project.** Raise to 4–5 only when the check command is genuinely fast (< ~60s) and isolation is per-worker; drop to `1` only when `{{DB_PARALLEL_RULE}}` says isolation does not exist *and* every story touches the DB. `1` is a defect being reported, not a configuration. |
+| **`{{MAX_PARALLEL}}`** | forge, from the isolation `scaffold` built — **`orchestrated` only; the `small` tier has one agent and nothing to run alongside it, so neither parallelism placeholder appears there** | `3` — concurrent unit agents. **3 is the default and the right answer for almost every project** (beyond it, shared build artefacts contend and produce failures that look like real defects). Raise to 4–5 only when the check command is genuinely fast (< ~60s) and isolation is per-worker; drop to `1` only when `{{DB_PARALLEL_RULE}}` says isolation does not exist *and* every unit touches the DB. `1` is a defect being reported, not a configuration. |
 | **`{{DB_PARALLEL_RULE}}`** | forge, from `scaffold`'s returned isolation strategy | **Resolve to one literal sentence** stating what is actually true. Three canonical values, below. Never leave it abstract — this sentence is the only place the harness records whether concurrent test runs are safe, and an agent reading a vague one will assume the permissive reading. |
 | **`{{NOTIFY}}`** | fixed — the notifier `harness-forge` copies into every repo | `.claude/scripts/notify.sh` — **resolve to the bare path, no backticks and no `./` prefix.** Every template already wraps it (in backticks, or inside a bash block), so a decorated value nests and produces a command that does not run. It is not configurable and not stack-dependent; the file is copied verbatim from the plugin root and the path must match it exactly or every ask silently runs nothing. |
-| `{{MODEL_SCOPER}}` | forge, by role (see below) | `sonnet` |
-| `{{MODEL_IMPLEMENTER}}` | forge, by role | `opus` |
-| `{{MODEL_REVIEWER}}` | forge, by role | `opus` |
+| **`{{ORGANISING_PRINCIPLE}}`** | `PRD.md` (What/Why, stated quality bar) + `DESIGN.md` invariants — see below | `A silently wrong number is the worst possible outcome.` |
 
 ## Conditional flags
 
@@ -100,33 +96,30 @@ A gate told "check that the code is correct" checks nothing. A gate told "any co
 
 ---
 
-## `{{MODEL_*}}` — per-agent model tier (a cost lever, used conservatively)
+## `{{ORGANISING_PRINCIPLE}}` — the sentence agents reason *from*
 
-Each generated agent declares a `model:` in its frontmatter. The point is to spend the strongest model where a wrong answer is expensive and a cheaper one where the work is bounded and mechanical — **not** to minimize cost. Defaults:
+The generated `CLAUDE.md` **opens** with this: one load-bearing sentence stating what must never be
+wrong for this product (`A silently wrong number is the worst possible outcome.`). It is what lets
+an agent make the correct call in a situation no brief anticipated — a checklist produces
+compliance; a principle produces judgement, and a build is mostly novel judgements (KD-019).
 
-| Agent | Default | Why |
-|---|---|---|
-| `story-scoper` | `{{MODEL_SCOPER}}` → `sonnet` | Read-heavy, mechanical: distil cited sections into a brief. Bounded output, low reasoning depth. The safe place to save. |
-| `story-implementer` | `{{MODEL_IMPLEMENTER}}` → `opus` | The hardest reasoning in the loop and the one you least want wrong. Do not cheap out here. |
-| `story-reviewer` | `{{MODEL_REVIEWER}}` → `opus` | Independent judgement is the entire value of the role; a weaker reviewer is a weaker gate. |
+Resolve it from `PRD.md` (the What/Why, any stated quality bar) and `DESIGN.md`'s invariants — the
+principle is usually the sentence the invariants are all instances of. Rules:
 
-### Fixed dispatch models (not placeholders — literals in `resume-build`)
+1. **It is one sentence, and it is falsifiable in use.** "Build good software" organises nothing.
+   A principle is right when briefs can be traced back to it and refusals can cite it.
+2. **If the PRD and design give you nothing concrete enough, do not invent one.** Same rule as
+   `{{INVARIANTS}}`: resolve to a plain statement of the product's job (`{{PROJECT_ONE_LINER}}`)
+   and flag the gap in your return — the PRD is thin, and a fabricated principle steers every
+   novel judgement wrong in the same direction.
 
-The `{{MODEL_*}}` placeholders cover only the three story roles, because those are the dispatches whose right tier can vary by project. Everything else is fixed by the *nature of the task*, so `resume-build` carries the models as literals on the dispatch itself (the Agent tool's `model:` override beats the agent file's default):
+### Dispatch models (not placeholders — literals in the templates)
 
-| Dispatch | Model | Why |
-|---|---|---|
-| `code-review`, `docs-sync` | `opus` | Composite judgment; docs-sync rewrites the design contract — an error poisons every future brief |
-| `regression-run` + the conditional gates | `sonnet` | Mechanical: run, number, attribute |
-| Commit-only flush, notify-only task | `haiku` | One git command; one pre-worded shell command |
-
-Without an override, every one of these inherits the orchestrator session's model — backwards twice: chores on the priciest model, judgment on an unguaranteed one.
-
-Rules:
-
-1. **These are defaults, not mandates.** `harness-forge` may raise the scoper on a design-heavy project, or note that a simpler stack tolerates a cheaper implementer. It records any deviation in its return.
-2. **Resolve to a literal tier** (`opus` / `sonnet` / `haiku`) — never leave `{{MODEL_*}}` in a generated file; `harness-doctor`'s `{{` grep fails on it like any other placeholder.
-3. **When unsure, keep the strong default.** A gate or an engineer running on too weak a model fails silently — it produces plausible output that is subtly worse, exactly the failure mode this kit exists to prevent. Saving tokens on the scoper is safe; saving them on the reviewer is not.
+Unit agents carry **no `model:` override** — they inherit the session model, which is the strongest
+thing running and is where the hardest reasoning happens. Fixed literals elsewhere, by the nature
+of the task: `join-review` dispatches as `opus` (composite judgment); chore dispatches (a
+notify-only or commit-only task, where one exists) as `haiku`. Never leave a model decision
+abstract in a generated file.
 
 ## Conditional blocks
 
@@ -159,7 +152,7 @@ Resolve the condition, then **delete the markers**. A `{{#IF}}` left in a genera
 |---|---|
 | Per-worker isolation (testcontainers, DB-per-worker, schema-per-worker) | `Satisfied structurally — {{DB_ISOLATION}} gives every worker its own database, so concurrent suites cannot see each other. Nothing to check per story.` |
 | No database in tests | `No test touches a database, so there is nothing to isolate and this condition is always met.` |
-| A database, but **no** per-worker isolation | `**Per-worker DB isolation does not exist.** Any story whose scoper returned \`touches DB: yes\` runs alone; DB-free stories still run concurrently. This is a scaffold defect, not a steady state — report it and get it fixed, because it costs concurrency on every story for the life of the build.` |
+| A database, but **no** per-worker isolation | `**Per-worker DB isolation does not exist.** Any unit whose owned trees touch the database runs alone; DB-free units still run concurrently. This is a scaffold defect, not a steady state — report it and get it fixed, because it costs concurrency on every unit for the life of the build.` |
 
 **Substitute `{{DB_ISOLATION}}` inside the first sentence for the literal strategy** (`testcontainers, one DB per pytest-xdist worker`). It is the same trap as `{{COMMIT_FORMAT}}`: a resolved value that still carries `{{` drags a placeholder into the harness and trips the check-0 grep.
 

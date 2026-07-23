@@ -1,7 +1,7 @@
 ---
 name: design-token-lint
 version: 1.0.0
-description: "Enforce that {{PROJECT}} UI code uses semantic design tokens only — never raw hex, ad-hoc px, or hard-coded type/spacing/radius/motion values that bypass {{TOKENS_FILE}}. Use on every frontend story and as a CI gate."
+description: "Enforce that {{PROJECT}} UI code uses semantic design tokens only — never raw hex, ad-hoc px, or hard-coded type/spacing/radius/motion values that bypass {{TOKENS_FILE}}. Use at any join where frontend trees changed and as a CI gate."
 allowed-tools:
   - Read
   - Grep
@@ -16,7 +16,7 @@ metadata:
 
 # design-token-lint
 
-> **Emitted only when `{{TOKENS_FILE}}` is set.** A project with no design-token file does not get this gate — and `story-reviewer` must not reference it.
+> **Emitted only when `{{TOKENS_FILE}}` is set.** A project with no design-token file does not get this gate — and nothing in the harness may reference it.
 
 The design system's core rule: components reference **semantic tokens only**, never primitives or raw values. This skill catches violations mechanically.
 
@@ -38,4 +38,4 @@ Grep/AST the frontend sources for the patterns above; allowlist `{{TOKENS_FILE}}
 
 A list of violations (`file:line`, the offending value, the token that should replace it). Zero violations = pass. For CI, exit non-zero on any violation.
 
-When called by `story-reviewer`, this is **report-only** — the reviewer never edits the code it judges.
+When dispatched by the orchestrator at a join, this is **report-only** — a reviewer never edits the code it judges. A unit agent running it mid-unit may fix its own violations.

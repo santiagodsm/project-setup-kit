@@ -1,0 +1,145 @@
+---
+name: orchestrate-build
+version: 1.0.0
+description: "Drive the {{PROJECT}} backlog to completion as an orchestrator with full tools: read the whole design contract once, dispatch epic-sized units as background subagents on disjoint file trees, run {{CHECK_COMMAND}} and a composite review at every join, rule on escalations with citations. Use at the start of every build session and whenever the user says 'resume build', 'continue the build', 'keep going', or 'implement the plan'."
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Grep
+  - Glob
+  - Agent
+  - Skill
+  - ToolSearch
+metadata:
+  role: orchestrator
+  tier: orchestrated
+  reads: [{{STATE_FILE}}, {{PLAN}}, {{DESIGN}}, PRD.md, STACK.md, CLAUDE.md, unit returns]
+  writes: [{{STATE_FILE}}, {{DESIGN}} (AMENDED blocks only), dispatch prompts]
+---
+
+# orchestrate-build — the orchestrator loop
+
+<!-- Tier design: HARNESS-REDESIGN.md §2. The model it encodes: ORCHESTRATION.md §1–§6. -->
+
+You are the **orchestrator**, and you have full tools on purpose. The dominant cost in agentic builds is context re-establishment; you are the one actor with continuity, so you are the one who holds the contract. You read the design yourself, write every brief yourself from your own reading, run the full gate yourself at joins, commit the state file yourself, and rule on escalations yourself. Unit agents write the product code.
+
+**What you never do:** delegate the reading of the contract, dispatch an agent to write a brief, attach an independent reviewer to each unit, or invent per-unit evidence files to audit. Review exists exactly once per join — `join-review` over the composite diff. That per-story ceremony is the failure mode this tier replaced; re-creating it under new names is the fastest way back to it.
+
+## Session start
+
+1. Read `{{STATE_FILE}}`. If it does not exist, seed it from the template with every unit in `{{PLAN}}` → `## Dispatch units` as `todo`.
+2. **If this is a fresh build — or the state file cannot bridge the gap — read the entire design contract yourself: PRD.md, STACK.md, `{{DESIGN}}` (including every `> AMENDED` block), and FRONTEND.md if present.** All of it, before dispatching anything. This is the one expensive thing in the tier, and it is what makes briefs cheap and rulings possible.
+3. Read `{{STATE_FILE}}` → Decisions & deviations and Escalations & rulings — entries there beat the design text you just read.
+4. Resume from NEXT ACTION.
+
+## Dispatch units, not stories
+
+Units come from `{{PLAN}}` → `## Dispatch units`: each lists its member stories, owned file trees, and dependencies. Stories are the checklist *inside* a brief, never dispatch boundaries. The sizing rule, verbatim:
+
+> **If unit N's agent must re-read unit N−1's output to understand its own job, they are one unit.**
+
+If you find the plan's units violating this — two units where the second would begin by reverse-engineering the first — merge them in the state file and note why.
+
+**U0 is always the walking skeleton**: the thinnest vertical slice that ends in a runnable artifact shown against real data. It dispatches first, alone, and nothing else dispatches until it runs. From then on the skeleton is the build's continuously-running integration check — **re-verify it at every join**, because a skeleton that quietly stopped running is a week of work accumulating on an unverified premise.
+
+## The brief — every dispatch prompt, same seven parts
+
+You write each brief yourself, from your own reading of the contract. It opens by restating the organising principle and what the product is for — that is what lets the agent make correct calls in situations the brief did not anticipate. Then, in order:
+
+1. **Exact design sections to read, with line ranges.** Cited (`{{DESIGN}} §4.2, lines 810–1030`), not "read the design doc". Include {{GLOSSARY_SECTION}} for the concepts the unit touches, and any AMENDED block or deviation-ledger entry that overrides the cited text.
+2. **Owned file tree / forbidden trees** — plus which other trees are live in parallel right now, and that failures there are not this agent's to fix.
+3. **The 2–4 things most likely to go silently wrong in this unit**, each as a ⚠️ with the reasoning. This is the part most harnesses omit; ~200 tokens per trap, and a trap stated up front prevents a whole failed unit. A trap is specific ("X is NOT Y-with-one-partition — that reading gives a negative overlap"), never generic ("be careful with edge cases").
+4. **Deliverables** — the unit's story IDs from `{{PLAN}}`; the agent reads their acceptance criteria itself.
+5. **Tests, including what would make each test vacuous.** "A fixture whose overlap happens to be 0 proves nothing" turns a test that passes into a test that discriminates.
+6. **"Stop and report if X"** — the enumerated escalation triggers (see Escalations below), plus any unit-specific ones you can foresee.
+7. **Report-back format:** what you did, **what you could NOT verify**, what you left partial, which invariants have executable proof vs. are argued in comments, decisions made on under-specified details. The could-not-verify section is a deliverable, not an admission — it is where the real risk lives, and agents write it honestly when the brief asks for it.
+
+**The brief carries your synthesis and pointers — never the contents of files on disk.** Cite paths and sections; pasting what a path could carry bloats the dispatch and goes stale the moment the file changes.
+
+## Dispatch mechanics
+
+- Every unit is a **general-purpose subagent** with `run_in_background: true` and **no model override** — units inherit the session model.
+- **Parallelism on file-tree disjointness only.** Two units run together only when their owned trees do not overlap — no exceptions, no optimism. Cap **{{MAX_PARALLEL}}** concurrent units. {{DB_PARALLEL_RULE}}
+- Mark a unit `wip` in `{{STATE_FILE}}` and write the file **before** dispatching it.
+- **A launch confirmation is not a result.** A unit is `done` / `partial` / `blocked` only when its return is recorded. A background agent whose result nobody records did its work for nothing.
+- Inside its tree the agent verifies narrowly — `{{AFFECTED_TEST_COMMAND}}`, `{{LINT_COMMAND}}`, `{{TYPECHECK_COMMAND}}`{{#IF FRONTEND_CHECK_COMMAND}}, `{{FRONTEND_CHECK_COMMAND}}` on frontend trees{{/IF}} — and **commits its own work** on `{{BRANCH}}` using `{{COMMIT_FORMAT}}` with the `Co-Authored-By` trailer. It does not run `{{CHECK_COMMAND}}` and it does not write `{{STATE_FILE}}`.
+
+## The join
+
+A join is a unit or parallel batch completing. In order:
+
+1. **Drain.** Nothing `wip`. A gate run while agents are still writing describes a state that never existed, and the dangerous direction is a false green.
+2. **Record every return** in `{{STATE_FILE}}` — status, commits, what was left partial or unverified, decisions to the ledger.
+3. **Interrogate the reports.** For each landed unit, ask its report: **which invariants have executable proof, and which are only argued in comments?** Anything argued-only that is load-bearing gets a test in the follow-up or the next unit's brief.
+4. **Mutation-test the 2–3 load-bearing assertions** of the join — flip the guard, confirm the tests go red, restore. A test nobody has tried to break is a test nobody has verified. You have Bash; this costs minutes.
+5. **Run the full gate yourself:** `{{CHECK_COMMAND}}`. Green baseline is law — zero failures, no "pre-existing" excuses.{{#IF MIGRATION_TOOL}} If the join touched the schema, cycle migrations: `{{MIGRATION_UP}}` → `{{MIGRATION_DOWN}}` → `{{MIGRATION_UP}}`.{{/IF}}
+6. **Re-run the walking skeleton** against real data. It ran at the last join; it must run now. A skeleton regression outranks every other finding at the join.
+7. **Dispatch `join-review`** — a general-purpose background subagent, **`model: opus`**, instructed to invoke the `join-review` skill over the composite diff since the last join (give it the boundary commit hash). Composite review is the one piece of heavyweight ceremony that earned its keep: it sees what only breaks when two units are both present.
+8. **Dispatch any conditional gate whose trigger tree changed in this join** — each as a general-purpose background subagent instructed to invoke the skill:
+{{#IF MIGRATION_TOOL}}   - `db-migration-review` — when `{{MIGRATION_DIR}}` changed. Cycles a scratch DB ({{DB_ISOLATION}}), never the live one.{{/IF}}
+{{#IF CONTRACT_GEN_COMMAND}}   - `api-contract-sync` — when backend endpoints/schemas changed. Check-only (`{{CONTRACT_GEN_COMMAND}}` regeneration belongs to unit agents, never to a reviewer).{{/IF}}
+{{#IF TOKENS_FILE}}   - `design-token-lint` — when frontend trees changed. `{{TOKENS_FILE}}` is the source of truth.{{/IF}}
+{{#IF DEPENDENCY_AUDIT}}   - `dependency-security-audit` — when {{LOCKFILES}} changed ({{AUDIT_COMMANDS}}).{{/IF}}
+{{#IF MCP_SERVERS}}   - `mcp-scan` — when an MCP server, tool, or dispatch path was added or edited.{{/IF}}
+{{#IF PERF_PROFILING}}   - `perf-profiling` — every join from {{PERF_FIRST_EPIC}} on, and any earlier join touching a hot user-facing surface (targets: `{{DESIGN}}` {{PERF_SECTION}}).{{/IF}}
+9. **Fix findings directly or via one follow-up dispatch.** Small and clearly right → fix it yourself, note it. Larger → a follow-up dispatch to the owning unit's agent with the findings as the brief. Record every finding and its resolution in `{{STATE_FILE}}` → the join's row. **There is no fix-story machinery** — no minting, no separate review of the fix; the next join's review covers it.
+10. **Commit `{{STATE_FILE}}`** (and any design amendments) yourself. Then dispatch the next unit(s).
+
+{{#IF RELEASE_RUNBOOK}}`release-runbook` is **not** a join gate — invoke it only when the user asks to ship.{{/IF}}
+
+## Escalations — agents stop, you rule
+
+Briefs enumerate the stop-and-report triggers; the standing set:
+
+- the design contradicts itself, or contradicts a recorded ruling;
+- a decision the design's open register explicitly reserved resurfaces unanswered;
+- an acceptance criterion cannot be met as written;
+- the environment cannot supply an external dependency.
+
+An agent that hits one **stops and reports — it never quietly implements the other thing.** You then:
+
+1. **Rule in one message, with a citation.** You read the contract; you can. An escalation answered immediately is a speed-up — the agent resumes with its context intact. One that bounces is a stall.
+2. **Write the ruling into `{{DESIGN}}`** as a dated block adjacent to the amended section:
+   ```
+   > AMENDED (<ISO date>, U<N>): <the ruling, and why, with the citation>
+   ```
+   A ruling that lives only in a chat message gets re-derived wrongly by the next reader. AMENDED blocks are part of the contract and beat the original text.
+3. **Log it** in `{{STATE_FILE}}` → Escalations & rulings.
+
+**Only a genuinely user-reserved decision goes to the user.** For those, call `{{NOTIFY}} ask` yourself — fields per `.claude/ASK_CONTRACT.md`: what's stuck in plain words, two options with real consequences, your pick and why, what waits; several questions bundled with `--count N`; no jargon. Record the blocker in `{{STATE_FILE}}` first — a silent stop looks finished. Never guess on a reserved decision.
+
+## The final unit is always integration
+
+The last dispatch unit exists because units can each pass their own tests while the assembled product does not run. Its brief always demands:
+
+1. **An exhaustive "every contract entry answers" test** — every IPC channel / API route / CLI command the design names gets called and must answer non-stub, written so it fails automatically when a new entry is added unregistered. This is the test that catches implemented-but-never-wired seams.
+2. **A run of the real app against real data** before anything is called done.{{#IF E2E_COMMAND}} The E2E suite (`{{E2E_COMMAND}}`) passes — and gets red-probed like every other gate.{{/IF}}
+3. **A fixture crossing every numeric limit the design states** — crossing, not approaching. Synthetic fixtures only test the properties someone already thought of; a limit named in the design with no fixture past it is where a green suite is most confidently wrong.
+4. **Gate red-probing:** deliberately break something each gate claims to catch, confirm the gate goes red, restore. A gate that has never demonstrated a red may be checking nothing — and a blind gate invalidates everything downstream of it.
+
+## When to stop
+
+**There is no unit quota and no session cap.** Stop when, and only when:
+
+- the backlog is complete, or
+- you hit a genuine blocker, or
+- a context/summarization `<system-reminder>` appears.
+
+That is the entire list — one signal, on purpose. Only the third is a context signal; the first two are the loop finishing or hitting a wall. Every other heuristic (the session feels long, that was a big unit, natural stopping point) fires long before real context pressure and costs a full resume cycle for nothing. If the reminder has not fired, you have context. Keep going.
+
+**On the context signal:** stop dispatching, drain in-flight units and record every return, write `{{STATE_FILE}}` with the **exact next dispatch** in NEXT ACTION (unit, tree, parallel neighbours), commit, tell the user *"Context checkpoint. State saved. Next session: run `orchestrate-build` — it picks up at U<N>."*, and stop.
+
+## The rules that do not bend
+
+1. **Read the contract yourself before the first dispatch.** A brief written from someone else's summary is a brief that cannot carry traps.
+2. **Green baseline is law at every join.** Zero failures; a red is fixed or `blocked`, never excused.
+3. **U0 first, and the skeleton re-verified at every join.**
+4. **File-tree disjointness or serialize — no optimism.** Cap {{MAX_PARALLEL}}; background dispatch always; drain before joins, gates, and handoffs.
+5. **A launch is not a result.** Status changes come from recorded returns only.
+6. **`{{STATE_FILE}}` has one writer: you.** Written before every dispatch and after every return; `partial` used honestly.
+7. **Rule on escalations in one message with a citation, and amend `{{DESIGN}}` — never let an agent quietly resolve a contradiction, and never bounce one the contract can answer.**
+8. **Review once per join, not per unit.** No scoper, no per-unit reviewer, no evidence files — that machinery is what this tier replaced.
+9. **The final unit is integration**: every contract entry answers, real data, limit-crossing fixtures, red-probed gates.
+10. **Stop only on: backlog complete, genuine blocker, or the context system-reminder.**

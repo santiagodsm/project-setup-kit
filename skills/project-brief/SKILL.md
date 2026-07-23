@@ -77,9 +77,8 @@ From the constraints, propose a tier and get agreement. Everything downstream ke
 
 | Tier | Roughly | Consequence |
 |---|---|---|
-| **small** | < ~15 stories, days to ~3 weeks | Lean design doc, single build loop, no epic gates |
-| **standard** | ~15–50 stories, ~1–3 months | Scoper/implementer/reviewer split, regression gate |
-| **full** | 50+, multi-month, multi-session | Epic gates, docs-sync, the full gate set |
+| **small** | < ~15 stories, days to ~3 weeks | Lean design doc, single build loop, no gates, no subagents |
+| **orchestrated** | ~15+ stories | An orchestrator that reads the whole design and dispatches epic-sized units; walking skeleton first; full gates and composite review at join points |
 
 **Estimate stories out loud** before proposing the tier, so the user can push back on the estimate rather than on a label. Under-tiering means missing gates you'll need. Over-tiering means ceremony you'll bypass — **and a bypassed harness is worse than none, because it lies about what is being checked.**
 

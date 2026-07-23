@@ -1,7 +1,7 @@
 ---
 name: mcp-scan
 version: 1.0.0
-description: "Threat-scan the MCP servers and tool definitions this project ships or dispatches, before they reach a build or a user. Default-deny posture: a tool is allowed only if the design named it. Use for every story that adds, edits, or wires an MCP server, tool, or dispatch path."
+description: "Threat-scan the MCP servers and tool definitions this project ships or dispatches, before they reach a build or a user. Default-deny posture: a tool is allowed only if the design named it. Use at any join where an MCP server, tool, or dispatch path was added or edited."
 allowed-tools:
   - Read
   - Grep
@@ -11,12 +11,12 @@ allowed-tools:
 metadata:
   role: reviewer
   reads: [the MCP server/tool configs, {{DESIGN}} {{GLOSSARY_SECTION}} + the section that names the project's tool surface, CLAUDE.md, {{STATE_FILE}} (reviewer-approved deviations)]
-  writes: [{{REVIEWS_DIR}}mcp-scan-<EPIC-ID>.md — never product code, never a server config]
+  writes: [{{REVIEWS_DIR}}mcp-scan-<JOIN-ID>.md — never product code, never a server config]
 ---
 
 # mcp-scan
 
-> **Emitted only when the project integrates MCP servers or tools** (the `mcp-scan` manifest row is `yes`). A project that dispatches no MCP tools does not get this gate — and no reviewer references it.
+> **Emitted only when the project integrates MCP servers or tools** (the `mcp-scan` manifest row is `yes`). A project that dispatches no MCP tools does not get this gate — and nothing in the harness may reference it.
 
 An MCP tool is remote code you handed a model the authority to call. The failure this gate exists to prevent is silent: a tool gets added, it looks reasonable, nothing tests its *authority*, and the harness reports green while the model can now exfiltrate a secret or take an action nobody scoped. You **report only**; you never edit a server config.
 
@@ -37,6 +37,6 @@ A tool is allowed **only if the design named it.** The question is never "is thi
 
 ## Output
 
-PASS/FAIL + a per-item checklist with `file:line` evidence. For FAIL, the exact corrections, **numbered** — each finding becomes a fix-story whose acceptance criteria are written from your finding and nowhere else, so name the tool, the config path, and the authority at issue. A security or data-exfiltration finding is called out as such: those are escalated, not merely scheduled.
+PASS/FAIL + a per-item checklist with `file:line` evidence. For FAIL, the exact corrections, **numbered** — the orchestrator fixes each finding directly or via one follow-up dispatch written from your finding and nowhere else, so name the tool, the config path, and the authority at issue. A security or data-exfiltration finding is called out as such: those are escalated, not merely scheduled.
 
-Write the detail to **`{{REVIEWS_DIR}}mcp-scan-<EPIC-ID>.md`** and return a capped summary (~150 words): **numbered** findings by severity plus that filename. The orchestrator never opens the report — it writes each fix-story's state-file line from your return alone: your finding text **verbatim** (that text becomes the fix-story's AC, in the tracked state file — this report is gitignored) plus `source: {{REVIEWS_DIR}}mcp-scan-<EPIC-ID>.md #N`. A finding returned without its number and the filename, or too vague to paste, cannot become a fix-story. You **recommend**; the orchestrator records — never write `{{STATE_FILE}}` or `{{PLAN}}` yourself.
+Write the detail to **`{{REVIEWS_DIR}}mcp-scan-<JOIN-ID>.md`** (a join is identified by the unit(s) that closed it, e.g. `U3`) and return a capped summary (~150 words): **numbered** findings by severity plus that filename. The orchestrator never opens the report — it records each finding and its resolution in `{{STATE_FILE}}`'s join row from your return alone: your finding text **verbatim** (the state file is tracked — this report is gitignored) plus `source: {{REVIEWS_DIR}}mcp-scan-<JOIN-ID>.md #N`. A finding returned without its number and the filename, or too vague to paste, cannot be acted on. You **recommend**; the orchestrator records — never write `{{STATE_FILE}}` or `{{PLAN}}` yourself.

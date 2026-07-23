@@ -7,7 +7,7 @@ Updated after **every** story, never batched, so a crash or context reset loses 
 - Backlog: `{{PLAN}}`
 - Operating rules: `CLAUDE.md`. The loop: `.claude/skills/build-loop`.
 
-**Harness tier: SMALL.** One builder, one loop, no gates, no separate reviewer. Upgrade to `standard` at ~15 stories — see `CLAUDE.md`.
+**Harness tier: SMALL.** One builder, one loop, no gates, no separate reviewer. Upgrade to `orchestrated` at ~15 stories — see `CLAUDE.md`.
 
 ---
 
@@ -68,7 +68,7 @@ Legend: `pending` · `in_progress` · `done` · `blocked`. Details (size, deps, 
 
 ## Progress
 
-- **Stories:** <n> done / <n> total. **(Past ~15 total → this tier is the wrong tier. Regenerate at `standard`.)**
+- **Stories:** <n> done / <n> total. **(Past ~15 total → this tier is the wrong tier. Regenerate at `orchestrated`.)**
 - **Suite:** green / RED — <the failing test, if red. A red suite is a stop condition, not a note.>
 - **Recent commits:** <hash> <hash> <hash>.
 {{#IF MIGRATION_TOOL}}- **Migration head:** <rev>.{{/IF}}
