@@ -43,7 +43,7 @@ Units come from `{{PLAN}}` → `## Dispatch units`: each lists its member storie
 
 If you find the plan's units violating this — two units where the second would begin by reverse-engineering the first — merge them in the state file and note why.
 
-**U0 is always the walking skeleton**: the thinnest vertical slice that ends in a runnable artifact shown against real data. It dispatches first, alone, and nothing else dispatches until it runs. From then on the skeleton is the build's continuously-running integration check — **re-verify it at every join**, because a skeleton that quietly stopped running is a week of work accumulating on an unverified premise.
+**U0 is always the walking skeleton**: the thinnest vertical slice that ends in a runnable artifact shown against real data. It dispatches first, alone, and nothing else dispatches until it runs. No amount of green tests substitutes for running the thing: synthetic fixtures only test the properties someone already thought of. From then on the skeleton is the build's continuously-running integration check — **re-verify it at every join**, because a skeleton that quietly stopped running is a week of work accumulating on an unverified premise.
 
 ## The brief — every dispatch prompt, same seven parts
 
@@ -54,7 +54,7 @@ You write each brief yourself, from your own reading of the contract. It opens b
 3. **The 2–4 things most likely to go silently wrong in this unit**, each as a ⚠️ with the reasoning. This is the part most harnesses omit; ~200 tokens per trap, and a trap stated up front prevents a whole failed unit. A trap is specific ("X is NOT Y-with-one-partition — that reading gives a negative overlap"), never generic ("be careful with edge cases").
 4. **Deliverables** — the unit's story IDs from `{{PLAN}}`; the agent reads their acceptance criteria itself.
 5. **Tests, including what would make each test vacuous.** "A fixture whose overlap happens to be 0 proves nothing" turns a test that passes into a test that discriminates.
-6. **"Stop and report if X"** — the enumerated escalation triggers (see Escalations below), plus any unit-specific ones you can foresee.
+6. **"Stop and report if X"**: the unit-specific triggers you can foresee. The standing ones are in `CLAUDE.md`, which the agent loads; do not restate them.
 7. **Report-back format:** what you did, **what you could NOT verify**, what you left partial, which invariants have executable proof vs. are argued in comments, decisions made on under-specified details. The could-not-verify section is a deliverable, not an admission — it is where the real risk lives, and agents write it honestly when the brief asks for it.
 
 **The brief carries your synthesis and pointers — never the contents of files on disk.** Cite paths and sections; pasting what a path could carry bloats the dispatch and goes stale the moment the file changes.
@@ -65,7 +65,7 @@ You write each brief yourself, from your own reading of the contract. It opens b
 - **Parallelism on file-tree disjointness only.** Two units run together only when their owned trees do not overlap — no exceptions, no optimism. Cap **{{MAX_PARALLEL}}** concurrent units. {{DB_PARALLEL_RULE}}
 - Mark a unit `wip` in `{{STATE_FILE}}` and write the file **before** dispatching it.
 - **A launch confirmation is not a result.** A unit is `done` / `partial` / `blocked` only when its return is recorded. A background agent whose result nobody records did its work for nothing.
-- Inside its tree the agent verifies narrowly — `{{AFFECTED_TEST_COMMAND}}`, `{{LINT_COMMAND}}`, `{{TYPECHECK_COMMAND}}`{{#IF FRONTEND_CHECK_COMMAND}}, `{{FRONTEND_CHECK_COMMAND}}` on frontend trees{{/IF}} — and **commits its own work** on `{{BRANCH}}` using `{{COMMIT_FORMAT}}` with the `Co-Authored-By` trailer. It does not run `{{CHECK_COMMAND}}` and it does not write `{{STATE_FILE}}`.
+- Inside its tree the agent verifies narrowly — `{{AFFECTED_TEST_COMMAND}}`, `{{LINT_COMMAND}}`, `{{TYPECHECK_COMMAND}}`{{#IF FRONTEND_CHECK_COMMAND}}, `{{FRONTEND_CHECK_COMMAND}}` on frontend trees{{/IF}} — and **commits its own work** per `CLAUDE.md` → Commits. It does not run `{{CHECK_COMMAND}}` and it does not write `{{STATE_FILE}}`.
 
 ## The join
 
@@ -75,7 +75,7 @@ A join is a unit or parallel batch completing. In order:
 2. **Record every return** in `{{STATE_FILE}}` — status, commits, what was left partial or unverified, decisions to the ledger.
 3. **Interrogate the reports.** For each landed unit, ask its report: **which invariants have executable proof, and which are only argued in comments?** Anything argued-only that is load-bearing gets a test in the follow-up or the next unit's brief.
 4. **Mutation-test the 2–3 load-bearing assertions** of the join — flip the guard, confirm the tests go red, restore. A test nobody has tried to break is a test nobody has verified. You have Bash; this costs minutes.
-5. **Run the full gate yourself:** `{{CHECK_COMMAND}}`. Green baseline is law — zero failures, no "pre-existing" excuses.{{#IF MIGRATION_TOOL}} If the join touched the schema, cycle migrations: `{{MIGRATION_UP}}` → `{{MIGRATION_DOWN}}` → `{{MIGRATION_UP}}`.{{/IF}}
+5. **Run the full gate yourself:** `{{CHECK_COMMAND}}`. Green baseline is law — zero failures, no "pre-existing" or "environmental" excuses: fix the red, dispatch the fix, or mark the unit `blocked` with the red test named. The only acceptable non-green test is one legitimately skip-gated on a genuinely unavailable resource.{{#IF MIGRATION_TOOL}} If the join touched the schema, cycle migrations: `{{MIGRATION_UP}}` → `{{MIGRATION_DOWN}}` → `{{MIGRATION_UP}}`.{{/IF}}
 6. **Re-run the walking skeleton** against real data. It ran at the last join; it must run now. A skeleton regression outranks every other finding at the join.
 7. **Dispatch `join-review`** — a general-purpose background subagent, **`model: opus`**, instructed to invoke the `join-review` skill over the composite diff since the last join (give it the boundary commit hash). Composite review is the one piece of heavyweight ceremony that earned its keep: it sees what only breaks when two units are both present.
 8. **Dispatch any conditional gate whose trigger tree changed in this join** — each as a general-purpose background subagent instructed to invoke the skill:
@@ -92,14 +92,7 @@ A join is a unit or parallel batch completing. In order:
 
 ## Escalations — agents stop, you rule
 
-Briefs enumerate the stop-and-report triggers; the standing set:
-
-- the design contradicts itself, or contradicts a recorded ruling;
-- a decision the design's open register explicitly reserved resurfaces unanswered;
-- an acceptance criterion cannot be met as written;
-- the environment cannot supply an external dependency.
-
-An agent that hits one **stops and reports — it never quietly implements the other thing.** You then:
+The standing stop-and-report triggers live in `CLAUDE.md` → "Unit agents: stop and report if" (every unit agent loads it); briefs add the unit-specific ones you can foresee. An agent that hits one **stops and reports — it never quietly implements the other thing.** You then:
 
 1. **Rule in one message, with a citation.** You read the contract; you can. An escalation answered immediately is a speed-up — the agent resumes with its context intact. One that bounces is a stall.
 2. **Write the ruling into `{{DESIGN}}`** as a dated block adjacent to the amended section:

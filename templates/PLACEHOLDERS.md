@@ -25,7 +25,7 @@ Every `{{VAR}}` in `templates/**`. `harness-forge` resolves all of them before w
 | `{{FRONTEND_CHECK_COMMAND}}` | `STACK.md`, or omit the block | `npm run lint && vitest && npm run build` |
 | `{{BUILD_COMMAND}}` | `STACK.md` | `npm run build` |
 | `{{STACK_SUMMARY}}` | `STACK.md`, one line | `Python 3.12 · FastAPI · Postgres 16 · React Native` |
-| `{{LANGUAGE}}` / `{{FRAMEWORK}}` / `{{DATABASE}}` | `STACK.md` ADRs | `Python 3.12` / `FastAPI` / `PostgreSQL 16` |
+| `{{DATABASE}}` | `STACK.md` ADRs | `PostgreSQL 16` |
 | `{{TEST_FRAMEWORK}}` | `STACK.md` | `pytest + Hypothesis` |
 | **`{{MIGRATION_TOOL}}`** | `STACK.md`. **Absent → the migration gate is not emitted at all.** | `alembic` |
 | `{{MIGRATION_DIR}}` | `STACK.md` / repo | `backend/alembic/versions/` |
@@ -45,10 +45,9 @@ Every `{{VAR}}` in `templates/**`. `harness-forge` resolves all of them before w
 | `{{BEHAVIOR_SECTION}}` | `DESIGN.md` §5 | `§5` |
 | `{{DOD_SECTION}}` | `DESIGN.md` §12 | `§12` |
 | **`{{INVARIANTS}}`** | `DESIGN.md` §5 + §12, verbatim | see below |
-| `{{CODE_DIRS}}` | repo | `/backend`, `/mobile` |
 | `{{STANDARDS_DOC}}` | `scaffold`, or omit | `backend/docs/db-standards.md` |
 | `{{PROJECT_ONE_LINER}}` | `PRD.md` → What | `Shared expense tracking for roommates.` |
-| `{{PROJECT_STRUCTURE}}` | repo, confirmed with `ls` | `/backend · /mobile · /infra` |
+| `{{PROJECT_STRUCTURE}}` | repo, confirmed with `ls` | **One line listing the top-level code directories, nothing else:** `/backend · /mobile · /infra`. **Never a tree listing.** Codebase overviews do not help agents find files faster and cost tokens on every prompt (Gloaguen et al., ETH Zurich, 2026); briefs already carry each unit's owned trees. |
 | `{{E2E_COMMAND}}` | `STACK.md`, or omit | `npx playwright test` — run at join points / by `release-runbook` when the stack has E2E |
 | `{{LOCKFILES}}` | `scaffold` | `uv.lock`, `package-lock.json` |
 | `{{AUDIT_COMMANDS}}` | `STACK.md` | `pip-audit`, `npm audit` |

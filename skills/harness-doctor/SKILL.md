@@ -117,7 +117,9 @@ Then check the inverse — **excess**. A return contract or dispatch instruction
 - The state file's operating-facts name a commit format the orchestrator skill contradicts.
 - `CLAUDE.md` opens with an organising principle a skill's rule quietly violates.
 
-**Report which file wins.** A harness must declare an authority (usually the orchestrator skill). If it doesn't, that itself is a finding.
+**Report which file wins.** A harness must declare which file owns the process (the generated `CLAUDE.md` says the tier skill "holds the process"). If it doesn't, that itself is a finding.
+
+**Duplication is a finding even when the copies agree today (KD-021).** A process rule stated in both `CLAUDE.md` and the tier skill (`orchestrate-build` or `build-loop`) → **MAJOR**: the copies drift, and a tiebreak line ("where this file and the skill disagree, the skill wins") is the evidence that they were expected to. `CLAUDE.md` holds project facts, commands, invariants, commit format, the unit agents' stop-and-report triggers and the "Talking to the user" section; the loop, joins, stop conditions and ruling procedure belong to the skill. Grep `CLAUDE.md` for: `When to stop`, `drain`, `launch confirmation`, `walking skeleton`, `AMENDED (`, and a tiebreak sentence. Any hit → MAJOR, citing the skill line that already owns the rule.
 
 ### 6. Path and command validity
 Every path, every command, every filename. Check them against the repo.

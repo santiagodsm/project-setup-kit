@@ -27,7 +27,7 @@ That is why you start from templates rather than from a blank page.
 
 **Default: substitute.** `templates/{small,orchestrated}/` and `templates/gates/` hold a harness extracted from builds that actually survived — real defects fixed, a whole per-story ceremony retired because it was measured and lost. Their **contracts are correct**: tool grants, artifact ownership, return contracts, loop caps, gates-at-joins.
 
-Those contracts are expensive to derive and easy to get subtly wrong. **Do not rewrite them. Do not "improve" them. Do not summarize them** — the reasoning prose (*why* the full check runs only at joins, *why* red is never "environmental") is what makes an agent comply under pressure. Strip it and you get a harness that gets rationalized past on its first hard day.
+Those contracts are expensive to derive and easy to get subtly wrong. **Do not rewrite them.** Each rule keeps its reason, stated once, in one or two sentences, in the file that owns the rule; the same reason is never repeated across files (KD-021). The reason is what makes an agent comply under pressure, so a rule stripped of it gets rationalized past on its first hard day. A reason copied into a second file is worse: the copies drift, and the agent obeys whichever it read last.
 
 **But you are not limited to them.** If this project needs a gate no template covers — a store-submission check, a data-migration verifier, a model-drift gate — **author it.** A stack the templates never anticipated is a normal outcome, not an error.
 
