@@ -12,7 +12,7 @@ allowed-tools:
   - ToolSearch
 metadata:
   role: reviewer
-  reads: [CLAUDE.md, .claude/skills/**/SKILL.md, .claude/agents/*.md (if any exist), the build state file, STACK.md (gate manifest), PRD.md (tier), PLAN.md (if it exists), .gitignore]
+  reads: [CLAUDE.md, .claude/skills/**/SKILL.md, .claude/agents/*.md (if any exist), the build state file, STACK.md (gate manifest + format command), PRD.md (tier), PLAN.md (if it exists), .gitignore, .claude/settings.json, .claude/hooks/*, .githooks/*]
   writes: [HARNESS_DOCTOR.md — never a skill, never an agent, never product code]
 ---
 
@@ -50,25 +50,25 @@ Before you flag a single absent gate, read the tier and the manifest. Otherwise 
 
 So, for every gate: in the manifest? in the harness? Both, or neither. Any mismatch is a finding.
 
-## The fourteen checks
+## The fifteen checks
 
-Each is grounded in a defect class that has actually shipped in a real harness. Run all fourteen.
+Each is grounded in a defect class that has actually shipped in a real harness. Run all fifteen.
 
 ### 0. Unresolved placeholders (run this FIRST — it is the cheapest and the most dangerous to skip)
 
 If the harness was produced by `harness-forge` from templates, grep it:
 
 ```bash
-grep -rn -e '{{' --include='*.md' \
-  --exclude-dir=.git --exclude='*/harness-doctor/SKILL.md' \
-  CLAUDE.md .claude/ 2>/dev/null
+grep -rn -e '{{' --include='*.md' --include='*.json' --include='*.sh' \
+  --exclude-dir=.git CLAUDE.md .claude/ .githooks/ 2>/dev/null \
+  | grep -v -e '/harness-doctor/SKILL.md:' -e '/notify.sh:'
 ```
 
 **Zero hits. Every hit is a BLOCKER.**
 
 An unresolved placeholder does not throw. An agent reading `Run {{CHECK_COMMAND}}` will **infer a plausible command, run it, and report green.** The check you believe in has silently stopped running. A stray `{{#IF` means the condition was never resolved and the markers never deleted.
 
-The `--exclude` on `harness-doctor` is required: any doctor skill must name the pattern to search for it, so its own prose contains it. Do not extend that exclusion to any other file.
+The filter on `harness-doctor` is required (a `grep -v` on the path, not `--exclude`, because `--exclude` with a path pattern behaves differently across grep implementations): any doctor skill must name the pattern to search for it, so its own prose contains it. The `notify.sh` filter is the same case: the notifier is copied verbatim and contains the pattern as its own guard against unresolved asks. Do not extend the filter to any other file.
 
 Skip if the harness was hand-written and uses no templates.
 
@@ -116,7 +116,11 @@ Then check the inverse — **excess**. A return contract or dispatch instruction
 - The state file's operating-facts name a commit format the orchestrator skill contradicts.
 - `CLAUDE.md` opens with an organising principle a skill's rule quietly violates.
 
-**Report which file wins.** A harness must declare an authority (usually the orchestrator skill). If it doesn't, that itself is a finding.
+**Report which file wins.** A harness must declare which file owns the process (the generated `CLAUDE.md` says the tier skill "holds the process"). If it doesn't, that itself is a finding.
+
+**Duplication is a finding even when the copies agree today (KD-021).** A process rule stated in both `CLAUDE.md` and the tier skill (`orchestrate-build` or `build-loop`) → **MAJOR**: the copies drift, and a tiebreak line ("where this file and the skill disagree, the skill wins") is the evidence that they were expected to. `CLAUDE.md` holds project facts, commands, invariants, commit format, the unit agents' stop-and-report triggers and the "Talking to the user" section; the loop, joins, stop conditions and ruling procedure belong to the skill. Grep `CLAUDE.md` for: `When to stop`, `drain`, `launch confirmation`, `walking skeleton`, `AMENDED (`, and a tiebreak sentence. Any hit → MAJOR, citing the skill line that already owns the rule. A one-line pointer that names the owning skill ("green baseline is law at every join (`orchestrate-build` owns the rule)") is not duplication.
+
+**"Talking to the user" (KD-022).** `CLAUDE.md` has the section, copied verbatim from the kit's `COMMUNICATION.md`, and no other harness file contradicts it: a skill telling the agent to "explain in detail", "summarize everything you did", or to report in a free-form summary instead of the report-back shape. Missing section or a contradiction → **MINOR**.
 
 ### 6. Path and command validity
 Every path, every command, every filename. Check them against the repo.
@@ -136,7 +140,7 @@ Every loop in the harness must be bounded, and every stop condition must be reac
 ### 8. Early-stop residue
 Anything that lets an agent stop before its work is done. **Grep for it explicitly**, because it hides.
 
-Unit caps, session caps, "~N units", "natural stopping point", "this seems like a good place to pause", "a reasonable amount of work". Every one of these is a self-imposed limit the model will happily honor, and each costs a full resume cycle. The harness declares **a single stop signal — the context system-reminder**; verify no file anywhere offers a second.
+Unit caps, session caps, "~N units", "natural stopping point", "this seems like a good place to pause", "a reasonable amount of work". Every one of these is a self-imposed limit the model will happily honor, and each costs a full resume cycle. The harness declares **a single stop signal — the context system-reminder** (with the compaction clause: a compacted conversation means re-read and continue, which is not a stop and not a finding); verify no file anywhere offers a second. Also flag the inverse: a file that tells the agent to *stop* on compaction → **MAJOR**, because current Claude Code documents no warning before auto-compaction, so that rule ends builds early or never fires.
 
 ### 9. Ordering constraints
 Where a harness declares an order, verify it is stated identically everywhere and that violating it is actually prevented.
@@ -188,7 +192,7 @@ The harness tells its agents to push a blocker to the user's phone. If that path
 | `.gitignore` covers `.env` / `*.env` | missing → **MAJOR** |
 | Every actor instructed to call it has `Bash` in its grant | missing → **BLOCKER** (this is check 1, applied here) |
 | The **orchestrator** calls the script **directly** — it has `Bash` | told to dispatch a notify-only relay task instead → **MAJOR** — stale machinery from the retired tiers; it still works, but it spends a dispatch on a one-line command and teaches the wrong tool model |
-| No `Notification` hook in the target repo's `.claude/settings.json` | present → **MINOR** — it double-fires against the user's global hook, and a channel that cries wolf gets muted |
+| No `Notification` hook in the target repo's `.claude/settings.json` | present → **MINOR** — it double-fires against the user's global hook, and a channel that cries wolf gets muted. (Check 14 audits the same row from the enforcement side; report it once.) |
 
 **Do not run `notify.sh selftest`.** It sends a real push. You are auditing, and nobody asked to be buzzed.
 
@@ -201,6 +205,23 @@ The single largest time sink in the retired per-story harness was full-suite run
 Grep every generated file for instructions that put the full check command (or a full regression run) inside per-story or per-unit work — "run the full suite before reporting", "each story ends with `<check command>`", a brief template baking the full command into the unit loop. Any such instruction → **MAJOR**, citing the file and line. The inverse — **nobody** runs the full check at joins, or joins are never defined → **BLOCKER**: scoped checks alone never see cross-unit breakage, which is exactly where assembled products fail while every unit reports green.
 
 (`small` tier is exempt in one direction only: build-loop runs the full check per story by design — there are no joins. The BLOCKER direction still applies: something must run it.)
+
+### 14. Enforcement layer exists and is wired
+
+`harness-forge` emits hooks, a git hook and permission rules so that the load-bearing rules fail deterministically instead of silently (KD-020). Hooks are gates, and a gate that is not wired checks nothing while the harness reports that it ran. Verify against the files, not the prose:
+
+| | |
+|---|---|
+| `.claude/settings.json` exists and parses as JSON (`jq . .claude/settings.json`) | missing or invalid → **BLOCKER** |
+| Every hook `command` path resolves to an executable file (`test -x`) | missing or not executable → **BLOCKER**. The guard hook sets `onFailure: "block"`, so a missing guard blocks every edit |
+| `.githooks/pre-commit` exists and is executable, and `git config core.hooksPath` prints `.githooks` | any of the three missing → **MAJOR** |
+| `permissions.deny` covers force-push (`--force`, `-f`), `git reset --hard`, and `git commit --no-verify` / `-n` | missing → **MAJOR** |
+| The PostToolUse format hook is present **iff** `STACK.md` names a format command | either direction → **MAJOR**. A formatter hook with no command is a gate that can't run; a command with no hook is enforcement that was promised and not wired |
+| Every hook entry carries a `timeout`; the write guard also carries `"onFailure": "block"` | missing → **MAJOR**. A hook with no timeout can stall the agent for the 600-second default |
+| No `Notification` hook in the file | present → **MINOR** (same row as check 12; report it once) |
+| **Speed budget (KD-020):** no hook and no git hook invokes the check command, the affected-test command, or any test runner (`pytest`, `vitest`, `jest`, `go test`, `cargo test`, `npm test`, `make test`, `node --test`, ...) | any hit → **BLOCKER**. A per-edit or per-commit test run multiplies the suite runs per story; it is the defect that made the retired harness unusable |
+
+The orchestrated tier adds one more row: `guard-writes.sh` blocks writes to the state file when the hook input carries an `agent_id` (a subagent), and `.githooks/pre-commit` rejects a commit that stages the state file with anything but the design. Either missing → **MAJOR**: the single-writer rule is back to prose only.
 
 ## Output
 

@@ -10,7 +10,7 @@ allowed-tools:
   - Write
 metadata:
   role: reviewer
-  reads: [CLAUDE.md, .claude/skills/**/SKILL.md, {{STATE_FILE}}, .gitignore, build files]
+  reads: [CLAUDE.md, .claude/skills/**/SKILL.md, {{STATE_FILE}}, .gitignore, build files, .claude/settings.json, .claude/hooks/*, .githooks/*]
   writes: [{{REVIEWS_DIR}}harness-doctor-<date>.md — never a skill, never CLAUDE.md, never product code]
 ---
 
@@ -24,13 +24,13 @@ Read all of: `CLAUDE.md`, every `.claude/skills/*/SKILL.md`, `{{STATE_FILE}}`, `
 
 ```bash
 PATTERN='{{'   # PLACEHOLDER-LITERAL — the tag keeps this one line out of its own results
-grep -rn -e "$PATTERN" --include='*.md' --exclude-dir=.git \
-  CLAUDE.md .claude/ {{STATE_FILE}} 2>/dev/null | grep -v 'PLACEHOLDER-LITERAL'
+grep -rn -e "$PATTERN" --include='*.md' --include='*.json' --include='*.sh' --exclude-dir=.git \
+  CLAUDE.md .claude/ .githooks/ {{STATE_FILE}} 2>/dev/null | grep -v -e 'PLACEHOLDER-LITERAL' -e '/notify.sh:'
 ```
 
 **Zero hits. Every hit is a BLOCKER.** An unresolved placeholder does not throw: an agent reading a check command left as a placeholder will infer a plausible command, run it, and report green — the verification you believe in has silently stopped. Same for a stray `#IF` conditional block whose markers were never deleted.
 
-**Why the filter, and why it is line-scoped:** this skill must *name* the pattern to search for it, so the one line above that quotes it is tagged `PLACEHOLDER-LITERAL` and filtered out — otherwise you flag yourself on every run, forever. **Filter the tagged line, never the whole file** — this file also carries real placeholders that must resolve, and excluding it wholesale ships a doctor whose own report path is a literal placeholder.
+**Why the filter, and why it is line-scoped:** this skill must *name* the pattern to search for it, so the one line above that quotes it is tagged `PLACEHOLDER-LITERAL` and filtered out — otherwise you flag yourself on every run, forever. **Filter the tagged line, never the whole file** — this file also carries real placeholders that must resolve, and excluding it wholesale ships a doctor whose own report path is a literal placeholder. The one whole-file exclusion is `notify.sh`: it is copied verbatim and names the pattern in its own check for unresolved asks.
 
 ### 1. Tool sufficiency — and deliberate affordance, not just deliberate restriction
 
@@ -47,7 +47,8 @@ This tier's predecessor died of ceremony. Flag as **MAJOR** (BLOCKER if wired in
 - `{{STATE_FILE}}` has exactly one writer: the orchestrator. Grep every skill for instructions to update/write the state file — a second writer is a clobber waiting to happen. **BLOCKER.**
 - `{{DESIGN}}` is written by exactly one hand for exactly one purpose: the orchestrator's dated `> AMENDED` blocks. A skill telling anyone else to edit the design → **BLOCKER.**
 - The invariants block lives in `CLAUDE.md` **once**. A skill restating it (rather than pointing at it) → **MAJOR** — the copy diverges from the original and agents obey whichever they read last.
-- Where files disagree, the declared authority is `orchestrate-build`. If no file says so, that is a finding.
+- **One owner per process rule (KD-021).** The loop, joins, drain, parallelism, stop conditions and the ruling procedure live in `orchestrate-build` only; `CLAUDE.md` holds project facts, commands, invariants, commits, the unit agents' stop-and-report triggers and "Talking to the user". A process rule stated in both → **MAJOR**, even if the two copies agree today: they drift, and agents obey whichever they read last. Grep `CLAUDE.md` for `When to stop`, `drain`, `launch confirmation`, `walking skeleton`, `AMENDED (`, and any tiebreak sentence ("where this file and ... disagree"); a tiebreak line is evidence of duplication, not a fix for it. A one-line pointer that names the owning skill ("green baseline is law at every join (`orchestrate-build` owns the rule)") is not duplication.
+- `CLAUDE.md` has the "Talking to the user" section, and no skill contradicts it ("explain in detail", "summarize everything you did", a free-form summary instead of the report-back shape in `orchestrate-build`) → else **MINOR**.
 
 ### 4. Dispatch reachability and gate wiring
 
@@ -64,16 +65,29 @@ This tier's predecessor died of ceremony. Flag as **MAJOR** (BLOCKER if wired in
 
 ### 6. The walking skeleton is wired, not just praised
 
-U0-first appears in `CLAUDE.md`, `orchestrate-build`, and the plan's unit table; the join procedure includes the skeleton re-run; `{{STATE_FILE}}` has a slot for the skeleton's run command. A harness that names the skeleton but never re-verifies it has the rule without the mechanism → **MAJOR.**
+U0-first appears in `orchestrate-build` and the plan's unit table (not in `CLAUDE.md`: one owner, check 3); the join procedure includes the skeleton re-run; `{{STATE_FILE}}` has a slot for the skeleton's run command. A harness that names the skeleton but never re-verifies it has the rule without the mechanism → **MAJOR.**
 
 ### 7. Early-stop residue and loop bounds
 
-Grep for unit caps, session caps, "~N units", "natural stopping point", "a reasonable amount of work". The harness declares one stop signal (backlog complete · genuine blocker · context system-reminder); any file offering a second → **MAJOR.** Every retry described anywhere must carry a bound.
+Grep for unit caps, session caps, "~N units", "natural stopping point", "a reasonable amount of work". The harness declares one stop signal (backlog complete · genuine blocker · context system-reminder, where a compacted conversation means re-read and continue, not stop); any file offering a second, or telling the agent to stop on compaction → **MAJOR.** Every retry described anywhere must carry a bound.
 
 ### 8. Paths, commands, and the notification channel
 
 - Every command a skill invokes (`{{CHECK_COMMAND}}`, `{{AFFECTED_TEST_COMMAND}}`, `{{LINT_COMMAND}}`, `{{TYPECHECK_COMMAND}}`) exists in the build files. Every named path exists. `{{REVIEWS_DIR}}` is gitignored (`git check-ignore -v`).
 - `{{NOTIFY}}` exists and is executable (missing → **BLOCKER**); `.claude/ASK_CONTRACT.md` exists (missing → **MAJOR**). **The orchestrator is told to call it directly — it has Bash.** An instruction to dispatch a notify-only task instead is dead ceremony from the tool-starved tier → **MINOR**, but flag it. Do not run `{{NOTIFY}} selftest` — it sends a real push.
+
+### 9. Enforcement is wired, and stays inside the speed budget
+
+The hooks, the git hook and the deny rules are gates (KD-020). Check them against the files:
+
+- `.claude/settings.json` exists and parses (`jq .`); every hook `command` path is an executable file. Either fails → **BLOCKER**.
+- `.githooks/pre-commit` exists and is executable, and `git config core.hooksPath` prints `.githooks` → else **MAJOR**. `orchestrate-build` session start re-sets it; a fresh clone loses it.
+- `permissions.deny` covers force-push, `git reset --hard`, and `git commit --no-verify` / `-n` → else **MAJOR**.
+- The PostToolUse format hook exists iff `STACK.md` names a format command → either direction **MAJOR**.
+- Every hook entry has a `timeout`, and the write guard has `"onFailure": "block"` → else **MAJOR**.
+- `guard-writes.sh` blocks `{{STATE_FILE}}` writes from subagents (`agent_id` present), and `.githooks/pre-commit` rejects `{{STATE_FILE}}` staged with anything but `{{DESIGN}}` → else **MAJOR**: the single-writer rule is back to prose.
+- No `Notification` hook in the file → else **MINOR** (it double-fires against the user's global one).
+- **Speed budget:** no hook and no git hook runs `{{CHECK_COMMAND}}`, `{{AFFECTED_TEST_COMMAND}}`, or any test runner → any hit **BLOCKER**. Tests run at joins only; a per-edit or per-commit suite is the slow harness growing back.
 
 ## Output
 

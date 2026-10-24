@@ -78,6 +78,8 @@ Specify:
 - **Its preconditions, and how they are satisfied automatically.** A database it needs, it starts. A container it needs, it starts.
 - **Test isolation.** If tests touch a database, each parallel worker needs its own. Decide this **now**, not after concurrent runs corrupt each other. Retrofitting isolation is painful and until you do, the harness cannot parallelize at all.
 
+**Every message you write to the user follows `COMMUNICATION.md` at the plugin root** (answer first, short, plain words, no bare internal labels). Questions also follow `ASK_CONTRACT.md`.
+
 ## Reserved decisions are not yours
 
 `OPEN_QUESTIONS.md` holds what the user reserved. **Do not resolve them.** If a reserved question blocks a stack choice, say so, lock what you can, and record the blocked part as a new OQ. Locking a decision the user reserved is the one unforgivable move here — they will not notice until it is load-bearing.
@@ -108,6 +110,7 @@ ADR-001 — <Decision>                                   [LOCKED <date>]
 `<command>` — runs <lint, typecheck, tests, build>.
 Preconditions: <what it needs> — satisfied automatically by <how>.
 Test isolation: <per-worker DB strategy, or "no DB in tests">.
+Format command: `<command that formats the one file given as its last argument>`, or `none` if the stack has no formatter. (harness-forge wires it to run after every edit Claude makes.)
 
 ## Gate manifest  (harness-forge reads this; ONLY these gates are emitted)
 Tier: <from PRD.md's TIER marker>

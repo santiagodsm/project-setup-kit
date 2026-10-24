@@ -107,6 +107,8 @@ The restriction is deliberate: it is what keeps your context flat across a chain
 
 Write `SETUP_PROGRESS.md` **after every step**. Setup spans sessions. A crash should cost at most one step.
 
+**Every message you write to the user follows `COMMUNICATION.md` at the plugin root** (answer first, short, plain words, no bare internal labels). Questions also follow `ASK_CONTRACT.md`.
+
 ## Reaching the user when the chain stops
 
 A halted chain is indistinguishable from a finished one if nobody is at the terminal — and long silences get resolved by guessing. So a stop that waits on a person gets **one push** to their phone (never one per question — `notify.sh ask --count N` bundles them; `ASK_CONTRACT.md` at the plugin root is the contract for both channels).
@@ -120,7 +122,7 @@ You have no `Bash`; delegate the push like everything else:
 
 ## Handing off between sessions
 
-**Hand off when a context/summarization `<system-reminder>` fires. That is the only signal.** Not "this feels like a good stopping point," not "that was a big step." Write `SETUP_PROGRESS.md`, name the next step, and stop. A fresh session reads the file and continues.
+**Hand off when a context/summarization system-reminder fires. That is the only signal. If you find the conversation has been compacted instead (earlier turns replaced by a summary), do not stop: re-read `SETUP_PROGRESS.md` and continue from NEXT.** Not "this feels like a good stopping point," not "that was a big step." Write `SETUP_PROGRESS.md`, name the next step, and stop. A fresh session reads the file and continues.
 
 Step 1 (the interview) and step 3 (the design) are long and will often span sessions on their own. That is expected and is not a reason to rush them.
 

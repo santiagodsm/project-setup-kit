@@ -19,10 +19,13 @@ Every `{{VAR}}` in `templates/**`. `harness-forge` resolves all of them before w
 | `{{AFFECTED_TEST_COMMAND}}` | `STACK.md` | `pytest {paths}` |
 | `{{LINT_COMMAND}}` | `STACK.md` | `ruff check {files}` |
 | `{{TYPECHECK_COMMAND}}` | `STACK.md` | `pyright` |
+| `{{FORMAT_COMMAND}}` | `STACK.md` → "Format command". **May be empty**: then forge emits no `format.sh` and no PostToolUse entry. Both tiers. | `npx prettier --write`: formats the one file given as its last argument |
+| `{{LINT_STAGED_COMMAND}}` | forge, from `{{LINT_COMMAND}}` with the `{files}` token removed (the hook appends the staged files). **Empty when the lint command cannot take a file list**: then the pre-commit hook does not lint. Both tiers. | `ruff check` |
+| `{{SOURCE_EXTENSIONS}}` | forge, from the stack's languages. Space separated, no dots. Used by `format.sh` and the pre-commit lint filter. | `ts tsx js` |
 | `{{FRONTEND_CHECK_COMMAND}}` | `STACK.md`, or omit the block | `npm run lint && vitest && npm run build` |
 | `{{BUILD_COMMAND}}` | `STACK.md` | `npm run build` |
 | `{{STACK_SUMMARY}}` | `STACK.md`, one line | `Python 3.12 · FastAPI · Postgres 16 · React Native` |
-| `{{LANGUAGE}}` / `{{FRAMEWORK}}` / `{{DATABASE}}` | `STACK.md` ADRs | `Python 3.12` / `FastAPI` / `PostgreSQL 16` |
+| `{{DATABASE}}` | `STACK.md` ADRs | `PostgreSQL 16` |
 | `{{TEST_FRAMEWORK}}` | `STACK.md` | `pytest + Hypothesis` |
 | **`{{MIGRATION_TOOL}}`** | `STACK.md`. **Absent → the migration gate is not emitted at all.** | `alembic` |
 | `{{MIGRATION_DIR}}` | `STACK.md` / repo | `backend/alembic/versions/` |
@@ -42,10 +45,9 @@ Every `{{VAR}}` in `templates/**`. `harness-forge` resolves all of them before w
 | `{{BEHAVIOR_SECTION}}` | `DESIGN.md` §5 | `§5` |
 | `{{DOD_SECTION}}` | `DESIGN.md` §12 | `§12` |
 | **`{{INVARIANTS}}`** | `DESIGN.md` §5 + §12, verbatim | see below |
-| `{{CODE_DIRS}}` | repo | `/backend`, `/mobile` |
 | `{{STANDARDS_DOC}}` | `scaffold`, or omit | `backend/docs/db-standards.md` |
 | `{{PROJECT_ONE_LINER}}` | `PRD.md` → What | `Shared expense tracking for roommates.` |
-| `{{PROJECT_STRUCTURE}}` | repo, confirmed with `ls` | `/backend · /mobile · /infra` |
+| `{{PROJECT_STRUCTURE}}` | repo, confirmed with `ls` | **One line listing the top-level code directories, nothing else:** `/backend · /mobile · /infra`. **Never a tree listing.** Codebase overviews do not help agents find files faster and cost tokens on every prompt (Gloaguen et al., ETH Zurich, 2026); briefs already carry each unit's owned trees. |
 | `{{E2E_COMMAND}}` | `STACK.md`, or omit | `npx playwright test` — run at join points / by `release-runbook` when the stack has E2E |
 | `{{LOCKFILES}}` | `scaffold` | `uv.lock`, `package-lock.json` |
 | `{{AUDIT_COMMANDS}}` | `STACK.md` | `pip-audit`, `npm audit` |
@@ -54,6 +56,7 @@ Every `{{VAR}}` in `templates/**`. `harness-forge` resolves all of them before w
 | **`{{MAX_PARALLEL}}`** | forge, from the isolation `scaffold` built — **`orchestrated` only; the `small` tier has one agent and nothing to run alongside it, so neither parallelism placeholder appears there** | `3` — concurrent unit agents. **3 is the default and the right answer for almost every project** (beyond it, shared build artefacts contend and produce failures that look like real defects). Raise to 4–5 only when the check command is genuinely fast (< ~60s) and isolation is per-worker; drop to `1` only when `{{DB_PARALLEL_RULE}}` says isolation does not exist *and* every unit touches the DB. `1` is a defect being reported, not a configuration. |
 | **`{{DB_PARALLEL_RULE}}`** | forge, from `scaffold`'s returned isolation strategy | **Resolve to one literal sentence** stating what is actually true. Three canonical values, below. Never leave it abstract — this sentence is the only place the harness records whether concurrent test runs are safe, and an agent reading a vague one will assume the permissive reading. |
 | **`{{NOTIFY}}`** | fixed — the notifier `harness-forge` copies into every repo | `.claude/scripts/notify.sh` — **resolve to the bare path, no backticks and no `./` prefix.** Every template already wraps it (in backticks, or inside a bash block), so a decorated value nests and produces a command that does not run. It is not configurable and not stack-dependent; the file is copied verbatim from the plugin root and the path must match it exactly or every ask silently runs nothing. |
+| **`{{TALKING_TO_THE_USER}}`** | fixed: the kit's `COMMUNICATION.md`, the block between `<!-- BEGIN TALKING-TO-THE-USER -->` and `<!-- END TALKING-TO-THE-USER -->`, copied verbatim (markers dropped). Both tiers. | the `## Talking to the user` section: eight rules and a scope line. Never paraphrase or shorten it; `COMMUNICATION.md` is its only owner (KD-021, KD-022). |
 | **`{{ORGANISING_PRINCIPLE}}`** | `PRD.md` (What/Why, stated quality bar) + `DESIGN.md` invariants — see below | `A silently wrong number is the worst possible outcome.` |
 
 ## Conditional flags
@@ -74,6 +77,10 @@ Set by `harness-forge` from `STACK.md`'s gate manifest. **A flag set without its
 | `{{#IF BUILD_COMMAND}}` | there is a separate build step |
 | `{{#IF FRONTEND_CHECK_COMMAND}}` | the frontend has its own check command |
 | `{{#IF E2E_COMMAND}}` | the stack has an E2E suite |
+| `{{#IF ORCHESTRATED}}` | the tier is `orchestrated`. Used only in `templates/enforcement/` (the state-file guards), which both tiers share |
+| `{{#IF FORMAT_COMMAND}}` | `{{FORMAT_COMMAND}}` is non-empty |
+| `{{#IF LINT_STAGED_COMMAND}}` | `{{LINT_STAGED_COMMAND}}` is non-empty |
+| `{{#IF PRECOMMIT_TYPECHECK}}` | **small tier only**, and forge measured lint plus `{{TYPECHECK_COMMAND}}` on the scaffolded repo at under 15 seconds (KD-020). Never at orchestrated: typecheck covers the whole project, and parallel unit agents share one working tree, so one unit's half-written code would reject another unit's commit |
 
 ---
 
