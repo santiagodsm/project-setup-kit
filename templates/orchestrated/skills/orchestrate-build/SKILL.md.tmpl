@@ -74,7 +74,7 @@ You write each brief yourself, from your own reading of the contract. It opens b
 A join is a unit or parallel batch completing. In order:
 
 1. **Drain.** Nothing `wip`. A gate run while agents are still writing describes a state that never existed, and the dangerous direction is a false green.
-2. **Record every return** in `{{STATE_FILE}}` — status, commits, what was left partial or unverified, decisions to the ledger.
+2. **Record every return** in `{{STATE_FILE}}` — status, commits, what was left partial or unverified, decisions to the ledger — and update its Build metrics counts.
 3. **Interrogate the reports.** For each landed unit, ask its report: **which invariants have executable proof, and which are only argued in comments?** Anything argued-only that is load-bearing gets a test in the follow-up or the next unit's brief.
 4. **Mutation-test the 2–3 load-bearing assertions** of the join — flip the guard, confirm the tests go red, restore. A test nobody has tried to break is a test nobody has verified. You have Bash; this costs minutes.
 5. **Run the full gate yourself:** `{{CHECK_COMMAND}}`. Green baseline is law — zero failures, no "pre-existing" or "environmental" excuses: fix the red, dispatch the fix, or mark the unit `blocked` with the red test named. The only acceptable non-green test is one legitimately skip-gated on a genuinely unavailable resource.{{#IF MIGRATION_TOOL}} If the join touched the schema, cycle migrations: `{{MIGRATION_UP}}` → `{{MIGRATION_DOWN}}` → `{{MIGRATION_UP}}`.{{/IF}}
