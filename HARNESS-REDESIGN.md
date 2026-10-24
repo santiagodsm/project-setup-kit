@@ -169,7 +169,7 @@ per-story reviewer agent, no evidence-file protocol, no fix-story machinery.
 3. **Which of ClaudeLens's author-added gates survive** (`e2e-smoke`, `golden-fixture-review`,
    `guarded-action-review`)? Lean: keep as join-point tools the orchestrator may invoke, never as
    per-story obligations.
-4. The kit's templates say *"do not 'improve' these templates by shortening them"* — the rationale
+4. **RESOLVED 2026-10-24 by KD-021** (one owner per rule; each reason stated once, in one or two sentences, in the file that owns the rule). Original question: the kit's templates say *"do not 'improve' these templates by shortening them"* — the rationale
    prose is claimed to be what makes agents comply. The redesign rejects that for volume (2,600
    lines of always-on skill prose) but keeps the principle for the *brief* (traps ≈ 200 tokens
    each, §2.4). Worth stating in KIT_DESIGN.md as an amended decision rather than silently.
