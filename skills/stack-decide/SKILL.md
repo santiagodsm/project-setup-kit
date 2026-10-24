@@ -78,6 +78,8 @@ Specify:
 - **Its preconditions, and how they are satisfied automatically.** A database it needs, it starts. A container it needs, it starts.
 - **Test isolation.** If tests touch a database, each parallel worker needs its own. Decide this **now**, not after concurrent runs corrupt each other. Retrofitting isolation is painful and until you do, the harness cannot parallelize at all.
 
+**Every message you write to the user follows `COMMUNICATION.md` at the plugin root** (answer first, short, plain words, no bare internal labels). Questions also follow `ASK_CONTRACT.md`.
+
 ## Reserved decisions are not yours
 
 `OPEN_QUESTIONS.md` holds what the user reserved. **Do not resolve them.** If a reserved question blocks a stack choice, say so, lock what you can, and record the blocked part as a new OQ. Locking a decision the user reserved is the one unforgivable move here — they will not notice until it is load-bearing.

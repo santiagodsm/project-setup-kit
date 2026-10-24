@@ -107,6 +107,8 @@ The restriction is deliberate: it is what keeps your context flat across a chain
 
 Write `SETUP_PROGRESS.md` **after every step**. Setup spans sessions. A crash should cost at most one step.
 
+**Every message you write to the user follows `COMMUNICATION.md` at the plugin root** (answer first, short, plain words, no bare internal labels). Questions also follow `ASK_CONTRACT.md`.
+
 ## Reaching the user when the chain stops
 
 A halted chain is indistinguishable from a finished one if nobody is at the terminal — and long silences get resolved by guessing. So a stop that waits on a person gets **one push** to their phone (never one per question — `notify.sh ask --count N` bundles them; `ASK_CONTRACT.md` at the plugin root is the contract for both channels).

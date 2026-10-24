@@ -1,5 +1,7 @@
 # The Ask Contract
 
+> **The general rule for every message to the user** is the "Talking to the user" section of `CLAUDE.md` (in the kit itself: `COMMUNICATION.md`). This contract adds the fixed shape a *question* must take.
+
 **Every question an agent puts to the user — in the terminal or on their phone — carries four things, in plain language.**
 
 This applies to `AskUserQuestion` prompts, to `BACKLOG BLOCKED` question lists, to blockers written into the state file, and to every `notify.sh ask`. Same contract, four surfaces.

@@ -88,9 +88,22 @@ A join is a unit or parallel batch completing. In order:
 {{#IF MCP_SERVERS}}   - `mcp-scan` — when an MCP server, tool, or dispatch path was added or edited.{{/IF}}
 {{#IF PERF_PROFILING}}   - `perf-profiling` — every join from {{PERF_FIRST_EPIC}} on, and any earlier join touching a hot user-facing surface (targets: `{{DESIGN}}` {{PERF_SECTION}}).{{/IF}}
 9. **Fix findings directly or via one follow-up dispatch.** Small and clearly right → fix it yourself, note it. Larger → a follow-up dispatch to the owning unit's agent with the findings as the brief. Record every finding and its resolution in `{{STATE_FILE}}` → the join's row. **There is no fix-story machinery** — no minting, no separate review of the fix; the next join's review covers it.
-10. **Commit `{{STATE_FILE}}`** (and any design amendments) yourself. Then dispatch the next unit(s).
+10. **Commit `{{STATE_FILE}}`** (and any design amendments) yourself. **Report to the user** in the shape under "Reporting to the user". Then dispatch the next unit(s).
 
 {{#IF RELEASE_RUNBOOK}}`release-runbook` is **not** a join gate — invoke it only when the user asks to ship.{{/IF}}
+
+## Reporting to the user
+
+At every join (step 10) and at every handoff, tell the user what changed in this shape, plain words per `CLAUDE.md` → "Talking to the user", under about eight lines. This replaces any free-form summary:
+
+```
+Works now: <what the user can do now that they could not before, in their terms: "you can now log in and see your orders">
+Left: <what remains, one line>
+Needs you: <nothing> | <the question, in the shape of .claude/ASK_CONTRACT.md>
+Went wrong, fixed: <one line, only if it changes what the user should trust; otherwise omit the line>
+```
+
+Name units by what they do ("the payments unit (U3)"), never by bare ID.
 
 ## Escalations — agents stop, you rule
 
@@ -125,7 +138,7 @@ The last dispatch unit exists because units can each pass their own tests while 
 
 That is the entire list, on purpose. Only the third is a context signal; the first two are the loop finishing or hitting a wall. Every other heuristic (the session feels long, that was a big unit, natural stopping point) fires long before real context pressure and costs a full resume cycle for nothing. If the reminder has not fired, you have context. Keep going. Do not count on seeing the reminder: current Claude Code documents no warning before it compacts automatically, so compaction is the signal you will usually meet, and it means continue.
 
-**On the context signal:** stop dispatching, drain in-flight units and record every return, write `{{STATE_FILE}}` with the **exact next dispatch** in NEXT ACTION (unit, tree, parallel neighbours), commit, tell the user *"Context checkpoint. State saved. Next session: run `orchestrate-build` — it picks up at U<N>."*, and stop.
+**On the context signal:** stop dispatching, drain in-flight units and record every return, write `{{STATE_FILE}}` with the **exact next dispatch** in NEXT ACTION (unit, tree, parallel neighbours), commit, report to the user in the shape under "Reporting to the user" with one more line, *"Next session: run `orchestrate-build`; it picks up at <the unit, by what it does, then its ID>."*, and stop.
 
 ## The rules that do not bend
 

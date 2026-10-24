@@ -22,6 +22,8 @@ metadata:
 
 `DESIGN.md` is not documentation. It is the **contract every later agent reads and cites.** A scoper quotes §3.2 to an engineer who builds from that quote without ever opening the design. A reviewer gates the result against it. A backlog author derives acceptance criteria from it.
 
+**Every message you write to the user follows `COMMUNICATION.md` at the plugin root** (answer first, short, plain words, no bare internal labels). Questions also follow `ASK_CONTRACT.md`.
+
 So the bar is not "is this a good design doc." The bar is:
 
 > **Can an agent that has never seen this project build a correct, testable slice of it from a single cited section, without guessing?**

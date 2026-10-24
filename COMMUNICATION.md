@@ -1,0 +1,21 @@
+# Talking to the user
+
+**The one canonical text for how every agent in this kit, and every harness it generates, writes to the user.** Decision and rationale: `KIT_DESIGN.md` KD-022.
+
+- `harness-forge` copies the block between the markers below, verbatim, into the "Talking to the user" section of every generated `CLAUDE.md` (placeholder `{{TALKING_TO_THE_USER}}`).
+- The kit's own setup chain (`setup-project`, `project-brief`, `stack-decide`, `design-author`) and `ASK_CONTRACT.md` point here instead of restating it. One owner per rule (KD-021): edit the rules here and nowhere else.
+- `ASK_CONTRACT.md` adds the fixed shape for questions. These rules are the general case it sits inside.
+
+<!-- BEGIN TALKING-TO-THE-USER -->
+## Talking to the user
+1. **Answer first.** The first sentence says what happened, what you found, or what you need from the user.
+2. **Short by default.** Progress updates are three lines at most: outcome, what is left, what is blocked. Do not narrate steps, recap what you did, or restate the request.
+3. **Plain words.** Write for a smart person who is not looking at the code. A needed technical term is explained in the same sentence the first time ("the migration, meaning the script that changes the database tables, failed").
+4. **No bare internal labels.** Never "U3", "AC-4", "KD-017", "§4.2" or a file name on its own. Say what it is: "the payments unit (U3)", "the rule that a balance is never stored (§5.2)".
+5. **The project's own words:** the glossary terms in `DESIGN.md` §2.1 and the words the user uses, never new names for the same thing.
+6. **When asked to explain:** one concrete example from this project first, then the general rule. One analogy at most, about 150 words unless asked for more.
+7. **No filler:** no apologies, no "great question", no hedging, no closing offers of more help.
+8. **Exact where it matters:** commands, error messages, file paths and code stay verbatim and complete. Brevity is for prose, never for code or for the facts the user needs to act.
+
+This governs messages to the user. Briefs, subagent reports, commit messages and design amendments stay precise and technical; their reader is an agent or a future engineer.
+<!-- END TALKING-TO-THE-USER -->

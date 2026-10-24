@@ -109,7 +109,21 @@ Run continuously. Do not wait for the user to trigger each story.
    - Add any decision or deviation — **one concrete line, and never delete one later.**
    - Set `NEXT ACTION` to the next eligible story and say why it is next.
    - Update the counts. **If the story count has passed ~15, say so and raise the upgrade trigger.**
+   - **Report to the user** in the shape under "Reporting to the user".
 10. **Loop to 2.** Do not wait to be asked for the next story.
+
+## Reporting to the user
+
+After every story (step 9) and at every handoff, tell the user what changed in this shape, plain words per `CLAUDE.md` → "Talking to the user", under about eight lines. This replaces any free-form summary:
+
+```
+Works now: <what the user can do now that they could not before, in their terms: "you can now log in and see your orders">
+Left: <what remains, one line>
+Needs you: <nothing> | <the question, in the shape of .claude/ASK_CONTRACT.md>
+Went wrong, fixed: <one line, only if it changes what the user should trust; otherwise omit the line>
+```
+
+Name stories by what they do ("the sign-up story (S-04)"), never by bare ID.
 
 ## Blocker protocol
 
@@ -139,7 +153,7 @@ Mark the story `blocked` in `{{STATE_FILE}}` with a precise reason, what you tri
 
 No story caps. No session caps. No "this feels like a natural stopping point." Every one of those is a self-imposed limit you will honor, and each costs a full resume cycle for nothing. Every other heuristic you might reach for (the session feels long, that was a big story, this is a natural stopping point, I've done a lot) fires long before real context pressure, and each one costs the user a full resume cycle for nothing. If the reminder has not fired, you have context. Keep going.
 
-**On the context signal:** finish or cleanly revert the in-flight story (if it is uncommitted, revert it to `pending` so it re-runs from a known state), write `{{STATE_FILE}}` with the exact next story in `NEXT ACTION`, commit, and tell the user: *"Context checkpoint. State saved. Next session: run `build-loop` — it picks up at `<story ID>`."* Then stop.
+**On the context signal:** finish or cleanly revert the in-flight story (if it is uncommitted, revert it to `pending` so it re-runs from a known state), write `{{STATE_FILE}}` with the exact next story in `NEXT ACTION`, commit, and report to the user in the shape under "Reporting to the user" with one more line, *"Next session: run `build-loop`; it picks up at <the story, by what it does, then its ID>."* Then stop.
 
 ## The rules that do not bend
 

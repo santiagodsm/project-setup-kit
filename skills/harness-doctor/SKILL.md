@@ -121,6 +121,8 @@ Then check the inverse — **excess**. A return contract or dispatch instruction
 
 **Duplication is a finding even when the copies agree today (KD-021).** A process rule stated in both `CLAUDE.md` and the tier skill (`orchestrate-build` or `build-loop`) → **MAJOR**: the copies drift, and a tiebreak line ("where this file and the skill disagree, the skill wins") is the evidence that they were expected to. `CLAUDE.md` holds project facts, commands, invariants, commit format, the unit agents' stop-and-report triggers and the "Talking to the user" section; the loop, joins, stop conditions and ruling procedure belong to the skill. Grep `CLAUDE.md` for: `When to stop`, `drain`, `launch confirmation`, `walking skeleton`, `AMENDED (`, and a tiebreak sentence. Any hit → MAJOR, citing the skill line that already owns the rule.
 
+**"Talking to the user" (KD-022).** `CLAUDE.md` has the section, copied verbatim from the kit's `COMMUNICATION.md`, and no other harness file contradicts it: a skill telling the agent to "explain in detail", "summarize everything you did", or to report in a free-form summary instead of the report-back shape. Missing section or a contradiction → **MINOR**.
+
 ### 6. Path and command validity
 Every path, every command, every filename. Check them against the repo.
 

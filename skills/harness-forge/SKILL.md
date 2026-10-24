@@ -13,7 +13,7 @@ allowed-tools:
   - ToolSearch
 metadata:
   role: generator
-  reads: [templates/**, STACK.md (gate manifest + check command), DESIGN.md, PRD.md (TIER marker + organising-principle sources), PLAN.md (if it exists — dispatch-unit count only), the scaffolded repo]
+  reads: [templates/**, COMMUNICATION.md (the Talking-to-the-user block), STACK.md (gate manifest + check command), DESIGN.md, PRD.md (TIER marker + organising-principle sources), PLAN.md (if it exists — dispatch-unit count only), the scaffolded repo]
   writes: [target repo CLAUDE.md, .claude/skills/**, .claude/scripts/notify.sh + .claude/ASK_CONTRACT.md (copied verbatim from the plugin root), .claude/settings.json, .claude/hooks/**, .githooks/**, the build state file (stub), .gitignore (reviews dir, .env), STACK.md (resolves DEFERRED manifest rows ONLY)]
 ---
 
@@ -46,7 +46,7 @@ Those contracts are expensive to derive and easy to get subtly wrong. **Do not r
 
    There is no `inline` value anymore — there is no story-reviewer to fold a check into. Migration, token, and contract-drift checks live in unit briefs and in `join-review`, which the tier templates already carry. The **tier-core skills** — `orchestrate-build`, `join-review`, `harness-doctor` for orchestrated; `build-loop` for small — live in `templates/<tier>/skills/`, not `templates/gates/`, and step 5 already copied them. Do not look for them in `gates/` and do not author duplicates at step 7.
 7. **Author any gate the stack needs that no template covers.** Same contracts. Note it in your return so the template library can absorb it later.
-8. **Resolve every placeholder.** Confirm every path with `ls` before writing it. `{{STATE_FILE}}` resolves to `PROGRESS.md` at the repo root for the orchestrated tier. `{{ORGANISING_PRINCIPLE}}` has its own section below — resolve it deliberately, not as a string swap.
+8. **Resolve every placeholder.** Confirm every path with `ls` before writing it. `{{STATE_FILE}}` resolves to `PROGRESS.md` at the repo root for the orchestrated tier. `{{ORGANISING_PRINCIPLE}}` has its own section below — resolve it deliberately, not as a string swap. `{{TALKING_TO_THE_USER}}` is the block between the markers in the plugin root's `COMMUNICATION.md`, copied verbatim: it is the user's rule for how every agent talks to them, and it has one owner.
 9. **Stub the state file.** `PLAN.md` and its `## Dispatch units` section don't exist yet (step 6). Emit every required section — including the five statuses `todo / wip / done / blocked / partial` — with `NEXT ACTION: awaiting PLAN.md`. **Do not invent a first unit** — an orchestrator booting at a fabricated unit is worse than one booting at nothing.
 10. **Gitignore** `{{REVIEWS_DIR}}` (join-review and doctor reports), `HARNESS_DOCTOR.md`, `PLAN_LINT.md`, and `.env` / `*.env` (with `!*.env.example`). You chose the reviews path; `scaffold` was explicitly forbidden from guessing it. The `.env` rules are belt-and-braces — the real credentials live outside every repo — but a project that later adds a local override must not have to remember this. **Then emit the notification channel — see below. No tier skips it.**
 11. **Emit enforcement.** See "Emit enforcement" below. No tier skips it.

@@ -48,6 +48,7 @@ This tier's predecessor died of ceremony. Flag as **MAJOR** (BLOCKER if wired in
 - `{{DESIGN}}` is written by exactly one hand for exactly one purpose: the orchestrator's dated `> AMENDED` blocks. A skill telling anyone else to edit the design → **BLOCKER.**
 - The invariants block lives in `CLAUDE.md` **once**. A skill restating it (rather than pointing at it) → **MAJOR** — the copy diverges from the original and agents obey whichever they read last.
 - **One owner per process rule (KD-021).** The loop, joins, drain, parallelism, stop conditions and the ruling procedure live in `orchestrate-build` only; `CLAUDE.md` holds project facts, commands, invariants, commits, the unit agents' stop-and-report triggers and "Talking to the user". A process rule stated in both → **MAJOR**, even if the two copies agree today: they drift, and agents obey whichever they read last. Grep `CLAUDE.md` for `When to stop`, `drain`, `launch confirmation`, `walking skeleton`, `AMENDED (`, and any tiebreak sentence ("where this file and ... disagree"); a tiebreak line is evidence of duplication, not a fix for it.
+- `CLAUDE.md` has the "Talking to the user" section, and no skill contradicts it ("explain in detail", "summarize everything you did", a free-form summary instead of the report-back shape in `orchestrate-build`) → else **MINOR**.
 
 ### 4. Dispatch reachability and gate wiring
 
