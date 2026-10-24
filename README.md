@@ -72,6 +72,8 @@ The generated harness is a multi-agent system made of prose files. **Nothing typ
 
 Hand-written harnesses routinely carry several load-bearing contradictions. Generated ones start worse. So setup does not complete with an open BLOCKER.
 
+It also audits the enforcement layer: the hooks, the git pre-commit hook and the permission rules the harness ships with, including that none of them runs tests.
+
 ---
 
 ## When an agent has a question, it can reach you

@@ -12,7 +12,7 @@ allowed-tools:
   - ToolSearch
 metadata:
   role: reviewer
-  reads: [CLAUDE.md, .claude/skills/**/SKILL.md, .claude/agents/*.md (if any exist), the build state file, STACK.md (gate manifest), PRD.md (tier), PLAN.md (if it exists), .gitignore]
+  reads: [CLAUDE.md, .claude/skills/**/SKILL.md, .claude/agents/*.md (if any exist), the build state file, STACK.md (gate manifest + format command), PRD.md (tier), PLAN.md (if it exists), .gitignore, .claude/settings.json, .claude/hooks/*, .githooks/*]
   writes: [HARNESS_DOCTOR.md — never a skill, never an agent, never product code]
 ---
 
@@ -50,18 +50,19 @@ Before you flag a single absent gate, read the tier and the manifest. Otherwise 
 
 So, for every gate: in the manifest? in the harness? Both, or neither. Any mismatch is a finding.
 
-## The fourteen checks
+## The fifteen checks
 
-Each is grounded in a defect class that has actually shipped in a real harness. Run all fourteen.
+Each is grounded in a defect class that has actually shipped in a real harness. Run all fifteen.
 
 ### 0. Unresolved placeholders (run this FIRST — it is the cheapest and the most dangerous to skip)
 
 If the harness was produced by `harness-forge` from templates, grep it:
 
 ```bash
-grep -rn -e '{{' --include='*.md' \
+grep -rn -e '{{' --include='*.md' --include='*.json' --include='*.sh' \
   --exclude-dir=.git --exclude='*/harness-doctor/SKILL.md' \
   CLAUDE.md .claude/ 2>/dev/null
+grep -n -e '{{' .githooks/* 2>/dev/null
 ```
 
 **Zero hits. Every hit is a BLOCKER.**
@@ -188,7 +189,7 @@ The harness tells its agents to push a blocker to the user's phone. If that path
 | `.gitignore` covers `.env` / `*.env` | missing → **MAJOR** |
 | Every actor instructed to call it has `Bash` in its grant | missing → **BLOCKER** (this is check 1, applied here) |
 | The **orchestrator** calls the script **directly** — it has `Bash` | told to dispatch a notify-only relay task instead → **MAJOR** — stale machinery from the retired tiers; it still works, but it spends a dispatch on a one-line command and teaches the wrong tool model |
-| No `Notification` hook in the target repo's `.claude/settings.json` | present → **MINOR** — it double-fires against the user's global hook, and a channel that cries wolf gets muted |
+| No `Notification` hook in the target repo's `.claude/settings.json` | present → **MINOR** — it double-fires against the user's global hook, and a channel that cries wolf gets muted. (Check 14 audits the same row from the enforcement side; report it once.) |
 
 **Do not run `notify.sh selftest`.** It sends a real push. You are auditing, and nobody asked to be buzzed.
 
@@ -201,6 +202,23 @@ The single largest time sink in the retired per-story harness was full-suite run
 Grep every generated file for instructions that put the full check command (or a full regression run) inside per-story or per-unit work — "run the full suite before reporting", "each story ends with `<check command>`", a brief template baking the full command into the unit loop. Any such instruction → **MAJOR**, citing the file and line. The inverse — **nobody** runs the full check at joins, or joins are never defined → **BLOCKER**: scoped checks alone never see cross-unit breakage, which is exactly where assembled products fail while every unit reports green.
 
 (`small` tier is exempt in one direction only: build-loop runs the full check per story by design — there are no joins. The BLOCKER direction still applies: something must run it.)
+
+### 14. Enforcement layer exists and is wired
+
+`harness-forge` emits hooks, a git hook and permission rules so that the load-bearing rules fail deterministically instead of silently (KD-020). Hooks are gates, and a gate that is not wired checks nothing while the harness reports that it ran. Verify against the files, not the prose:
+
+| | |
+|---|---|
+| `.claude/settings.json` exists and parses as JSON (`jq . .claude/settings.json`) | missing or invalid → **BLOCKER** |
+| Every hook `command` path resolves to an executable file (`test -x`) | missing or not executable → **BLOCKER**. The guard hook sets `onFailure: "block"`, so a missing guard blocks every edit |
+| `.githooks/pre-commit` exists and is executable, and `git config core.hooksPath` prints `.githooks` | any of the three missing → **MAJOR** |
+| `permissions.deny` covers force-push (`--force`, `-f`), `git reset --hard`, and `git commit --no-verify` / `-n` | missing → **MAJOR** |
+| The PostToolUse format hook is present **iff** `STACK.md` names a format command | either direction → **MAJOR**. A formatter hook with no command is a gate that can't run; a command with no hook is enforcement that was promised and not wired |
+| Every hook entry carries a `timeout`; the write guard also carries `"onFailure": "block"` | missing → **MAJOR**. A hook with no timeout can stall the agent for the 600-second default |
+| No `Notification` hook in the file | present → **MINOR** (same row as check 12; report it once) |
+| **Speed budget (KD-020):** no hook and no git hook invokes the check command, the affected-test command, or any test runner (`pytest`, `vitest`, `jest`, `go test`, `cargo test`, `npm test`, `make test`, `node --test`, ...) | any hit → **BLOCKER**. A per-edit or per-commit test run multiplies the suite runs per story; it is the defect that made the retired harness unusable |
+
+The orchestrated tier adds one more row: `guard-writes.sh` blocks writes to the state file when the hook input carries an `agent_id` (a subagent), and `.githooks/pre-commit` rejects a commit that stages the state file with anything but the design. Either missing → **MAJOR**: the single-writer rule is back to prose only.
 
 ## Output
 

@@ -10,7 +10,7 @@ allowed-tools:
   - Write
 metadata:
   role: reviewer
-  reads: [CLAUDE.md, .claude/skills/**/SKILL.md, {{STATE_FILE}}, .gitignore, build files]
+  reads: [CLAUDE.md, .claude/skills/**/SKILL.md, {{STATE_FILE}}, .gitignore, build files, .claude/settings.json, .claude/hooks/*, .githooks/*]
   writes: [{{REVIEWS_DIR}}harness-doctor-<date>.md — never a skill, never CLAUDE.md, never product code]
 ---
 
@@ -24,8 +24,8 @@ Read all of: `CLAUDE.md`, every `.claude/skills/*/SKILL.md`, `{{STATE_FILE}}`, `
 
 ```bash
 PATTERN='{{'   # PLACEHOLDER-LITERAL — the tag keeps this one line out of its own results
-grep -rn -e "$PATTERN" --include='*.md' --exclude-dir=.git \
-  CLAUDE.md .claude/ {{STATE_FILE}} 2>/dev/null | grep -v 'PLACEHOLDER-LITERAL'
+grep -rn -e "$PATTERN" --include='*.md' --include='*.json' --include='*.sh' --exclude-dir=.git \
+  CLAUDE.md .claude/ .githooks/ {{STATE_FILE}} 2>/dev/null | grep -v 'PLACEHOLDER-LITERAL'
 ```
 
 **Zero hits. Every hit is a BLOCKER.** An unresolved placeholder does not throw: an agent reading a check command left as a placeholder will infer a plausible command, run it, and report green — the verification you believe in has silently stopped. Same for a stray `#IF` conditional block whose markers were never deleted.
@@ -74,6 +74,19 @@ Grep for unit caps, session caps, "~N units", "natural stopping point", "a reaso
 
 - Every command a skill invokes (`{{CHECK_COMMAND}}`, `{{AFFECTED_TEST_COMMAND}}`, `{{LINT_COMMAND}}`, `{{TYPECHECK_COMMAND}}`) exists in the build files. Every named path exists. `{{REVIEWS_DIR}}` is gitignored (`git check-ignore -v`).
 - `{{NOTIFY}}` exists and is executable (missing → **BLOCKER**); `.claude/ASK_CONTRACT.md` exists (missing → **MAJOR**). **The orchestrator is told to call it directly — it has Bash.** An instruction to dispatch a notify-only task instead is dead ceremony from the tool-starved tier → **MINOR**, but flag it. Do not run `{{NOTIFY}} selftest` — it sends a real push.
+
+### 9. Enforcement is wired, and stays inside the speed budget
+
+The hooks, the git hook and the deny rules are gates (KD-020). Check them against the files:
+
+- `.claude/settings.json` exists and parses (`jq .`); every hook `command` path is an executable file. Either fails → **BLOCKER**.
+- `.githooks/pre-commit` exists and is executable, and `git config core.hooksPath` prints `.githooks` → else **MAJOR**. `orchestrate-build` session start re-sets it; a fresh clone loses it.
+- `permissions.deny` covers force-push, `git reset --hard`, and `git commit --no-verify` / `-n` → else **MAJOR**.
+- The PostToolUse format hook exists iff `STACK.md` names a format command → either direction **MAJOR**.
+- Every hook entry has a `timeout`, and the write guard has `"onFailure": "block"` → else **MAJOR**.
+- `guard-writes.sh` blocks `{{STATE_FILE}}` writes from subagents (`agent_id` present), and `.githooks/pre-commit` rejects `{{STATE_FILE}}` staged with anything but `{{DESIGN}}` → else **MAJOR**: the single-writer rule is back to prose.
+- No `Notification` hook in the file → else **MINOR** (it double-fires against the user's global one).
+- **Speed budget:** no hook and no git hook runs `{{CHECK_COMMAND}}`, `{{AFFECTED_TEST_COMMAND}}`, or any test runner → any hit **BLOCKER**. Tests run at joins only; a per-edit or per-commit suite is the slow harness growing back.
 
 ## Output
 
