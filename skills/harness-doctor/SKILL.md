@@ -60,7 +60,7 @@ If the harness was produced by `harness-forge` from templates, grep it:
 
 ```bash
 grep -rn -e '{{' --include='*.md' --include='*.json' --include='*.sh' \
-  --exclude-dir=.git --exclude='*/harness-doctor/SKILL.md' \
+  --exclude-dir=.git --exclude='*/harness-doctor/SKILL.md' --exclude=notify.sh \
   CLAUDE.md .claude/ 2>/dev/null
 grep -n -e '{{' .githooks/* 2>/dev/null
 ```
@@ -69,7 +69,7 @@ grep -n -e '{{' .githooks/* 2>/dev/null
 
 An unresolved placeholder does not throw. An agent reading `Run {{CHECK_COMMAND}}` will **infer a plausible command, run it, and report green.** The check you believe in has silently stopped running. A stray `{{#IF` means the condition was never resolved and the markers never deleted.
 
-The `--exclude` on `harness-doctor` is required: any doctor skill must name the pattern to search for it, so its own prose contains it. Do not extend that exclusion to any other file.
+The `--exclude` on `harness-doctor` is required: any doctor skill must name the pattern to search for it, so its own prose contains it. The `--exclude=notify.sh` is the same case: the notifier is copied verbatim and contains the pattern as its own guard against unresolved asks. Do not extend the exclusions to any other file.
 
 Skip if the harness was hand-written and uses no templates.
 

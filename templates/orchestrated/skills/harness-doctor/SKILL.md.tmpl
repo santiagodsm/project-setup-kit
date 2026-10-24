@@ -24,13 +24,13 @@ Read all of: `CLAUDE.md`, every `.claude/skills/*/SKILL.md`, `{{STATE_FILE}}`, `
 
 ```bash
 PATTERN='{{'   # PLACEHOLDER-LITERAL — the tag keeps this one line out of its own results
-grep -rn -e "$PATTERN" --include='*.md' --include='*.json' --include='*.sh' --exclude-dir=.git \
+grep -rn -e "$PATTERN" --include='*.md' --include='*.json' --include='*.sh' --exclude-dir=.git --exclude=notify.sh \
   CLAUDE.md .claude/ .githooks/ {{STATE_FILE}} 2>/dev/null | grep -v 'PLACEHOLDER-LITERAL'
 ```
 
 **Zero hits. Every hit is a BLOCKER.** An unresolved placeholder does not throw: an agent reading a check command left as a placeholder will infer a plausible command, run it, and report green — the verification you believe in has silently stopped. Same for a stray `#IF` conditional block whose markers were never deleted.
 
-**Why the filter, and why it is line-scoped:** this skill must *name* the pattern to search for it, so the one line above that quotes it is tagged `PLACEHOLDER-LITERAL` and filtered out — otherwise you flag yourself on every run, forever. **Filter the tagged line, never the whole file** — this file also carries real placeholders that must resolve, and excluding it wholesale ships a doctor whose own report path is a literal placeholder.
+**Why the filter, and why it is line-scoped:** this skill must *name* the pattern to search for it, so the one line above that quotes it is tagged `PLACEHOLDER-LITERAL` and filtered out — otherwise you flag yourself on every run, forever. **Filter the tagged line, never the whole file** — this file also carries real placeholders that must resolve, and excluding it wholesale ships a doctor whose own report path is a literal placeholder. The one whole-file exclusion is `notify.sh`: it is copied verbatim and names the pattern in its own check for unresolved asks.
 
 ### 1. Tool sufficiency — and deliberate affordance, not just deliberate restriction
 
