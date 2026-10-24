@@ -14,7 +14,7 @@ allowed-tools:
 metadata:
   role: generator
   reads: [templates/**, COMMUNICATION.md (the Talking-to-the-user block), STACK.md (gate manifest + check command), DESIGN.md, PRD.md (TIER marker + organising-principle sources), PLAN.md (if it exists — dispatch-unit count only), the scaffolded repo]
-  writes: [target repo CLAUDE.md, .claude/skills/**, .claude/scripts/notify.sh + .claude/ASK_CONTRACT.md (copied verbatim from the plugin root), .claude/settings.json, .claude/hooks/**, .githooks/**, the build state file (stub), .gitignore (reviews dir, .env), STACK.md (resolves DEFERRED manifest rows ONLY)]
+  writes: [target repo CLAUDE.md, .claude/skills/**, .claude/scripts/notify.sh + .claude/ASK_CONTRACT.md (copied verbatim from the plugin root), .claude/settings.json, .claude/hooks/** (guard-writes.sh, guard-bash.sh, format.sh), .githooks/**, the build state file (stub), .gitignore (reviews dir, .env), STACK.md (resolves DEFERRED manifest rows ONLY)]
 ---
 
 # harness-forge — substitute what exists, author what doesn't
@@ -111,13 +111,14 @@ Every rule above is prose, and prose fails silently. A few rules are load-bearin
 |---|---|---|
 | `settings.json.tmpl` | `.claude/settings.json` | always. Deny rules (force-push, hard reset, `--no-verify`, `git clean`, reading `.env` files), the guard hook, the compaction hook, and the format hook when `{{FORMAT_COMMAND}}` is set |
 | `hooks/guard-writes.sh.tmpl` | `.claude/hooks/guard-writes.sh`, `chmod +x` | always. Blocks writes to `.env`/`*.env` (not `*.env.example`) and `.git/`; at orchestrated, also blocks writes to `{{STATE_FILE}}` from any subagent |
+| `hooks/guard-bash.sh.tmpl` | `.claude/hooks/guard-bash.sh`, `chmod +x` | always. Matches the operations the deny rules name (force push, hard reset, skipped hooks, destructive clean) and shell writes to `.env` files or `.git/` anywhere in a command, because deny rules are prefix patterns and not a security boundary |
 | `hooks/format.sh.tmpl` | `.claude/hooks/format.sh`, `chmod +x` | only when `STACK.md` names a format command. No command means no file and no PostToolUse entry: a formatter hook with nothing to run is a gate that can't run |
 | `githooks/pre-commit.tmpl` | `.githooks/pre-commit`, `chmod +x`, tracked | always. At orchestrated: rejects a commit that stages `{{STATE_FILE}}` with anything but `{{DESIGN}}`. Both tiers: lints staged files when `{{LINT_STAGED_COMMAND}}` is set |
 
 **The speed budget is a hard limit, not a target (KD-020).** These hooks never run tests, never run `{{CHECK_COMMAND}}`, `{{AFFECTED_TEST_COMMAND}}` or any test runner. The full suite runs where it already runs: once per story at small, once per join at orchestrated. Then:
 
 - **Measure the pre-commit cost on the scaffolded repo** before you set `{{#IF PRECOMMIT_TYPECHECK}}`: time lint on a few source files plus `{{TYPECHECK_COMMAND}}`. Under 15 seconds together → include typecheck, **at the small tier only**. Over → leave typecheck out. At orchestrated, typecheck never goes in the hook: it covers the whole project, parallel unit agents share one working tree, and one unit's half-written code would reject another unit's commit. Lint alone over 15 seconds → leave `{{LINT_STAGED_COMMAND}}` empty too, and the hook keeps only the state-file rule. Report the measured numbers.
-- Every hook in `settings.json` carries a `timeout`. The two hooks that exist to block (the write guard, and the state-file rule) fail closed; the guard does it with `"onFailure": "block"`. The format hook and the pre-commit lint fail open: a timeout or crash lets the action through.
+- Every hook in `settings.json` carries a `timeout`. The hooks that exist to block (the write guard, the Bash guard, and the state-file rule) fail closed; the two guards do it with `"onFailure": "block"`. The Bash guard runs on every shell command, so it exits at once when the command mentions neither `git` nor `.env`, and stays string matching only (under 50 ms). The format hook and the pre-commit lint fail open: a timeout or crash lets the action through.
 - The compaction hook prints one line and reads nothing.
 
 **Activate the git hook.** `core.hooksPath` is not tracked, so run `git config core.hooksPath .githooks` once now; both loop skills re-check it at every session start, because a fresh clone loses it. The state-file rule applies from the first commit, so commit `{{STATE_FILE}}` on its own.
@@ -161,7 +162,7 @@ That last one carries the whole `join-review` gate. *"Any code writing a balance
 - **Dispatch-unit count read from `PLAN.md`'s `## Dispatch units`, if the file exists** — usually it doesn't yet; say so.
 - **Parallelism policy:** `{{MAX_PARALLEL}}` = N, and which `{{DB_PARALLEL_RULE}}` sentence you resolved to, naming the isolation `scaffold` built. The defect sentence is a finding, not a footnote.
 - **Notification channel emitted:** `.claude/scripts/notify.sh` (executable) + `.claude/ASK_CONTRACT.md`, `{{NOTIFY}}` resolved everywhere, **no** `Notification` hook emitted.
-- **Enforcement emitted:** hooks emitted, hooks omitted and why (no format command, lint or typecheck over the speed budget, with the measured seconds), the deny rules, `core.hooksPath` set, and that the state-file guard runs at both levels at orchestrated (tool level via the subagent check, commit level via pre-commit) and at neither at small.
+- **Enforcement emitted:** hooks emitted (always `guard-writes.sh` and `guard-bash.sh`), hooks omitted and why (no format command, lint or typecheck over the speed budget, with the measured seconds), the deny rules, `core.hooksPath` set, and that the state-file guard runs at both levels at orchestrated (tool level via the subagent check, commit level via pre-commit) and at neither at small.
 - Placeholder grep: **zero `{{` remaining.**
 - **`harness-doctor`: N blockers found, N fixed, final = CLEAN.** Report nothing else as success.
 - The first command the user runs to start building.
