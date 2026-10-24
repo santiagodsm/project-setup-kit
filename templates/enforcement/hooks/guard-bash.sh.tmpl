@@ -1,0 +1,185 @@
+#!/bin/sh
+# PreToolUse guard for Bash: string checks only, no network, no build, no tests (KD-020).
+# The permission deny rules match command prefixes and are not a security boundary
+# (`git -C . push --force` gets past them), so this hook matches the same operations
+# anywhere in the command: after && ; | $( ), inside sh -c "...", behind git -C/-c options.
+# Exit 2 blocks and shows the reason to Claude. settings.json sets onFailure "block",
+# so a crash or timeout here also blocks. False positives on these rules are accepted;
+# a false negative is the bug this file exists to prevent.
+input=$(cat)
+if command -v jq >/dev/null 2>&1; then
+  cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty')
+else
+  cmd=$(printf '%s' "$input" | sed 's/\\"/"/g; s/\\n/ ; /g')
+fi
+
+# Fast path: most shell commands touch neither git nor a secrets file.
+case "$cmd" in
+  *git*|*.env*) ;;
+  *) exit 0 ;;
+esac
+
+set -f
+nl='
+'
+ws=" 	$nl"
+block() { echo "Blocked by .claude/hooks/guard-bash.sh: $1" >&2; exit 2; }
+
+# Split into simple commands, one per line. Separators outside quotes end a command.
+# Inside quotes, spaces and separators become \001 so a quoted argument stays one word,
+# and the quoted text is also scanned on its own (that is how sh -c "..." is caught).
+segments=$(printf '%s' "$cmd" | awk '
+  function emit(x) { if (x ~ /[^ \t]/) print x }
+  function scan(s,   i, n, c, q, out, inner) {
+    out = ""; q = ""; inner = ""; n = length(s)
+    for (i = 1; i <= n; i++) {
+      c = substr(s, i, 1)
+      if (c == "\\" && q != "\047" && i < n) {
+        i++; c = substr(s, i, 1)
+        if (q != "") inner = inner c
+        out = out (c ~ /[ \t\n;|&()`{}<>]/ ? "\001" : c); continue
+      }
+      if (q != "") {
+        if (c == q) { q = ""; if (inner ~ /git|\.env/) scan(inner); inner = ""; continue }
+        inner = inner c
+        out = out (c ~ /[ \t\n;|&()`{}<>]/ ? "\001" : c); continue
+      }
+      if (c == "\"" || c == "\047") { q = c; continue }
+      if (c ~ /[;|&()`{}\n]/) { emit(out); out = ""; continue }
+      out = out c
+    }
+    if (q != "" && inner ~ /git|\.env/) scan(inner)
+    emit(out)
+  }
+  { all = all (NR > 1 ? "\n" : "") $0 }
+  END { scan(all) }')
+
+hookspath='[cC][oO][rR][eE].[hH][oO][oO][kK][sS][pP][aA][tT][hH]'
+
+secret() {
+  case "${1##*/}" in
+    *.env.example) return 1 ;;
+    .env|*.env|.env.*) return 0 ;;
+  esac
+  return 1
+}
+gitdir() {
+  case "$1" in
+    .git|./.git|.git/*|./.git/*|*/.git/*|*/.git) return 0 ;;
+  esac
+  return 1
+}
+target() {  # $1 = path written to, $2 = how
+  secret "$1" && block "$2 writes $1, which holds secrets. Write .env.example instead; real values never pass through an agent."
+  gitdir "$1" && block "$2 writes inside .git/. Use git commands, never edit the repository's internals."
+}
+
+check_git() {  # "$@" = the words after `git`
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -C|--git-dir|--work-tree|--namespace) [ $# -ge 2 ] && shift 2 || shift $# ;;
+      -c)
+        case "${2-}" in $hookspath=*) block "git -c core.hooksPath=... switches off the repo's git hooks." ;; esac
+        [ $# -ge 2 ] && shift 2 || shift $# ;;
+      -c*)
+        case "${1#-c}" in $hookspath=*) block "git -c core.hooksPath=... switches off the repo's git hooks." ;; esac
+        shift ;;
+      -*) shift ;;
+      *) break ;;
+    esac
+  done
+  [ $# -gt 0 ] || return 0
+  sub=$1; shift
+  case "$sub" in
+    push)
+      for a in "$@"; do
+        case "$a" in
+          --for*|--force*) block "git push $a is a force push. It can overwrite other people's commits." ;;
+          --*) ;;
+          -*f*) block "git push $a is a force push. It can overwrite other people's commits." ;;
+          +*) block "git push $a: a refspec starting with + is a force push." ;;
+        esac
+      done ;;
+    reset)
+      for a in "$@"; do
+        case "$a" in --ha*) block "git reset --hard throws away uncommitted work with no undo." ;; esac
+      done ;;
+    commit)
+      skip=0
+      for a in "$@"; do
+        if [ "$skip" = 1 ]; then skip=0; continue; fi
+        case "$a" in
+          --no-v*) block "git commit --no-verify skips the pre-commit checks." ;;
+          --*) ;;
+          -?*)
+            c=${a#-}
+            while [ -n "$c" ]; do
+              ch=${c%"${c#?}"}; c=${c#?}
+              case "$ch" in
+                n) block "git commit $a: -n is --no-verify, which skips the pre-commit checks." ;;
+                m|F|C|c|t) [ -z "$c" ] && skip=1; break ;;
+              esac
+            done ;;
+        esac
+      done ;;
+    clean)
+      letters=""
+      for a in "$@"; do
+        case "$a" in
+          --f*) letters="${letters}f" ;;
+          --*) ;;
+          -*) letters="$letters${a#-}" ;;
+        esac
+      done
+      case "$letters" in
+        *f*) case "$letters" in *[xXd]*) block "git clean $* deletes untracked or ignored files with no undo." ;; esac ;;
+      esac ;;
+    config)
+      key=0; unset_flag=0
+      for a in "$@"; do
+        case "$a" in --unset*) unset_flag=1 ;; esac
+        if [ "$key" = 1 ]; then
+          [ "$a" = ".githooks" ] || block "git config core.hooksPath $a switches off the repo's git hooks. The only allowed value is .githooks."
+          return 0
+        fi
+        case "$a" in $hookspath)
+          [ "$unset_flag" = 1 ] && block "git config --unset core.hooksPath switches off the repo's git hooks."
+          key=1 ;;
+        esac
+      done ;;
+  esac
+}
+
+while IFS= read -r seg; do
+  # Redirects: >, >>, >| and their targets.
+  case "$seg" in
+    *'>'*)
+      IFS=$nl
+      for t in $(printf '%s\n' "$seg" | grep -oE '>[>|]?[[:space:]]*[^[:space:];&|<>()]+' | sed -E 's/^>[>|]?[[:space:]]*//'); do
+        target "$t" "A redirect"
+      done ;;
+  esac
+  # Words, anywhere in the command (so env/sudo/xargs/time prefixes do not matter).
+  IFS=$ws
+  set -- $seg
+  tool=""
+  while [ $# -gt 0 ]; do
+    w=$1; shift
+    case "${w##*/}" in
+      git) check_git "$@"; tool="" ; continue ;;
+      cp|mv|install|tee) tool=${w##*/}; continue ;;
+      sed) tool=sed; sed_inplace=0; continue ;;
+      rm) tool=rm; continue ;;
+      dd) tool=dd; continue ;;
+    esac
+    case "$tool" in
+      cp|mv|install|tee) case "$w" in -*) ;; *) target "$w" "$tool" ;; esac ;;
+      rm) case "$w" in -*) ;; *) gitdir "$w" && block "rm $w deletes inside .git/. Use git commands, never edit the repository's internals." ;; esac ;;
+      sed) case "$w" in -i*|--in-place*) sed_inplace=1 ;; -*) ;; *) [ "$sed_inplace" = 1 ] && target "$w" "sed -i" ;; esac ;;
+      dd) case "$w" in of=*) target "${w#of=}" "dd" ;; esac ;;
+    esac
+  done
+done <<SEGMENTS
+$segments
+SEGMENTS
+exit 0

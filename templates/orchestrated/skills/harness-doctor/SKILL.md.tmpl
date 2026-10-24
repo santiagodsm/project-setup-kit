@@ -84,10 +84,11 @@ The hooks, the git hook and the deny rules are gates (KD-020). Check them agains
 - `.githooks/pre-commit` exists and is executable, and `git config core.hooksPath` prints `.githooks` → else **MAJOR**. `orchestrate-build` session start re-sets it; a fresh clone loses it.
 - `permissions.deny` covers force-push, `git reset --hard`, and `git commit --no-verify` / `-n` → else **MAJOR**.
 - The PostToolUse format hook exists iff `STACK.md` names a format command → either direction **MAJOR**.
+- `.claude/hooks/guard-bash.sh` exists, is executable, and is wired on `Bash` with `"onFailure": "block"` → else **MAJOR**: deny rules are prefix patterns, and this guard is what catches `git -C . push --force`, `sh -c "git reset --hard"` and shell writes to `.env`.
 - Every hook entry has a `timeout`, and the write guard has `"onFailure": "block"` → else **MAJOR**.
 - `guard-writes.sh` blocks `{{STATE_FILE}}` writes from subagents (`agent_id` present), and `.githooks/pre-commit` rejects `{{STATE_FILE}}` staged with anything but `{{DESIGN}}` → else **MAJOR**: the single-writer rule is back to prose.
 - No `Notification` hook in the file → else **MINOR** (it double-fires against the user's global one).
-- **Speed budget:** no hook and no git hook runs `{{CHECK_COMMAND}}`, `{{AFFECTED_TEST_COMMAND}}`, or any test runner → any hit **BLOCKER**. Tests run at joins only; a per-edit or per-commit suite is the slow harness growing back.
+- **Speed budget:** no hook (`guard-bash.sh` included: it runs on every shell command) and no git hook runs `{{CHECK_COMMAND}}`, `{{AFFECTED_TEST_COMMAND}}`, or any test runner → any hit **BLOCKER**. Tests run at joins only; a per-edit or per-commit suite is the slow harness growing back.
 
 ## Output
 
