@@ -137,7 +137,7 @@ Generated harnesses break in exactly these five places.
 
 **4. Dispatch reachability.** Unit work goes to **general-purpose subagents** — there are no agent files, nothing to be unreachable. Gates are **skills**, and the orchestrator has `Skill`, so it invokes them directly. The old workaround — dispatch a general-purpose subagent told to invoke the skill — now applies **only** to gate runs the orchestrator wants backgrounded in parallel; state that narrowly or the gate path grows a needless hop.
 
-**5. Loop termination.** The join-review fix loop is capped: **two rounds, then the unit is `blocked`** and the owner is notified. **Exactly one stop signal** (the context system-reminder) — no unit caps, no session caps, no "natural stopping point."
+**5. Loop termination.** The join-review fix loop is capped: **two rounds, then the unit is `blocked`** and the owner is notified. **Exactly one stop signal** (the context system-reminder; a compacted conversation means re-read `CLAUDE.md` and the state file and continue, never stop) — no unit caps, no session caps, no "natural stopping point."
 
 ## Bake in the project, not a generic
 

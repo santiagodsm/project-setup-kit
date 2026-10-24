@@ -139,7 +139,7 @@ Every loop in the harness must be bounded, and every stop condition must be reac
 ### 8. Early-stop residue
 Anything that lets an agent stop before its work is done. **Grep for it explicitly**, because it hides.
 
-Unit caps, session caps, "~N units", "natural stopping point", "this seems like a good place to pause", "a reasonable amount of work". Every one of these is a self-imposed limit the model will happily honor, and each costs a full resume cycle. The harness declares **a single stop signal — the context system-reminder**; verify no file anywhere offers a second.
+Unit caps, session caps, "~N units", "natural stopping point", "this seems like a good place to pause", "a reasonable amount of work". Every one of these is a self-imposed limit the model will happily honor, and each costs a full resume cycle. The harness declares **a single stop signal — the context system-reminder** (with the compaction clause: a compacted conversation means re-read and continue, which is not a stop and not a finding); verify no file anywhere offers a second. Also flag the inverse: a file that tells the agent to *stop* on compaction → **MAJOR**, because current Claude Code documents no warning before auto-compaction, so that rule ends builds early or never fires.
 
 ### 9. Ordering constraints
 Where a harness declares an order, verify it is stated identically everywhere and that violating it is actually prevented.

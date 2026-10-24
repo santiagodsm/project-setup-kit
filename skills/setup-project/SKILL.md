@@ -120,7 +120,7 @@ You have no `Bash`; delegate the push like everything else:
 
 ## Handing off between sessions
 
-**Hand off when a context/summarization `<system-reminder>` fires. That is the only signal.** Not "this feels like a good stopping point," not "that was a big step." Write `SETUP_PROGRESS.md`, name the next step, and stop. A fresh session reads the file and continues.
+**Hand off when a context/summarization system-reminder fires. That is the only signal. If you find the conversation has been compacted instead (earlier turns replaced by a summary), do not stop: re-read `SETUP_PROGRESS.md` and continue from NEXT.** Not "this feels like a good stopping point," not "that was a big step." Write `SETUP_PROGRESS.md`, name the next step, and stop. A fresh session reads the file and continues.
 
 Step 1 (the interview) and step 3 (the design) are long and will often span sessions on their own. That is expected and is not a reason to rush them.
 

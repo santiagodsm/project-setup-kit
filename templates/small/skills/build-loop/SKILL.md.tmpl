@@ -53,7 +53,7 @@ You cannot fix that with resolve. You fix it mechanically:
 Run continuously. Do not wait for the user to trigger each story.
 
 0. **Check the git hook is active** (once per session): `git config core.hooksPath`. If it is not `.githooks`, run `git config core.hooksPath .githooks` and note it in `{{STATE_FILE}}` → Session log. A fresh clone loses this setting, and without it the commit-time lint stops running without telling anyone.
-1. **Load state.** Read `{{STATE_FILE}}`. If it does not exist, create it from the template, seed every story in `{{PLAN}}` as `pending`, and set `NEXT ACTION` to the first eligible story.
+1. **Load state.** Read `{{STATE_FILE}}`. (After a compaction, the SessionStart hook in `.claude/settings.json` prints one line telling you to re-read `CLAUDE.md` and `{{STATE_FILE}}`: that is this step, then carry on from `NEXT ACTION`.) If it does not exist, create it from the template, seed every story in `{{PLAN}}` as `pending`, and set `NEXT ACTION` to the first eligible story.
 2. **Pick the next story.** The first story in `{{PLAN}}` order that is `pending` and whose every `deps` story is `done`. `{{STATE_FILE}}` → `NEXT ACTION` should already name it.
    If pending stories remain but none is eligible, that is a dependency deadlock — go to **Blocker**.
 3. **Read what the story needs.**
@@ -133,9 +133,9 @@ Mark the story `blocked` in `{{STATE_FILE}}` with a precise reason, what you tri
 
 - the backlog is complete, or
 - you hit a genuine blocker, or
-- a context/summarization `<system-reminder>` appears.
+- a context/summarization system-reminder appears, **or** you find the conversation has been compacted (earlier turns replaced by a summary). The reminder means stop and hand off, below. Compaction does not stop the build: re-read `CLAUDE.md` and `{{STATE_FILE}}`, then continue from NEXT ACTION.
 
-**Only the third is a *context* signal.** The first two are the loop finishing or hitting a wall — those are outcomes, not handoffs. So: **there is exactly one reason to stop while work remains, and it is the system-reminder.**
+**Only the third is a *context* signal.** The first two are the loop finishing or hitting a wall — those are outcomes, not handoffs. So: **there is exactly one reason to stop while work remains, and it is the system-reminder, never compaction.** Do not count on seeing the reminder: current Claude Code documents no warning before it compacts automatically, so compaction is the signal you will usually meet, and it means continue.
 
 No story caps. No session caps. No "this feels like a natural stopping point." Every one of those is a self-imposed limit you will honor, and each costs a full resume cycle for nothing. Every other heuristic you might reach for (the session feels long, that was a big story, this is a natural stopping point, I've done a lot) fires long before real context pressure, and each one costs the user a full resume cycle for nothing. If the reminder has not fired, you have context. Keep going.
 
@@ -149,5 +149,5 @@ No story caps. No session caps. No "this feels like a natural stopping point." E
 4. **Every acceptance criterion is checked — cited, with a test — before a story is `done`.**
 5. **Never delete a line from `Decisions & deviations`.** It is the only record that the design has been superseded.
 6. **Never guess on a reserved decision; never skip a blocked story.**
-7. **Stop only for: backlog complete, genuine blocker, or the context system-reminder. There is no story quota.**
+7. **Stop only for: backlog complete, genuine blocker, or the context system-reminder. There is no story quota.** A compacted conversation is not a stop: re-read `CLAUDE.md` and `{{STATE_FILE}}`, continue from NEXT ACTION.
 8. **At ~15 stories, or the first time you want a gate: say so, and recommend regenerating at `orchestrated`.** Do not bolt one on.

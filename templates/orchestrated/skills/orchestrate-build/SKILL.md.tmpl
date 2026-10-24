@@ -35,6 +35,8 @@ You are the **orchestrator**, and you have full tools on purpose. The dominant c
 3. Read `{{STATE_FILE}}` → Decisions & deviations and Escalations & rulings — entries there beat the design text you just read.
 4. Resume from NEXT ACTION.
 
+**After a compaction** the SessionStart hook in `.claude/settings.json` prints one line telling you to re-read `CLAUDE.md` and `{{STATE_FILE}}` (the deterministic backstop, KD-020). Treat it as a session start: steps 1, 3 and 4; the design contract stays read unless the summary lost what you need for the next brief.
+
 ## Dispatch units, not stories
 
 Units come from `{{PLAN}}` → `## Dispatch units`: each lists its member stories, owned file trees, and dependencies. Stories are the checklist *inside* a brief, never dispatch boundaries. The sizing rule, verbatim:
@@ -119,9 +121,9 @@ The last dispatch unit exists because units can each pass their own tests while 
 
 - the backlog is complete, or
 - you hit a genuine blocker, or
-- a context/summarization `<system-reminder>` appears.
+- a context/summarization system-reminder appears, **or** you find the conversation has been compacted (earlier turns replaced by a summary). The reminder means stop and hand off, below. Compaction does not stop the build: re-read `CLAUDE.md` and `{{STATE_FILE}}`, then continue from NEXT ACTION.
 
-That is the entire list — one signal, on purpose. Only the third is a context signal; the first two are the loop finishing or hitting a wall. Every other heuristic (the session feels long, that was a big unit, natural stopping point) fires long before real context pressure and costs a full resume cycle for nothing. If the reminder has not fired, you have context. Keep going.
+That is the entire list, on purpose. Only the third is a context signal; the first two are the loop finishing or hitting a wall. Every other heuristic (the session feels long, that was a big unit, natural stopping point) fires long before real context pressure and costs a full resume cycle for nothing. If the reminder has not fired, you have context. Keep going. Do not count on seeing the reminder: current Claude Code documents no warning before it compacts automatically, so compaction is the signal you will usually meet, and it means continue.
 
 **On the context signal:** stop dispatching, drain in-flight units and record every return, write `{{STATE_FILE}}` with the **exact next dispatch** in NEXT ACTION (unit, tree, parallel neighbours), commit, tell the user *"Context checkpoint. State saved. Next session: run `orchestrate-build` — it picks up at U<N>."*, and stop.
 
@@ -136,4 +138,4 @@ That is the entire list — one signal, on purpose. Only the third is a context 
 7. **Rule on escalations in one message with a citation, and amend `{{DESIGN}}` — never let an agent quietly resolve a contradiction, and never bounce one the contract can answer.**
 8. **Review once per join, not per unit.** No scoper, no per-unit reviewer, no evidence files — that machinery is what this tier replaced.
 9. **The final unit is integration**: every contract entry answers, real data, limit-crossing fixtures, red-probed gates.
-10. **Stop only on: backlog complete, genuine blocker, or the context system-reminder.**
+10. **Stop only on: backlog complete, genuine blocker, or the context system-reminder.** A compacted conversation is not a stop: re-read `CLAUDE.md` and `{{STATE_FILE}}`, continue from NEXT ACTION.
