@@ -47,14 +47,14 @@ STAGED
 if [ "$#" -gt 0 ]; then
   if ! bounded 10 {{LINT_STAGED_COMMAND}} "$@"; then
     echo "pre-commit: rejected. Lint failed on the staged files above." >&2
-    echo "Rule: commits stay lint-clean (CLAUDE.md, Commands). Fix the lint errors and commit again." >&2
+    echo "Rule: every commit is lint-clean, and this hook is how the harness enforces it (kit KD-020). Fix the lint errors and commit again." >&2
     exit 1
   fi
 fi
 {{/IF}}{{#IF PRECOMMIT_TYPECHECK}}
 if ! bounded 5 {{TYPECHECK_COMMAND}}; then
   echo "pre-commit: rejected. Typecheck failed." >&2
-  echo "Rule: commits stay type-clean (CLAUDE.md, Commands). Fix the type errors and commit again." >&2
+  echo "Rule: every commit is type-clean, and this hook is how the harness enforces it (kit KD-020). Fix the type errors and commit again." >&2
   exit 1
 fi
 {{/IF}}

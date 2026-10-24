@@ -21,14 +21,14 @@ You are building **{{PROJECT}}**. {{PROJECT_ONE_LINER}}
 {{STACK_SUMMARY}} · tests: {{TEST_FRAMEWORK}}{{#IF MIGRATION_TOOL}} · migrations: {{MIGRATION_TOOL}} in `{{MIGRATION_DIR}}`{{/IF}}. Code: {{PROJECT_STRUCTURE}}. Adding anything outside this list needs a recorded decision in `{{STATE_FILE}}`.
 
 ## Commands
-- **Full check, once per story:** `{{CHECK_COMMAND}}` (self-contained: {{CHECK_PRECONDITIONS}}). Green baseline is law: zero failures, never excused as pre-existing.
+- **Full check, once per story:** `{{CHECK_COMMAND}}` (self-contained: {{CHECK_PRECONDITIONS}}). It must be green before a story is done (`build-loop` owns the rule).
 {{#IF FRONTEND_CHECK_COMMAND}}- **Frontend:** `{{FRONTEND_CHECK_COMMAND}}`.{{/IF}}
 {{#IF MIGRATION_TOOL}}- **Schema changes** cycle migrations clean: `{{MIGRATION_UP}}` → `{{MIGRATION_DOWN}}` → `{{MIGRATION_UP}}`.{{/IF}}
 
 ## Project invariants
 {{INVARIANTS}}
 
-These are checkable assertions, not aspirations. Check them literally on every story. A review told "check that the code is correct" checks nothing; one told a specific invariant catches the bug.
+These are checkable assertions, not aspirations; `build-loop` checks them on every story. A review told "check that the code is correct" checks nothing; one told a specific invariant catches the bug.
 - **Errors:** a single uniform error contract, applied everywhere; plain-language user-facing errors that state impact + next action; no stack traces or secrets to clients; never show success unless the operation completed.
 {{#IF TOKENS_FILE}}- **UI components:** semantic tokens from `{{TOKENS_FILE}}` only — no raw hex/px. Status carried by icon/text, never color alone.{{/IF}}
 {{#IF MIGRATION_TOOL}}- **Schema:** obey design {{SCHEMA_SECTION}} — the standard column set, CHECK-constrained states, and FK delete behavior that never loses history to a cascade.{{/IF}}
