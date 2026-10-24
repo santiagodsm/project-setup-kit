@@ -176,7 +176,7 @@ Every rule in a generated harness used to be prose. `harness-doctor` can audit p
 
 1. **No new test runs anywhere.** The whole suite runs exactly where it already ran: once per story at small, once per join at orchestrated. Hooks never run tests, never run the check command, never run the affected-test command. A hook or git hook that invokes a test runner is a doctor **BLOCKER**.
 2. **Format hook: under 2 seconds**, one file, `timeout: 2`.
-3. **Pre-commit: under 15 seconds**, staged files only, measured by `harness-forge` on the scaffolded repo. Lint plus typecheck over 15 seconds → typecheck stays out. Lint alone over → no lint, only the state-file rule. At runtime each check is also bounded (lint 10 s, typecheck 5 s) and is skipped, not failed, when it runs past its bound.
+3. **Pre-commit: under 15 seconds**, staged files only, measured by `harness-forge` on the scaffolded repo. Lint plus typecheck over 15 seconds → typecheck stays out. Typecheck is in the hook at the small tier only: at orchestrated it covers the whole project while parallel unit agents share one working tree, so one unit's half-written code would reject another's commit. Lint alone over → no lint, only the state-file rule. At runtime each check is also bounded (lint 10 s, typecheck 5 s) and is skipped, not failed, when it runs past its bound.
 4. **Guard hook: path checks only, under 100 ms.**
 5. **SessionStart hook: prints one line**, reads nothing.
 6. **Every hook has a timeout.** A timeout or crash lets the action through, except in the two guards that exist to block: the write guard sets `"onFailure": "block"`, and the state-file rule in `pre-commit` rejects. A formatter or lint failure from a timeout never blocks.

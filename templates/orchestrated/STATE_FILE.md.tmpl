@@ -26,7 +26,7 @@ Dispatch **U<N>** (<title>) — brief per the 7-part skeleton in `orchestrate-bu
 - **Git:** remote `origin` = <url>; branch `{{BRANCH}}`. Unit agents commit their own tree ({{COMMIT_FORMAT}} + trailer); the orchestrator commits this file and design rulings.
 - **Walking skeleton (U0):** run it with `<command>`, expect `<what a healthy run shows>`. **Re-verify at every join** — it is the continuously-running integration check.
 - **Parallelism:** cap {{MAX_PARALLEL}}, file-tree disjointness only, `run_in_background: true`. {{DB_PARALLEL_RULE}}
-- **Joins:** drain (nothing `wip`) → `{{CHECK_COMMAND}}` → skeleton re-run → `join-review` (opus) → conditional gates whose trigger tree changed → record → commit.
+- **Joins:** the procedure and its order live in `orchestrate-build` → The join. Do not restate them here (KD-021).
 - **Env facts (do not re-discover):** <toolchain versions, ports, network availability>.
 - **Repo-side TODOs (user-only):** <credentials, CI, branch protection — anything unreachable from here>.
 
@@ -66,6 +66,14 @@ This build is a validation run for the orchestrated tier (HARNESS-REDESIGN.md §
 ## Session log (most recent first)
 
 - <ISO date> — U<N> returned: <one line from its report — done/partial, what it could not verify>. Gate <green/red>. Skeleton <runs/broken>. **Next: <dispatch>.**
+
+---
+
+## Dependency additions (append-only)
+
+Every third-party dependency a unit added or bumped, from its return. `dependency-security-audit` reads this.
+
+- <ISO date> **U<N>** — `<package>@<version>`: <why it was needed>.
 
 ---
 

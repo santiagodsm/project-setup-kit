@@ -24,8 +24,8 @@ Read all of: `CLAUDE.md`, every `.claude/skills/*/SKILL.md`, `{{STATE_FILE}}`, `
 
 ```bash
 PATTERN='{{'   # PLACEHOLDER-LITERAL — the tag keeps this one line out of its own results
-grep -rn -e "$PATTERN" --include='*.md' --include='*.json' --include='*.sh' --exclude-dir=.git --exclude=notify.sh \
-  CLAUDE.md .claude/ .githooks/ {{STATE_FILE}} 2>/dev/null | grep -v 'PLACEHOLDER-LITERAL'
+grep -rn -e "$PATTERN" --include='*.md' --include='*.json' --include='*.sh' --exclude-dir=.git \
+  CLAUDE.md .claude/ .githooks/ {{STATE_FILE}} 2>/dev/null | grep -v -e 'PLACEHOLDER-LITERAL' -e '/notify.sh:'
 ```
 
 **Zero hits. Every hit is a BLOCKER.** An unresolved placeholder does not throw: an agent reading a check command left as a placeholder will infer a plausible command, run it, and report green — the verification you believe in has silently stopped. Same for a stray `#IF` conditional block whose markers were never deleted.

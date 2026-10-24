@@ -80,7 +80,7 @@ Set by `harness-forge` from `STACK.md`'s gate manifest. **A flag set without its
 | `{{#IF ORCHESTRATED}}` | the tier is `orchestrated`. Used only in `templates/enforcement/` (the state-file guards), which both tiers share |
 | `{{#IF FORMAT_COMMAND}}` | `{{FORMAT_COMMAND}}` is non-empty |
 | `{{#IF LINT_STAGED_COMMAND}}` | `{{LINT_STAGED_COMMAND}}` is non-empty |
-| `{{#IF PRECOMMIT_TYPECHECK}}` | forge measured lint plus `{{TYPECHECK_COMMAND}}` on the scaffolded repo at under 15 seconds (KD-020). Otherwise typecheck stays out of the pre-commit hook |
+| `{{#IF PRECOMMIT_TYPECHECK}}` | **small tier only**, and forge measured lint plus `{{TYPECHECK_COMMAND}}` on the scaffolded repo at under 15 seconds (KD-020). Never at orchestrated: typecheck covers the whole project, and parallel unit agents share one working tree, so one unit's half-written code would reject another unit's commit |
 
 ---
 
