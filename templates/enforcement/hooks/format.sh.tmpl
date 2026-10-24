@@ -1,0 +1,14 @@
+#!/bin/sh
+# PostToolUse hook: format the one file Claude just edited, nothing else.
+# Always exits 0. A formatter failure or timeout must never halt a build (KD-016, KD-020).
+input=$(cat)
+file=$(printf '%s' "$input" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+[ -n "$file" ] || file=$(printf '%s' "$input" | sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
+[ -n "$file" ] && [ -f "$file" ] || exit 0
+case " {{SOURCE_EXTENSIONS}} " in
+  *" ${file##*.} "*) ;;
+  *) exit 0 ;;
+esac
+cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || exit 0
+{{FORMAT_COMMAND}} "$file" >/dev/null 2>&1
+exit 0

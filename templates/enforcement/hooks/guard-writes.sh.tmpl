@@ -1,0 +1,30 @@
+#!/bin/sh
+# PreToolUse guard for Edit/Write: path checks only, no network, no build, no tests (KD-020).
+# Exit 2 blocks the write and shows the reason to Claude. settings.json sets onFailure "block",
+# so a crash or timeout here also blocks: this guard exists to block, it fails closed.
+input=$(cat)
+field() { printf '%s' "$input" | jq -r "$1 // empty" 2>/dev/null; }
+file=$(field '.tool_input.file_path')
+[ -n "$file" ] || file=$(field '.tool_input.notebook_path')
+[ -n "$file" ] || file=$(printf '%s' "$input" | sed -nE 's/.*"(file_path|notebook_path)"[[:space:]]*:[[:space:]]*"([^"]*)".*/\2/p' | head -n 1)
+[ -n "$file" ] || exit 0
+
+block() { echo "Blocked by .claude/hooks/guard-writes.sh: $1" >&2; exit 2; }
+
+case "/$file/" in
+  */.git/*) block "$file is inside .git/. Use git commands, never edit the repository's internals." ;;
+esac
+
+base=${file##*/}
+case "$base" in
+  *.env.example) ;;
+  .env|*.env|.env.*) block "$base holds secrets. Edit .env.example instead; real values never pass through an agent." ;;
+esac
+{{#IF ORCHESTRATED}}
+case "$file" in
+  "{{STATE_FILE}}"|"./{{STATE_FILE}}"|"${CLAUDE_PROJECT_DIR:-$PWD}/{{STATE_FILE}}")
+    agent=$(field '.agent_id')
+    [ -z "$agent" ] || block "{{STATE_FILE}} has one writer, the orchestrator (orchestrate-build rule 6). Put this in your return instead; the orchestrator records it." ;;
+esac
+{{/IF}}
+exit 0

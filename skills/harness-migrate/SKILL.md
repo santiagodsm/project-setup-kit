@@ -14,7 +14,7 @@ allowed-tools:
 metadata:
   role: generator
   reads: [the old harness (CLAUDE.md, .claude/agents/**, .claude/skills/**, state file(s), per-story briefs and reviews), PRD.md, STACK.md, DESIGN.md, PLAN.md, templates/orchestrated/**, templates/gates/**, templates/PLACEHOLDERS.md]
-  writes: [target repo CLAUDE.md, .claude/skills/**, PRD.md (TIER marker), PLAN.md (## Dispatch units section only), the state file (seeded from the old state), docs/_archive/**, .gitignore, the migration report]
+  writes: [target repo CLAUDE.md, .claude/skills/**, .claude/settings.json (merged), .claude/hooks/**, .githooks/**, PRD.md (TIER marker), PLAN.md (## Dispatch units section only), the state file (seeded from the old state), docs/_archive/**, .gitignore, the migration report]
 ---
 
 # harness-migrate — convert a live harness without lying about its state
@@ -34,7 +34,7 @@ One scope note: a `small`-tier harness needs no migration — the small tier sur
 
 ### 1. Inventory the old harness
 
-Enumerate before you touch anything: `CLAUDE.md`, every `.claude/agents/*.md`, every `.claude/skills/*/SKILL.md`, the state file(s) — `glob`, do not assume names; older tiers used `docs/IMPL_PROGRESS.md` and a separate history file — plus `PLAN.md`, per-story working dirs (briefs, reviews, evidence), `.claude/settings.json` (a per-project `Notification` hook, if one was emitted, gets deleted in step 3 — it double-fires against the user's global hook), and **any author-added gates beyond the templates**. Diff the skill list against the template library to find those: a gate nobody generated is a gate somebody needed.
+Enumerate before you touch anything: `CLAUDE.md`, every `.claude/agents/*.md`, every `.claude/skills/*/SKILL.md`, the state file(s) — `glob`, do not assume names; older tiers used `docs/IMPL_PROGRESS.md` and a separate history file — plus `PLAN.md`, per-story working dirs (briefs, reviews, evidence), `.claude/settings.json` (a per-project `Notification` hook, if one was emitted, gets deleted in step 3 because it double-fires against the user's global hook; everything else in the file is kept), and **any author-added gates beyond the templates**. Diff the skill list against the template library to find those: a gate nobody generated is a gate somebody needed.
 
 Record the inventory in the migration report as three columns you will fill in as you go: **keep · delete · archive**. A file you cannot classify is a file you have not read.
 
@@ -57,11 +57,11 @@ Then **archive the old state file(s) under `docs/_archive/`** — never leave th
 - **Author-added gates**, re-wired as join-point tools the orchestrator invokes via `Skill` — never as per-story obligations. They were added because somebody found a real hole; the redesign changes *when* they run, not *whether*.
 
 **Delete** (this is the retired machinery):
-- Role agents (scoper / implementer / reviewer) and their skills, per-story orchestration skills (`resume-build` and kin), the evidence-file protocol, fix-story minting, any epic-gate chain, and the per-project `Notification` hook found in step 1.
+- Role agents (scoper / implementer / reviewer) and their skills, per-story orchestration skills (`resume-build` and kin), the evidence-file protocol, fix-story minting, any epic-gate chain, and the per-project `Notification` hook found in step 1. Delete only that hook entry from `.claude/settings.json`; keep the rest of the file.
 
 **Archive, never delete** — old per-story artifacts (briefs, reviews, evidence files) move under `docs/_archive/`, gitignored if the originals were. They are the only record of *why early code looks the way it does*; a reviewer six units from now will need them to distinguish a deliberate ruling from an accident.
 
-Then emit the orchestrated file set: copy `templates/orchestrated/**` minus `MANIFEST.md`, resolve every placeholder per `templates/PLACEHOLDERS.md`, confirm every path with `ls`, update `PRD.md`'s marker to `<!-- TIER: orchestrated -->`, and grep the output for `{{` — zero hits, same rule and same PLACEHOLDER-LITERAL exemption as forge. No `.claude/agents/` is created.
+Then emit the orchestrated file set: copy `templates/orchestrated/**` minus `MANIFEST.md`, resolve every placeholder per `templates/PLACEHOLDERS.md`, confirm every path with `ls`, emit enforcement exactly as `harness-forge` does (its "Emit enforcement" section: hooks, `.githooks/pre-commit`, `core.hooksPath`, the speed-budget measurement), **merging** the resolved `settings.json` into the existing `.claude/settings.json` (union the `permissions.deny` lists, add the hook entries, keep every other key the project already had), update `PRD.md`'s marker to `<!-- TIER: orchestrated -->`, and grep the output for `{{` — zero hits, same rule and same PLACEHOLDER-LITERAL exemption as forge. No `.claude/agents/` is created.
 
 Rewire `.gitignore` to match: add the new reviews dir and the archive dir (if the artifacts it holds were gitignored before — committed history stays committed), and remove entries for working dirs that no longer exist. A gitignore full of dead paths is how the next author-added dir goes untracked-by-accident.
 
@@ -97,6 +97,7 @@ Write the migration report (in the reviews dir, gitignored): what was **kept**, 
 - Author-added gates re-wired as join-point tools, by name.
 - Gate manifest: rebuilt via `stack-decide` RE-TIER; gates emitted / excluded.
 - Archive location, and that no source code and no git history was touched.
+- Enforcement: hooks emitted and omitted (with the speed-budget numbers), and what was merged into the existing `.claude/settings.json`.
 - Placeholder grep: zero `{{` remaining.
 - **`harness-doctor`: N blockers found, N fixed, final = CLEAN.** Report nothing else as success.
 - The first command the user runs to resume building.

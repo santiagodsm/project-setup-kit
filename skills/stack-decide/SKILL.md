@@ -108,6 +108,7 @@ ADR-001 — <Decision>                                   [LOCKED <date>]
 `<command>` — runs <lint, typecheck, tests, build>.
 Preconditions: <what it needs> — satisfied automatically by <how>.
 Test isolation: <per-worker DB strategy, or "no DB in tests">.
+Format command: `<command that formats the one file given as its last argument>`, or `none` if the stack has no formatter. (harness-forge wires it to run after every edit Claude makes.)
 
 ## Gate manifest  (harness-forge reads this; ONLY these gates are emitted)
 Tier: <from PRD.md's TIER marker>

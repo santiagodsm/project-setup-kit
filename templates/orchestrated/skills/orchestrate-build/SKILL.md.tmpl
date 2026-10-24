@@ -29,6 +29,7 @@ You are the **orchestrator**, and you have full tools on purpose. The dominant c
 
 ## Session start
 
+0. **Check the git hook is active:** `git config core.hooksPath`. If it is not `.githooks`, run `git config core.hooksPath .githooks` and note it in `{{STATE_FILE}}` → Session log. A fresh clone loses this setting, and without it the commit-time rules stop running without telling anyone.
 1. Read `{{STATE_FILE}}`. If it does not exist, seed it from the template with every unit in `{{PLAN}}` → `## Dispatch units` as `todo`.
 2. **If this is a fresh build — or the state file cannot bridge the gap — read the entire design contract yourself: PRD.md, STACK.md, `{{DESIGN}}` (including every `> AMENDED` block), and FRONTEND.md if present.** All of it, before dispatching anything. This is the one expensive thing in the tier, and it is what makes briefs cheap and rulings possible.
 3. Read `{{STATE_FILE}}` → Decisions & deviations and Escalations & rulings — entries there beat the design text you just read.

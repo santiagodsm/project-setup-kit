@@ -52,6 +52,7 @@ You cannot fix that with resolve. You fix it mechanically:
 
 Run continuously. Do not wait for the user to trigger each story.
 
+0. **Check the git hook is active** (once per session): `git config core.hooksPath`. If it is not `.githooks`, run `git config core.hooksPath .githooks` and note it in `{{STATE_FILE}}` → Session log. A fresh clone loses this setting, and without it the commit-time lint stops running without telling anyone.
 1. **Load state.** Read `{{STATE_FILE}}`. If it does not exist, create it from the template, seed every story in `{{PLAN}}` as `pending`, and set `NEXT ACTION` to the first eligible story.
 2. **Pick the next story.** The first story in `{{PLAN}}` order that is `pending` and whose every `deps` story is `done`. `{{STATE_FILE}}` → `NEXT ACTION` should already name it.
    If pending stories remain but none is eligible, that is a dependency deadlock — go to **Blocker**.

@@ -19,6 +19,9 @@ Every `{{VAR}}` in `templates/**`. `harness-forge` resolves all of them before w
 | `{{AFFECTED_TEST_COMMAND}}` | `STACK.md` | `pytest {paths}` |
 | `{{LINT_COMMAND}}` | `STACK.md` | `ruff check {files}` |
 | `{{TYPECHECK_COMMAND}}` | `STACK.md` | `pyright` |
+| `{{FORMAT_COMMAND}}` | `STACK.md` → "Format command". **May be empty**: then forge emits no `format.sh` and no PostToolUse entry. Both tiers. | `npx prettier --write`: formats the one file given as its last argument |
+| `{{LINT_STAGED_COMMAND}}` | forge, from `{{LINT_COMMAND}}` with the `{files}` token removed (the hook appends the staged files). **Empty when the lint command cannot take a file list**: then the pre-commit hook does not lint. Both tiers. | `ruff check` |
+| `{{SOURCE_EXTENSIONS}}` | forge, from the stack's languages. Space separated, no dots. Used by `format.sh` and the pre-commit lint filter. | `ts tsx js` |
 | `{{FRONTEND_CHECK_COMMAND}}` | `STACK.md`, or omit the block | `npm run lint && vitest && npm run build` |
 | `{{BUILD_COMMAND}}` | `STACK.md` | `npm run build` |
 | `{{STACK_SUMMARY}}` | `STACK.md`, one line | `Python 3.12 · FastAPI · Postgres 16 · React Native` |
@@ -74,6 +77,10 @@ Set by `harness-forge` from `STACK.md`'s gate manifest. **A flag set without its
 | `{{#IF BUILD_COMMAND}}` | there is a separate build step |
 | `{{#IF FRONTEND_CHECK_COMMAND}}` | the frontend has its own check command |
 | `{{#IF E2E_COMMAND}}` | the stack has an E2E suite |
+| `{{#IF ORCHESTRATED}}` | the tier is `orchestrated`. Used only in `templates/enforcement/` (the state-file guards), which both tiers share |
+| `{{#IF FORMAT_COMMAND}}` | `{{FORMAT_COMMAND}}` is non-empty |
+| `{{#IF LINT_STAGED_COMMAND}}` | `{{LINT_STAGED_COMMAND}}` is non-empty |
+| `{{#IF PRECOMMIT_TYPECHECK}}` | forge measured lint plus `{{TYPECHECK_COMMAND}}` on the scaffolded repo at under 15 seconds (KD-020). Otherwise typecheck stays out of the pre-commit hook |
 
 ---
 
