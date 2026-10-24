@@ -213,3 +213,20 @@ F-O setup-project chain: each of 8 steps is a fresh subagent that re-reads PRD/S
 - obra/superpowers (https://github.com/obra/superpowers): SessionStart-injected bootstrap skill, re-injected after compaction; mandatory 7-skill sequence; writing-skills word budgets (frequently loaded <200 words, others <500), "no skill without a failing test"; subagent-driven-development: fresh implementer per task, task brief file, ledger file because conversation memory does not survive compaction, per-task review with capped fix loop + one whole-branch review; brainstorming hard gate (nothing built before human approves design doc).
 - Boris Cherny Jan 2026 thread (https://threadreaderapp.com/thread/2017742741636321619.html): 3-5 worktrees each with a session; plan mode; update CLAUDE.md after each correction "until the error rate measurably drops"; subagents to keep main context clean; "prove to me this works"; `/statusline` for context usage. March 2026 (via https://github.com/0xquinto/bcherny-claude): hooks per lifecycle stage, `claude -w` worktree, `/batch` fan-out, `--bare`.
 - Worktree cost (vendor post https://aiterm.app/blog/run-multiple-ai-coding-agents/): ~600 MB RAM per session, ~400 MB disk per stale worktree with node_modules; 4 agents in 4 worktrees → 28 conflicting files, 40 min merging.
+
+## Update 2026-10-24 (second usage-limit stop): resumed chain, steps 3-verify to 5
+
+Resumed with `--resume`; the run stopped again by usage limit during step 5 (harness-forge) after 4 harness-doctor rounds. Log: `/Users/santiago/Projects/psk-v07-testbed/logs/setup2.stream.jsonl`.
+
+| Dispatch | Wall (s) | Turns | Bash | Peak context (tokens) | Test-suite runs |
+|---|---|---|---|---|---|
+| MAIN orchestrator (this resume) | 3,517 | 17 | 5 | 82,447 | 3 |
+| Step 3 verify (design-author self-check) | 180 | 14 | 13 | 91,592 | 0 |
+| Step 4 scaffold | 659 | 50 | 47 | 151,273 | 8 |
+| Step 5 harness-forge | 2,402 | 43 | 38 | 229,559 | 9 |
+| Step 5 fix round 1 (harness-forge) | 137 | 12 | 10 | 65,635 | 1 |
+| harness-doctor rounds 1-4 (nested inside step 5) | included above | | | | |
+
+Resume totals: 3,524 s wall, $44.97, 331k output tokens, 10.5M cache-read tokens. Chain so far (steps 1-5, incomplete): 5,071 s (85 min) and $54.78, with steps 6-8 still to run. Steps 4 and 5 ran the full check command 18 times between them; the harness-doctor was dispatched 4 times inside step 5 (fix loop). This is a MAJOR speed finding (goal 1): the forge/doctor loop, not the interview, dominates chain cost. Also candidate finding: step 5 peak context 229k tokens in one subagent, far above the 5,000-token file-reference threshold, so any compaction inside harness-forge loses the templates it is copying.
+
+Still not done: steps 6-8 (backlog-author, plan-lint, seed+doctor), the harness run for U0 + one unit, step C for the Dues harness, the final one-screen audit, and `V0.7_CHANGES_PROMPT.md` (skeleton in scratchpad `changes-prompt-draft.md`; BLOCKER/MAJOR items F1-F7, F-R plus the chain-cost finding above).
