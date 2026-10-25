@@ -23,7 +23,7 @@ Ship a release the way the design requires: reproducible, signed, backed by a ve
 ## Pre-flight
 
 1. The full `{{CHECK_COMMAND}}` is green at the current join — check `{{STATE_FILE}}`'s latest join row (all suites{{#IF E2E_COMMAND}}, incl. E2E and the clean-restore journey{{/IF}}).
-{{#IF DEPENDENCY_AUDIT}}2. `dependency-security-audit` has no unaddressed high-severity finding.{{/IF}}
+{{#IF AUDIT_COMMAND}}2. The latest dependency audit recorded on a join line in `{{STATE_FILE}}` has no unaddressed high-severity finding.{{/IF}}
 3. A **verified** backup exists before touching production. Created-and-verified at minimum; restore-tested is better.
 {{#IF MIGRATION_TOOL}}4. Migrations reviewed by `db-migration-review`; `{{MIGRATION_UP}}` / `{{MIGRATION_DOWN}}` proven on a **copy**, never on production.{{/IF}}
 

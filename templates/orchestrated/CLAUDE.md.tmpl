@@ -15,7 +15,7 @@ You are building **{{PROJECT}}**. {{PROJECT_ONE_LINER}}
 3. `{{DESIGN}}`: the design contract. A dated `> AMENDED` block beats the original text beside it.
 
 ## Pinned stack (do not substitute)
-{{STACK_SUMMARY}} · tests: {{TEST_FRAMEWORK}}{{#IF MIGRATION_TOOL}} · migrations: {{MIGRATION_TOOL}} in `{{MIGRATION_DIR}}`{{/IF}}. Code: {{PROJECT_STRUCTURE}}.{{#IF STANDARDS_DOC}} Standards: `{{STANDARDS_DOC}}`.{{/IF}} Adding anything outside this list needs a recorded decision in `{{STATE_FILE}}`{{#IF DEPENDENCY_AUDIT}} and a `dependency-security-audit` pass at the next join{{/IF}}.
+{{STACK_SUMMARY}} · tests: {{TEST_FRAMEWORK}}{{#IF MIGRATION_TOOL}} · migrations: {{MIGRATION_TOOL}} in `{{MIGRATION_DIR}}`{{/IF}}. Code: {{PROJECT_STRUCTURE}}.{{#IF STANDARDS_DOC}} Standards: `{{STANDARDS_DOC}}`.{{/IF}} Adding anything outside this list needs a recorded decision in `{{STATE_FILE}}`.
 
 ## Commands
 - **Full gate, at joins only, run by the orchestrator only:** `{{CHECK_COMMAND}}` (self-contained: {{CHECK_PRECONDITIONS}}). Green baseline is law at every join (`orchestrate-build` owns the rule).

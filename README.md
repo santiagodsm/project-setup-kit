@@ -18,7 +18,7 @@ That's it. It runs the chain and asks you things.
 | 2 | `stack-decide` | `STACK.md` — locked stack (ADRs), the check command, **the gate manifest** |
 | 3 | `design-author` | `DESIGN.md` — fixed §1–§12, literal DDL and contracts, locked ADRs, **the register of what's not specified** |
 | 4 | `scaffold` | The repo — dirs, CI, containers, and a check command that's green from cold and red when broken |
-| 5 | `harness-forge` | `CLAUDE.md` + `.claude/skills/**` + `.claude/agents/**`, **generated for this stack** |
+| 5 | `harness-forge` | `CLAUDE.md` + `.claude/skills/**` + hooks, **generated for this stack** by `scripts/forge.sh` from the values the skill writes; then one `harness-doctor` pass |
 | 6 | `backlog-author` | `PLAN.md` — epics, stories, deps, **testable** acceptance criteria |
 | 7 | `plan-lint` | Audits the plan: dep cycles, untestable AC, uncovered design sections |
 | 8 | seed + `harness-doctor` | Seeds the harness's first story, then audits the assembled repo: tool grants, artifact ownership, dispatch paths, return contracts |

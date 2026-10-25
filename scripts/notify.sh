@@ -142,7 +142,8 @@ case "$mode" in
       [ -n "$recommend" ] || contract_error
       if [ "$open" -eq 0 ] && [ "${#options[@]}" -lt 2 ]; then contract_error; fi
     fi
-    case "$what$recommend${options[*]-}" in *'{{'*) printf 'notify: unresolved {{placeholder}} in the ask.\n' >&2; exit 2 ;; esac
+    lb='{'   # built from one brace, so this file never contains a double brace itself
+    case "$what$recommend${options[*]-}" in *"$lb$lb"*) printf 'notify: unresolved template placeholder (double brace) in the ask.\n' >&2; exit 2 ;; esac
 
     proj=$(project_name)
 

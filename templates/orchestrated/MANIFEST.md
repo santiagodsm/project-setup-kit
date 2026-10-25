@@ -20,7 +20,7 @@ This tier implements HARNESS-REDESIGN.md §2: one orchestrator with **full tools
 
 **No `agents/` directory.** Units and gates are general-purpose subagents given a brief or told to invoke a skill; the roles live in the dispatch prompts, not in agent files.
 
-**Conditional gates** (emitted from `templates/gates/` when their flag is set, wired as **join-point dispatches** in orchestrate-build, never per-story duties): `db-migration-review` · `api-contract-sync` · `design-token-lint` · `dependency-security-audit` · `mcp-scan` · `perf-profiling` · `release-runbook` (user-ask only, never a join gate).
+**Conditional gates** (emitted from `templates/gates/` when their flag is set, wired as **join-point dispatches** in orchestrate-build, never per-story duties): `db-migration-review` · `api-contract-sync` · `design-token-lint` · `mcp-scan` · `perf-profiling` · `release-runbook` (user-ask only, never a join gate).
 
 ---
 

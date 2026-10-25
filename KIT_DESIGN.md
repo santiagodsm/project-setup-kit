@@ -56,7 +56,7 @@ A verdict that lives only in an agent's return message **evaporates** — the ne
 | Build tier | `<!-- TIER: small\|orchestrated -->` in `PRD.md` | `project-brief` (and `setup-project`, **only** on a tier-mismatch re-forge) | `design-author`, `stack-decide` (RE-TIER), `harness-forge`, `plan-lint`, `setup-project` |
 | Backlog gate | `<!-- GATE: BACKLOG BLOCKED\|CLEAR -->` on line 1 of `DESIGN.md` | `design-author` | `backlog-author` |
 | Register status | `Status: NOT SPECIFIED — BLOCKING\|DEFERRABLE` | `design-author` | `backlog-author`, `plan-lint` |
-| Gate manifest | table in `STACK.md` | `stack-decide` (and `harness-forge`, **only** to resolve the `DEFERRED` perf row) | `harness-forge`, `harness-doctor` |
+| Gate manifest | table in `STACK.md`, every row `yes` or `no` | `stack-decide` | `harness-forge`, `harness-doctor` |
 
 Learned the hard way: the first version put the BLOCKING/DEFERRABLE rule in prose *below* the §11 template an agent actually copies. On the kit's own first test run, all seven register entries came back unclassified, and `backlog-author` would have sailed straight through and invented the very thing `design-author` had honourably refused to invent. **The template is the contract. Prose below it is decoration.**
 
@@ -67,7 +67,7 @@ Every other skill *returns*; the orchestrator records. Multi-writer state is a c
 `stack-decide` numbers from ADR-001 and records its last number. `design-author` continues from there. Two namespaces both starting at ADR-001 means "ADR-003" resolves to two different decisions depending on which file you opened, and both `harness-forge` and the generated `code-review` cite ADRs by number.
 
 **KD-013 — Every *machine* fix loop is capped. Human-gated loops are not.**
-`plan-lint` → `backlog-author`: 3 rounds, then ask the user. `harness-doctor` → `harness-forge`: 3 rounds, then report failure. An uncapped "repeat until clean" loop spins forever on a problem it does not understand — a defect class the kit's own skills forbid in the harnesses they generate.
+`plan-lint` → `backlog-author`: 3 rounds, then ask the user. After step 5, `harness-doctor` runs once; its BLOCKERs (a narrow class: what would break a build session) get one `harness-forge` re-dispatch and one confirming doctor pass, then the user is asked; its MAJORs and MINORs are fixed in place by `setup-project` when they are one-line edits, never with another dispatch (v0.7: the v0.6 three-round loop spent a whole doctor round on a table row). Step 8's final doctor → `harness-forge`: 3 rounds, then report failure. An uncapped "repeat until clean" loop spins forever on a problem it does not understand, a defect class the kit's own skills forbid in the harnesses they generate.
 
 The `BACKLOG BLOCKED` → user → `design-author` AMEND loop is **deliberately uncapped**, and this is not an inconsistency: each iteration requires a human answer, so it cannot spin. The thing being guarded against is an agent retrying against itself, not a person taking three passes to decide what they want.
 
@@ -227,7 +227,7 @@ Order is the product. Each step is an input to the next; running them out of ord
 | 2 | `stack-decide` | `STACK.md` (ADRs, check command, gate manifest) | manifest emitted | — |
 | 3 | `design-author` | `DESIGN.md` (§1–§12) + `<!-- GATE -->` | `BACKLOG CLEAR` | → user → `design-author` **AMEND** → recheck |
 | 4 | `scaffold` | The repo + the check command | green from cold **and** red when broken | re-dispatch (3 rounds), then ask the user |
-| 5 | `harness-forge` | `CLAUDE.md` + `.claude/**` | `harness-doctor`: zero BLOCKERs | 3 rounds, then fail |
+| 5 | `harness-forge` (runs `scripts/forge.sh`), then `harness-doctor` once | `CLAUDE.md` + `.claude/**` | zero BLOCKERs | one forge re-dispatch + one re-doctor, then ask the user |
 | 6 | `backlog-author` | `PLAN.md` (+ `## Dispatch units` on the orchestrated tier) | refuses unless step 3 is CLEAR | — |
 | 7 | `plan-lint` | `PLAN_LINT.md` | zero BLOCKERs **and zero MAJORs** | → 6 **FIX mode** (3 rounds) · tier mismatch → **1 → 2 (RE-TIER) → 5 → 7** |
 | 8 | seed + `harness-doctor` | first story in the state file | zero BLOCKERs | → **5** with the numbered findings (3 rounds), then fail |

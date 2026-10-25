@@ -36,13 +36,7 @@ Every one of those is a **defect in the command**, not a quirk to document in a 
 
 Here is why this is worth more care than it looks. An agent hits an environmental failure. It cannot ask you. It has a story to finish. It will reason: *this failure is pre-existing and unrelated to my change, so I'll note it and pass.* That reasoning is locally sensible and globally fatal. It happens every time, and once it happens once, the green-baseline law is dead and nobody notices.
 
-So: **the command starts what it needs.** If it needs Postgres, it starts Postgres. If it needs a container, it starts the container. Prove it:
-
-```bash
-git clean -xdff && git stash && <check command>   # must be green from cold
-```
-
-If that doesn't pass, you are not done, whatever else you built.
+So: **the command starts what it needs.** If it needs Postgres, it starts Postgres. If it needs a container, it starts the container. The proof is run 1 under "Verify before returning"; if it doesn't pass, you are not done, whatever else you built.
 
 ## The second thing: test isolation, now
 
@@ -72,23 +66,28 @@ Work from `STACK.md`. Emit only what the stack actually calls for.
 | **Migrations** | Initialized, empty, at the path `STACK.md` names. |
 | **Env** | `.env.example` committed, `.env` ignored. **No secrets in the repo, ever.** |
 
-## Verify before returning (actually run these)
+## Verify before returning: the check command runs at most twice
+
+While you build, verify each piece with its own narrow command (one test file, the type checker, the linter). The whole check command runs **twice in this step, no more**:
 
 ```bash
-<check command>                                  # green from cold
-<check command>                                  # green twice in a row (catches order-dependence)
-git status --short                               # clean; no generated junk untracked
+# Run 1: green from cold. Stop anything the command starts, remove build output and caches, then:
+<check command>
+git status --short          # clean; no generated junk untracked
+
+# Run 2: red when broken. Add one deliberately failing test (an assertion that cannot hold), then:
+<check command>             # must exit non-zero, naming that test
 ```
 
-Then break it on purpose: introduce a deliberate failure — a failing assertion, a type error — and confirm the check command **actually goes red**. A check command that can't fail is the worst possible outcome, and it is a real one: everything passes, forever, and you trust it.
+Then delete the failing test. Do not run the check a third time to see it green again: deleting one test file cannot break a build that was green one run ago, and every extra full run is minutes the setup chain pays for nothing. A check command that can't fail is the worst possible outcome (everything passes, forever, and you trust it), which is what run 2 rules out.
 
-Undo the deliberate failure.
+If run 1 is red, fix the cause with narrow commands, then spend run 1 again; say in your return how many runs it took.
 
 ## Self-check
 
-- [ ] Check command green from a cold clean clone. **Verified by running it.**
-- [ ] Green twice in a row.
-- [ ] Goes red when the code is broken. **Verified by breaking it.**
+- [ ] Check command green from cold. **Verified by running it (run 1).**
+- [ ] Goes red with one deliberately failing test. **Verified by running it (run 2)**, then the test removed.
+- [ ] The check command ran at most twice.
 - [ ] Preconditions started by the command, not by a human.
 - [ ] Test isolation implemented, or "no DB in tests" recorded explicitly.
 - [ ] CI runs the same command as local.
@@ -99,6 +98,7 @@ Undo the deliberate failure.
 
 - The check command, verbatim, and its cold-start result (pass count).
 - Confirmation it goes red when broken. **Say that you actually tested this.**
+- How many times you ran the check command (two, unless run 1 had to be repeated).
 - Test isolation strategy.
 - Directory layout, one line.
 - Anything the stack called for that you could not build, and why. Do not paper over it — `harness-forge` is about to emit gates that assume this floor exists.

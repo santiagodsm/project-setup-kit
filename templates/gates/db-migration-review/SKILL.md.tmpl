@@ -7,9 +7,9 @@ allowed-tools:
   - Grep
   - Glob
   - Bash
-  # Write stays even though this gate writes nothing (writes: []): allowed-tools
-  # intersect down, and a unit agent may load this gate mid-unit — dropping Write
-  # here would strip that agent of a tool the rest of its work needs.
+  # Write stays listed even though this gate writes nothing (writes: []): a unit agent
+  # may load this gate mid-unit, and allowed-tools only pre-approves, so an unlisted
+  # tool would cost that agent a permission prompt.
   - Write
 metadata:
   role: reviewer

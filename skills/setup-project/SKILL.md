@@ -41,7 +41,7 @@ Each step is an input to the next. Run them out of order and you get a backlog w
 | 2 | `stack-decide` | `STACK.md` | Check command named. Gate manifest emitted. | — |
 | 3 | `design-author` (ask pass here, write pass dispatched) | `DESIGN.md` | Line 1 reads `<!-- GATE: BACKLOG CLEAR -->` | **BLOCKED** → ask the user → re-dispatch `design-author` in **AMEND mode** → recheck |
 | 4 | `scaffold` | The repo | **Check command green from cold, AND red when broken.** Both verified by running them. | Re-dispatch with the specific failure. **3 rounds max**, then stop and ask the user — a toolchain that won't come up green in three tries needs a human, not a fourth agent. |
-| 5 | `harness-forge` | `CLAUDE.md` + `.claude/**` | It runs `harness-doctor` internally; **zero BLOCKERs** | 3 rounds max, then report failure |
+| 5 | `harness-forge`, then `harness-doctor` once | `CLAUDE.md` + `.claude/**`, `HARNESS_DOCTOR.md` | **Zero BLOCKERs** | See "Step 5: one doctor pass" |
 | 6 | `backlog-author` | `PLAN.md` (+ `## Dispatch units` on the orchestrated tier) | — | Refuses if step 3's gate is not CLEAR |
 | 7 | `plan-lint` | `PLAN_LINT.md` | **Zero BLOCKERs and zero MAJORs** | → re-dispatch `backlog-author` in **FIX mode** with the numbered findings → re-lint. **3 rounds max**, then stop and ask the user. |
 | 8 | **Seed + final doctor** | The harness's first story | Zero BLOCKERs | → re-dispatch `harness-forge` with the numbered findings → re-doctor. **3 rounds max**, then report failure. |
@@ -66,6 +66,13 @@ Three steps can send you backwards. Each is capped — an uncapped fix loop will
   4. **Re-run step 7 (`plan-lint`), then step 8.** The tier-mismatch finding is still open in `PLAN_LINT.md` and nothing else will ever clear it — `backlog-author`'s FIX mode only edits `PLAN.md`, and the tier was never the plan's fault.
 
   Do not carry on with the wrong harness to save time. You pay it back as a gate that was never there.
+
+## Step 5: one doctor pass
+
+After `harness-forge` returns, dispatch `harness-doctor` **once**. Then, by severity:
+
+- **BLOCKERs** (the doctor's narrow class: a build session would break): re-dispatch `harness-forge` **once** with the numbered BLOCKER lines, then dispatch `harness-doctor` once more to confirm. Still a BLOCKER: stop and ask the user. That is at most two doctor passes before step 6.
+- **MAJORs and MINORs:** already recorded in `HARNESS_DOCTOR.md`. Each one the doctor marked `(one-line)` you fix yourself with `Edit`, now, and note it in `SETUP_PROGRESS.md` → Notes. The rest stay in `HARNESS_DOCTOR.md` for the user; list them in the final summary. **No further doctor dispatch** for them: step 8 audits the whole repo again anyway.
 
 ## Step-8 findings: who fixes what
 

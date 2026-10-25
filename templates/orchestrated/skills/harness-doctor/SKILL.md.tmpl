@@ -52,7 +52,7 @@ This tier's predecessor died of ceremony. Flag as **MAJOR** (BLOCKER if wired in
 
 ### 4. Dispatch reachability and gate wiring
 
-- Everything someone is told to invoke must be invocable by that caller with that caller's tools. Gate skills (`join-review`{{#IF MIGRATION_TOOL}}, `db-migration-review`{{/IF}}{{#IF CONTRACT_GEN_COMMAND}}, `api-contract-sync`{{/IF}}{{#IF TOKENS_FILE}}, `design-token-lint`{{/IF}}{{#IF DEPENDENCY_AUDIT}}, `dependency-security-audit`{{/IF}}{{#IF MCP_SERVERS}}, `mcp-scan`{{/IF}}{{#IF PERF_PROFILING}}, `perf-profiling`{{/IF}}) are dispatched from `orchestrate-build`'s join step — verify each referenced skill exists on disk and each skill on disk has a dispatcher. Dead skills are gates you think you have and don't.
+- Everything someone is told to invoke must be invocable by that caller with that caller's tools. Gate skills (`join-review`{{#IF MIGRATION_TOOL}}, `db-migration-review`{{/IF}}{{#IF CONTRACT_GEN_COMMAND}}, `api-contract-sync`{{/IF}}{{#IF TOKENS_FILE}}, `design-token-lint`{{/IF}}{{#IF MCP_SERVERS}}, `mcp-scan`{{/IF}}{{#IF PERF_PROFILING}}, `perf-profiling`{{/IF}}) are dispatched from `orchestrate-build`'s join step; verify each referenced skill exists on disk and each skill on disk has a dispatcher. Dead skills are gates you think you have and don't.
 - A gate wired as a per-unit or per-story duty instead of a join-point dispatch → **MAJOR** (check 2's failure mode by another route).{{#IF RELEASE_RUNBOOK}} `release-runbook` must have no join-step dispatcher — user-ask only.{{/IF}}
 - `join-review`'s dispatch carries `model: opus` as a literal; unit dispatches carry **no** model override. Either inverted → **MAJOR.**
 

@@ -57,6 +57,16 @@ So, for every gate: in the manifest? in the harness? Both, or neither. Any misma
 
 Each is grounded in a defect class that has actually shipped in a real harness. Run all fifteen.
 
+**BLOCKER is narrow on purpose: it means the next build session would break.** Exactly these:
+
+1. an unresolved placeholder (check 0);
+2. a hook that `.claude/settings.json` wires but that is missing or not executable, or a `settings.json` that does not parse;
+3. two writers of the state file;
+4. a skill the tier needs that is absent (a tier-core skill, `notify.sh`, a skill the procedure dispatches or invokes);
+5. a gate the manifest says `yes` to that was not emitted.
+
+Plus one kept from the speed budget (KD-020): a hook or git hook that runs tests. **Every other finding a check below calls BLOCKER, report as MAJOR.** Manifest bookkeeping (a row's wording or a value that does not change what is emitted) and wording are **MINOR**. A BLOCKER costs a forge re-dispatch and a second doctor pass; nothing else is worth one.
+
 ### 0. Unresolved placeholders (run this FIRST — it is the cheapest and the most dangerous to skip)
 
 If the harness was produced by `harness-forge` from templates, grep it:
@@ -71,7 +81,7 @@ grep -rn -e '{{' --include='*.md' --include='*.json' --include='*.sh' \
 
 An unresolved placeholder does not throw. An agent reading `Run {{CHECK_COMMAND}}` will **infer a plausible command, run it, and report green.** The check you believe in has silently stopped running. A stray `{{#IF` means the condition was never resolved and the markers never deleted.
 
-The filter on `harness-doctor` is required (a `grep -v` on the path, not `--exclude`, because `--exclude` with a path pattern behaves differently across grep implementations): any doctor skill must name the pattern to search for it, so its own prose contains it. The `notify.sh` filter is the same case: the notifier is copied verbatim and contains the pattern as its own guard against unresolved asks. Do not extend the filter to any other file.
+The filter on `harness-doctor` is required (a `grep -v` on the path, not `--exclude`, because `--exclude` with a path pattern behaves differently across grep implementations): any doctor skill must name the pattern to search for it, so its own prose contains it. The `notify.sh` filter covers copies from kits before v0.7, whose notifier contained the pattern in its own guard against unresolved asks. Do not extend the filter to any other file.
 
 Skip if the harness was hand-written and uses no templates.
 
@@ -179,9 +189,8 @@ Cross-check `STACK.md`'s gate manifest against the gates actually in `.claude/sk
 | yes | yes | correct |
 | no | no | correct — including a small-tier harness with **no gates at all** |
 | yes | **no** | **BLOCKER** — a gate the project needs was never emitted |
-| **no** | yes | **BLOCKER** — a gate that cannot run against this stack. It will be skipped, faked, or rationalized past, **and the harness will report that it ran.** |
-| **DEFERRED** | either | **BLOCKER** — `harness-forge` was supposed to resolve this row and write it back. An unresolved row means a gate nobody ever decided. |
-| **`inline`**, or columns for `standard`/`full` | anything | **BLOCKER** — the manifest predates the two-tier model. A stale manifest makes this whole check pass vacuously: the harness is gateless (or wrongly gated) while the audit reports CLEAN. Re-run `stack-decide` in RE-TIER mode (KD-015). |
+| **no** | yes | **MAJOR**: a gate that cannot run against this stack. It will be skipped, faked, or rationalized past, **and the harness will report that it ran.** |
+| any value other than `yes`/`no` (a leftover from an older kit, `inline`), or columns for `standard`/`full` | anything | a value that changes nothing emitted → **MINOR**, fixed in place; a stale manifest → **MAJOR**: the manifest predates the two-tier model. A stale manifest makes this whole check pass vacuously: the harness is gateless (or wrongly gated) while the audit reports CLEAN. Re-run `stack-decide` in RE-TIER mode (KD-015). |
 
 Also verify each present gate's commands actually exist (the `make` target, the `npm` script). A gate invoking a command that isn't defined is a gate that fails on first use and then gets quietly disabled by whoever hits it.
 
@@ -237,11 +246,11 @@ Per finding: `#N`, severity, the **two or more files that disagree** (with `file
 
 | | |
 |---|---|
-| **BLOCKER** | The harness will fail or silently skip a gate on the next run. **Unresolved placeholder**, missing tool, unreachable dispatch, orphan read, unbounded loop, stale manifest. |
-| **MAJOR** | Contradiction that will cause an agent to do the wrong thing under pressure. Doc-vs-skill conflict, dead machinery, early-stop residue, per-unit full-suite runs. |
-| **MINOR** | Stale reference, wrong path, cosmetic drift. Wrong today, load-bearing later. |
+| **BLOCKER** | The next build session breaks. Only the five classes under "The fifteen checks" (unresolved placeholder, missing or non-executable hook, two writers of the state file, a needed skill absent, a manifest `yes` gate not emitted), plus a hook that runs tests. |
+| **MAJOR** | Will cause an agent to do the wrong thing under pressure. Doc-vs-skill conflict, dead machinery, early-stop residue, per-unit full-suite runs, unreachable dispatch, orphan read, unbounded loop, stale manifest. |
+| **MINOR** | Stale reference, wrong path, wording, manifest bookkeeping, cosmetic drift. Wrong today, load-bearing later. |
 
-**Return a capped summary (~150 words):** counts by severity, the report filename, and one numbered line per BLOCKER and MAJOR. Nothing else. Do not paste the report.
+**Return a capped summary (~150 words):** counts by severity, the report filename, and one numbered line per BLOCKER and MAJOR, marking each MAJOR or MINOR whose fix is a one-line edit as `(one-line)`, with the file and the edit, so `setup-project` can apply it without another dispatch. Nothing else. Do not paste the report.
 
 ## Guardrails
 

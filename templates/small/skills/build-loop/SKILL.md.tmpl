@@ -102,6 +102,7 @@ Run continuously. Do not wait for the user to trigger each story.
    {{COMMIT_FORMAT}}
    <body: what changed and why, wrapped>
    ```
+   {{#IF AUDIT_COMMAND}}Only if the story changed {{LOCKFILES}}: run `{{AUDIT_COMMAND}}` once, in one Bash call, before committing, fix or record any high finding, and put the result in the story's session-log line (`audit: clean`).{{/IF}}
    With the `Co-Authored-By` trailer from the environment rules. Stage the story's files **and `{{STATE_FILE}}`**. Never batch two stories into one commit, and never start the next story with this one uncommitted — the diff stops being a story and becomes a fog, and the self-review in step 7 has nothing crisp to run against.
 9. **Write `{{STATE_FILE}}`.** After **every** story. Never batched.
    - Mark the story `done` with its commit hash.

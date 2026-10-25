@@ -42,7 +42,7 @@ Status only here — member stories, trees, deps, and ACs live in `{{PLAN}}` →
 | U1 | <title> | todo | | |
 | U2 | <title> | todo | | e.g. `partial` — <exactly what is owed, from the unit's return> |
 
-**Joins:** J1 after <U0> — <GREEN <date> / RED: why / not yet run> · review: `{{REVIEWS_DIR}}join-review-J1.md`, <n> findings, <fixed how>.
+**Joins:** J1 after <U0>: <GREEN <date> / RED: why / not yet run> · review: `{{REVIEWS_DIR}}join-review-J1.md`, <n> findings, <fixed how>{{#IF AUDIT_COMMAND}} · audit: <clean / the high findings / not run, lockfile unchanged>{{/IF}}.
 
 ---
 
@@ -71,7 +71,7 @@ This build is a validation run for the orchestrated tier (HARNESS-REDESIGN.md §
 
 ## Dependency additions (append-only)
 
-Every third-party dependency a unit added or bumped, from its return. `dependency-security-audit` reads this.
+Every third-party dependency a unit added or bumped, from its return. The join's dependency audit runs when the lockfile changed and is recorded on the join line.
 
 - <ISO date> **U<N>** — `<package>@<version>`: <why it was needed>.
 
