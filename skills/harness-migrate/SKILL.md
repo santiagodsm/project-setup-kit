@@ -1,7 +1,7 @@
 ---
 name: harness-migrate
 version: 0.1.0
-description: "Convert an existing generated build harness — any retired tier, possibly mid-build — to the orchestrated design in place, carrying its state honestly. Inventories the old machinery, preserves project content and rulings, archives per-story artifacts, regroups the remaining backlog into dispatch units, rebuilds the gate manifest, and ends with harness-doctor. Use when the user says 'migrate the harness', 'convert this harness', 'upgrade the harness to the new tier', or 'move this build off the per-story model'."
+description: "Use when the user says 'migrate the harness' or 'upgrade the harness': converts an older generated harness, even mid-build, to the orchestrated tier in place."
 allowed-tools:
   - Read
   - Write

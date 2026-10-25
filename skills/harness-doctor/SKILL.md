@@ -1,7 +1,7 @@
 ---
 name: harness-doctor
 version: 1.1.0
-description: "Audit the agent harness itself (CLAUDE.md + .claude/skills/* + the state file, plus any leftover .claude/agents/*) for internal contradictions, missing tools, orphan artifacts, unreachable dispatch paths, and broken return contracts. Run after ANY edit to the harness, and before the first build session of a newly generated one. Use when the user says 'check the harness', 'audit the skills', 'did I break the orchestration', or after adding/editing a skill or agent."
+description: "Use after forging or editing a harness, or when the user says 'check the harness': audits CLAUDE.md, skills, hooks and the state file for contradictions and broken wiring."
 allowed-tools:
   - Read
   - Grep
@@ -45,7 +45,7 @@ Then use `bash`/`git` to check claims against reality. **A path a skill referenc
 Before you flag a single absent gate, read the tier and the manifest. Otherwise you will produce a report that is confidently, uselessly wrong. The tier marker is `small` or `orchestrated`; a marker still reading `standard` or `full` means the harness predates the two-tier model and needs migration, not this audit — **BLOCKER**, report it and finish.
 
 - **`small`**: one skill, `build-loop`, and no gates unless the manifest says otherwise. No orchestrator, no subagents. That is correct — reporting "join-review is missing" on a small harness is noise, and noise in a mandatory gate teaches people to skim it.
-- **`orchestrated`**: tier-core skills `orchestrate-build`, `join-review`, `harness-doctor`, plus exactly the manifest's gates. Unit work is dispatched as **general-purpose subagents** — so `.claude/agents/` should not exist. Role-agent files present (scoper/implementer/reviewer leftovers from a migration) are dead machinery: check 3.
+- **`orchestrated`**: tier-core skills `orchestrate-build`, `join-review`, plus exactly the manifest's gates. Unit work is dispatched as **general-purpose subagents**, so `.claude/agents/` should not exist. Role-agent files present (scoper/implementer/reviewer leftovers from a migration) are dead machinery: check 3.
   - `PLAN.md`, when it exists, must carry a `## Dispatch units` section — epic-sized units with owned file trees, **unit U0 = the walking skeleton** (the thinnest runnable vertical slice). Section absent → **BLOCKER** (the orchestrator has nothing to dispatch). U0 not a runnable end-to-end slice → **MAJOR**. `PLAN.md` absent entirely (forge runs before backlog-author) → not a finding, but the state file must say it is awaiting `PLAN.md`.
   - The state file declares five statuses — `todo / wip / done / blocked / partial` — with `partial` first-class. `partial` missing → **MAJOR**: agents with no honest middle status round up to `done`.
 - **A gate absent from the manifest must be absent from the harness.** No migration tool → no migration gate. Its absence is the design working.
@@ -74,14 +74,14 @@ If the harness was produced by `harness-forge` from templates, grep it:
 ```bash
 grep -rn -e '{{' --include='*.md' --include='*.json' --include='*.sh' \
   --exclude-dir=.git CLAUDE.md .claude/ .githooks/ 2>/dev/null \
-  | grep -v -e '/harness-doctor/SKILL.md:' -e '/notify.sh:'
+  | grep -v -e '/notify.sh:'
 ```
 
 **Zero hits. Every hit is a BLOCKER.**
 
 An unresolved placeholder does not throw. An agent reading `Run {{CHECK_COMMAND}}` will **infer a plausible command, run it, and report green.** The check you believe in has silently stopped running. A stray `{{#IF` means the condition was never resolved and the markers never deleted.
 
-The filter on `harness-doctor` is required (a `grep -v` on the path, not `--exclude`, because `--exclude` with a path pattern behaves differently across grep implementations): any doctor skill must name the pattern to search for it, so its own prose contains it. The `notify.sh` filter covers copies from kits before v0.7, whose notifier contained the pattern in its own guard against unresolved asks. Do not extend the filter to any other file.
+The `notify.sh` filter is required (a `grep -v` on the path, not `--exclude`, because `--exclude` with a path pattern behaves differently across grep implementations): notifier copies from kits before v0.7 contained the pattern in their own guard against unresolved asks. Do not extend the filter to any other file.
 
 Skip if the harness was hand-written and uses no templates.
 

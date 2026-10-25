@@ -1,7 +1,7 @@
 ---
 name: scaffold
 version: 0.1.0
-description: "Build the repo skeleton from the locked stack: directories, dependency manifests, CI, test harness, containers, and above all the check command — which must be self-contained-green with per-worker test isolation. Step 4 of project setup, after stack-decide. Use when the user says 'scaffold the repo', 'set up the project structure', or after STACK.md exists."
+description: "Use after STACK.md exists or when the user says 'scaffold the repo': builds the repo skeleton and a check command that passes from cold (setup step 4)."
 allowed-tools:
   - Read
   - Write

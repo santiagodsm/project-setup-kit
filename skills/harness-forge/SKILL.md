@@ -1,7 +1,7 @@
 ---
 name: harness-forge
 version: 0.3.0
-description: "Generate the project's own build harness: write HARNESS_VALUES.json from PRD/STACK/DESIGN, run the kit's scripts/forge.sh to emit CLAUDE.md, .claude/skills/*, the state file and the enforcement hooks for the tier, author any gate no template covers, and verify the hooks. Step 5 of project setup."
+description: "Use after scaffold or when the user says 'generate the harness': writes HARNESS_VALUES.json and runs scripts/forge.sh to emit the tier's CLAUDE.md, skills and gates (setup step 5)."
 allowed-tools:
   - Read
   - Write
@@ -80,7 +80,7 @@ Resolve it from **`PRD.md`** (the What/Why, and any stated quality bar) and **`D
 
 An unresolved placeholder does not throw. An agent reading `Run {{CHECK_COMMAND}}` will **infer a plausible command, run it, and report green.** The verification you believe in has quietly stopped, and nothing tells you. `forge.sh` refuses to write a harness with one left, so this holds for every file it emits. **A gate you author by hand has no such check:** grep it for `{{` yourself.
 
-*One exception:* `harness-doctor`'s template must **name** the pattern in order to grep for it, so its check-0 grep quotes a bare `{{` on a line tagged `PLACEHOLDER-LITERAL`. That one line is exempt; every real placeholder in the same file still resolves.
+*No exception.* No file `forge.sh` emits may contain the pattern: the harness ships no doctor skill (the kit's own `harness-doctor` audits it at setup), and `notify.sh` no longer carries it.
 
 ## Resolve the parallelism policy from what `scaffold` actually built
 

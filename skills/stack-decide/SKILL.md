@@ -1,7 +1,7 @@
 ---
 name: stack-decide
 version: 0.1.0
-description: "Lock the technology stack as ADRs and emit the gate manifest that harness-forge consumes. Produces STACK.md: language, framework, database, test tooling, deploy target, the check command, and which quality gates are actually coherent for this stack. Step 2 of project setup, after project-brief. Use when the user says 'pick the stack', 'what should I build this with', or after a PRD exists."
+description: "Use after PRD.md exists or when the user says 'pick the stack': locks the stack in STACK.md with the check command and the gate manifest (setup step 2)."
 allowed-tools:
   - Read
   - Write

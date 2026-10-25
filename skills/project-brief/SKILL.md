@@ -1,7 +1,7 @@
 ---
 name: project-brief
 version: 0.1.0
-description: "Interview the user about a new product idea and produce PRD.md — what it is, who it's for, the daily loop, explicit non-goals, constraints, and what they have deliberately NOT decided. Step 1 of project setup. Use when starting a new project, or when the user says 'I want to build X', 'new project', 'help me scope this idea'."
+description: "Use when starting a new project or the user says 'I want to build X': interviews the user in the main session and writes PRD.md (setup step 1)."
 allowed-tools:
   - Read
   - Write

@@ -1,7 +1,7 @@
 ---
 name: setup-project
 version: 0.1.0
-description: "Run the full project setup chain: brief → stack → design → scaffold → harness → backlog → lint → doctor. Maintains SETUP_PROGRESS.md so setup can span sessions. This is the entry point of the Project Setup Kit. Use when the user says 'new project', 'set up a project', 'start a project', 'I want to build X', or 'resume setup'."
+description: "Use when starting a new project or the user says 'set up a project' or 'resume setup': runs the full setup chain, interviewing in the main session and dispatching the rest."
 allowed-tools:
   - Read
   - Write

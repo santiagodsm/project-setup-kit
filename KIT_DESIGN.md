@@ -17,7 +17,7 @@ The kit emits a bespoke harness per project. It does not ship a parameterized un
 | Tier | Emits | For |
 |---|---|---|
 | **small** | `CLAUDE.md` + plan + a single build loop. No gates, no subagents. | < ~15 stories. Weekend/side projects. |
-| **orchestrated** | `CLAUDE.md` + `orchestrate-build` + `join-review` + `harness-doctor` + manifest gates. Epic-sized dispatch units, the whole check run at joins only. | ~15+ stories. |
+| **orchestrated** | `CLAUDE.md` + `orchestrate-build` + `join-review` + manifest gates. Epic-sized dispatch units, the whole check run at joins only. | ~15+ stories. |
 
 A tier can be upgraded in place later. Rationale: a heavyweight harness on a small project gets bypassed, and **a bypassed harness is worse than none — it lies about what is being checked.** There is no tier that dispatches per story; KD-019 records why, and the History section at the end of this file records the ladder this replaced.
 
@@ -174,7 +174,7 @@ Every rule in a generated harness used to be prose. `harness-doctor` can audit p
 - **`.githooks/pre-commit`**, tracked, activated with `git config core.hooksPath .githooks` by `harness-forge` and re-checked at every session start by both loop skills (a fresh clone loses that setting). It lints the staged files only.
 - **The state-file single-writer rule runs at two levels at the orchestrated tier.** Tool level: the hook input carries `agent_id` when the call comes from a subagent, so `guard-writes.sh` blocks any subagent write to the state file. Commit level: `pre-commit` rejects a commit that stages the state file with anything but the design (the orchestrator commits it alone at each join; a mixed commit means a unit agent wrote it). The small tier has neither: its builder commits the state file with every story.
 - **The narrowed Notification rule.** A generated repo may have `.claude/settings.json`; it must not contain a `Notification` hook (KD-016).
-- `harness-doctor` check 14 (resident check 9) audits that all of it exists, is executable, is wired, and stays inside the budget below.
+- `harness-doctor` check 14 audits that all of it exists, is executable, is wired, and stays inside the budget below.
 
 **The speed budget is part of this decision, and it binds every future edit.** The first harness was unusable because it tested too much: the per-story harness finished 8 of 62 stories in the time an epic-unit build finished everything (`HARNESS-REDESIGN.md` §1). Enforcement must never bring that back:
 
@@ -200,7 +200,7 @@ So every rule has exactly one owner file:
 - **The tier skill (`orchestrate-build`, `build-loop`) holds the process**: session start, the loop, joins, drain, parallelism, escalation rulings, the stop conditions. `CLAUDE.md` points to it with one line ("it holds the process") and no tiebreak.
 - **`{{PROJECT_STRUCTURE}}` is one line of top-level code directories, never a tree.** Context files that hold what the agent can find for itself add steps and cost (Gloaguen et al., "Evaluating AGENTS.md", ETH Zurich, 2026); briefs already carry owned trees.
 
-**Reasons stay, once.** The original templates said "do not improve or summarize them", on the theory that the reasoning prose is what makes agents comply. That holds for the reason, not for its volume or its repetition. Each rule keeps its reason in one or two sentences, in the file that owns the rule, and the same reason is not repeated across files. `harness-doctor` check 5 (resident check 3) flags a process rule stated in both `CLAUDE.md` and the tier skill as MAJOR even when the copies agree today.
+**Reasons stay, once.** The original templates said "do not improve or summarize them", on the theory that the reasoning prose is what makes agents comply. That holds for the reason, not for its volume or its repetition. Each rule keeps its reason in one or two sentences, in the file that owns the rule, and the same reason is not repeated across files. `harness-doctor` check 5 flags a process rule stated in both `CLAUDE.md` and the tier skill as MAJOR even when the copies agree today.
 
 **KD-022 — The harness talks to the user in plain, short language.**
 *(2026-10-24, kit v0.6.0.)*

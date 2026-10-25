@@ -1,7 +1,7 @@
 ---
 name: design-author
 version: 0.1.0
-description: "Turn a product brief and a locked stack into DESIGN.md — the design contract every later agent cites. Produces a fixed §1–§12 section map, concrete artifacts (a §2.1 glossary / ubiquitous language, DDL, API contracts, state machines, screen inventory), a locked ADR block, and an honest register of what is deliberately unspecified. Use when starting a new project, after project-brief and stack-decide, or when the user says 'write the design doc', 'design this', or 'turn the PRD into a technical design'."
+description: "Use after STACK.md exists or when the user says 'write the design doc': asks the open questions in the main session, then writes DESIGN.md in a dispatched pass (setup step 3)."
 allowed-tools:
   - Read
   - Write

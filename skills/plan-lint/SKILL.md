@@ -1,7 +1,7 @@
 ---
 name: plan-lint
 version: 0.1.0
-description: "Audit PLAN.md before the build starts: dependency cycles, untestable acceptance criteria, design sections with no story, stories with no design citation, layer-shaped stories, unsplit L's, tier mismatch, dispatch-unit structure (orchestrated tier), and a mechanical design self-verification pass. Step 7 of project setup. Run after backlog-author and after any hand-edit to the plan. Use when the user says 'check the plan', 'lint the backlog', 'is this plan any good'."
+description: "Use after backlog-author or a plan edit, or when the user says 'check the plan': audits PLAN.md for cycles, untestable criteria and uncovered design sections (setup step 7)."
 allowed-tools:
   - Read
   - Grep

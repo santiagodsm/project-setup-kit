@@ -1,7 +1,7 @@
 ---
 name: backlog-author
 version: 0.1.0
-description: "Turn DESIGN.md into PLAN.md — epics, stories, sizes, dependencies, and testable acceptance criteria, each citing the design section it implements. On the orchestrated tier, also groups stories into dispatch units. Refuses to run while design-author's verdict is BACKLOG BLOCKED. Step 6 of project setup. Use when the user says 'write the backlog', 'break this into stories', 'plan the build'."
+description: "Use after DESIGN.md is clear or when the user says 'write the backlog': writes PLAN.md with stories, testable criteria and dispatch units (setup step 6)."
 allowed-tools:
   - Read
   - Write
