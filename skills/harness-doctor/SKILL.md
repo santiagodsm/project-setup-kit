@@ -1,7 +1,7 @@
 ---
 name: harness-doctor
 version: 1.1.0
-description: "Audit the agent harness itself (CLAUDE.md + .claude/skills/* + the state file, plus any leftover .claude/agents/*) for internal contradictions, missing tools, orphan artifacts, unreachable dispatch paths, and broken return contracts. Run after ANY edit to the harness, and before the first build session of a newly generated one. Use when the user says 'check the harness', 'audit the skills', 'did I break the orchestration', or after adding/editing a skill or agent."
+description: "Use after forging or editing a harness, or when the user says 'check the harness': audits CLAUDE.md, skills, hooks and the state file for contradictions and broken wiring."
 allowed-tools:
   - Read
   - Grep
@@ -10,6 +10,9 @@ allowed-tools:
   - Write
   - Skill
   - ToolSearch
+disallowed-tools:
+  - Edit
+  - NotebookEdit
 metadata:
   role: reviewer
   reads: [CLAUDE.md, .claude/skills/**/SKILL.md, .claude/agents/*.md (if any exist), the build state file, STACK.md (gate manifest + format command), PRD.md (tier), PLAN.md (if it exists), .gitignore, .claude/settings.json, .claude/hooks/*, .githooks/*]
@@ -42,7 +45,7 @@ Then use `bash`/`git` to check claims against reality. **A path a skill referenc
 Before you flag a single absent gate, read the tier and the manifest. Otherwise you will produce a report that is confidently, uselessly wrong. The tier marker is `small` or `orchestrated`; a marker still reading `standard` or `full` means the harness predates the two-tier model and needs migration, not this audit — **BLOCKER**, report it and finish.
 
 - **`small`**: one skill, `build-loop`, and no gates unless the manifest says otherwise. No orchestrator, no subagents. That is correct — reporting "join-review is missing" on a small harness is noise, and noise in a mandatory gate teaches people to skim it.
-- **`orchestrated`**: tier-core skills `orchestrate-build`, `join-review`, `harness-doctor`, plus exactly the manifest's gates. Unit work is dispatched as **general-purpose subagents** — so `.claude/agents/` should not exist. Role-agent files present (scoper/implementer/reviewer leftovers from a migration) are dead machinery: check 3.
+- **`orchestrated`**: tier-core skills `orchestrate-build`, `join-review`, plus exactly the manifest's gates. Unit work is dispatched as **general-purpose subagents**, so `.claude/agents/` should not exist. Role-agent files present (scoper/implementer/reviewer leftovers from a migration) are dead machinery: check 3.
   - `PLAN.md`, when it exists, must carry a `## Dispatch units` section — epic-sized units with owned file trees, **unit U0 = the walking skeleton** (the thinnest runnable vertical slice). Section absent → **BLOCKER** (the orchestrator has nothing to dispatch). U0 not a runnable end-to-end slice → **MAJOR**. `PLAN.md` absent entirely (forge runs before backlog-author) → not a finding, but the state file must say it is awaiting `PLAN.md`.
   - The state file declares five statuses — `todo / wip / done / blocked / partial` — with `partial` first-class. `partial` missing → **MAJOR**: agents with no honest middle status round up to `done`.
 - **A gate absent from the manifest must be absent from the harness.** No migration tool → no migration gate. Its absence is the design working.
@@ -54,6 +57,16 @@ So, for every gate: in the manifest? in the harness? Both, or neither. Any misma
 
 Each is grounded in a defect class that has actually shipped in a real harness. Run all fifteen.
 
+**BLOCKER is narrow on purpose: it means the next build session would break.** Exactly these:
+
+1. an unresolved placeholder (check 0);
+2. a hook that `.claude/settings.json` wires but that is missing or not executable, or a `settings.json` that does not parse;
+3. two writers of the state file;
+4. a skill the tier needs that is absent (a tier-core skill, `notify.sh`, a skill the procedure dispatches or invokes);
+5. a gate the manifest says `yes` to that was not emitted.
+
+Plus one kept from the speed budget (KD-020): a hook or git hook that runs tests. **Every other finding a check below calls BLOCKER, report as MAJOR.** Manifest bookkeeping (a row's wording or a value that does not change what is emitted) and wording are **MINOR**. A BLOCKER costs a forge re-dispatch and a second doctor pass; nothing else is worth one.
+
 ### 0. Unresolved placeholders (run this FIRST — it is the cheapest and the most dangerous to skip)
 
 If the harness was produced by `harness-forge` from templates, grep it:
@@ -61,25 +74,27 @@ If the harness was produced by `harness-forge` from templates, grep it:
 ```bash
 grep -rn -e '{{' --include='*.md' --include='*.json' --include='*.sh' \
   --exclude-dir=.git CLAUDE.md .claude/ .githooks/ 2>/dev/null \
-  | grep -v -e '/harness-doctor/SKILL.md:' -e '/notify.sh:'
+  | grep -v -e '/notify.sh:'
 ```
 
 **Zero hits. Every hit is a BLOCKER.**
 
 An unresolved placeholder does not throw. An agent reading `Run {{CHECK_COMMAND}}` will **infer a plausible command, run it, and report green.** The check you believe in has silently stopped running. A stray `{{#IF` means the condition was never resolved and the markers never deleted.
 
-The filter on `harness-doctor` is required (a `grep -v` on the path, not `--exclude`, because `--exclude` with a path pattern behaves differently across grep implementations): any doctor skill must name the pattern to search for it, so its own prose contains it. The `notify.sh` filter is the same case: the notifier is copied verbatim and contains the pattern as its own guard against unresolved asks. Do not extend the filter to any other file.
+The `notify.sh` filter is required (a `grep -v` on the path, not `--exclude`, because `--exclude` with a path pattern behaves differently across grep implementations): notifier copies from kits before v0.7 contained the pattern in their own guard against unresolved asks. Do not extend the filter to any other file.
 
 Skip if the harness was hand-written and uses no templates.
 
 ### 1. Tool sufficiency
-For every skill: does its `allowed-tools` (which **intersects down** once the skill loads) cover everything its procedure demands? And for any agent file that exists, does its `tools:` grant cover its skill?
+A skill's `allowed-tools` pre-approves tools and restricts nothing; `disallowed-tools` in its frontmatter is what removes a tool. So check two things:
 
-- A join-review told to write `<reviews-dir>/join-<unit>.md` but granted no `Write`.
-- An orchestrator skill whose `allowed-tools` omits `Skill` while its procedure invokes gates by skill name.
-- A gate told to run a command but with no `Bash` in its grant.
+- **Does any dispatched skill call for a tool a subagent lacks?** Claude Code removes the tool that asks the user a question from every subagent, and a background subagent gets a reduced tool set. A skill that is dispatched (every gate, `join-review`, every unit brief) and tells its agent to ask the user, or to use a tool the background set lacks, will guess or stall. Grep the dispatched skills for `Ask[U]serQuestion` and for "ask the user" → **BLOCKER** if the procedure depends on the answer, **MAJOR** otherwise. The fix is to return the question to the orchestrator, which asks.
+- **Does any skill's `disallowed-tools` remove a tool its own procedure uses?** For example a gate told to run a command whose frontmatter disallows `Bash` → **BLOCKER**.
+- **`allowed-tools` missing a tool the procedure uses** (a join-review that writes a report but does not list `Write`) → **MINOR**: the tool still works, but the first use asks for permission, which stalls an unattended run.
 
-**The orchestrated orchestrator has FULL tools — `Bash`, `Grep`, `Glob`, `Skill` — BY DESIGN.** It reads the whole design contract, runs the full check at joins, and rules on escalations; it can do none of that starved. A harness that strips those tools back off it is a **MAJOR** finding, not a hardening — the enforcement mechanism is the join protocol, not tool starvation. Distinguish *missing capability* from *intentional constraint* by reading why the file says a tool is absent.
+For any agent file that exists, its `tools:` field does restrict: check that it covers its skill.
+
+**The orchestrated orchestrator has FULL tools (`Bash`, `Grep`, `Glob`, `Skill`) BY DESIGN.** It reads the design contract, runs the full check at joins, and rules on escalations. A harness that removes those tools from it (with `disallowed-tools`) is a **MAJOR** finding, not a hardening: the enforcement mechanism is the join protocol, not tool starvation. Distinguish *missing capability* from *intentional constraint* by reading why the file says a tool is absent.
 
 ### 2. Artifact ownership (every read has exactly one writer)
 Build the full table: for every file any actor reads or writes, who writes it and who reads it.
@@ -118,9 +133,11 @@ Then check the inverse — **excess**. A return contract or dispatch instruction
 
 **Report which file wins.** A harness must declare which file owns the process (the generated `CLAUDE.md` says the tier skill "holds the process"). If it doesn't, that itself is a finding.
 
-**Duplication is a finding even when the copies agree today (KD-021).** A process rule stated in both `CLAUDE.md` and the tier skill (`orchestrate-build` or `build-loop`) → **MAJOR**: the copies drift, and a tiebreak line ("where this file and the skill disagree, the skill wins") is the evidence that they were expected to. `CLAUDE.md` holds project facts, commands, invariants, commit format, the unit agents' stop-and-report triggers and the "Talking to the user" section; the loop, joins, stop conditions and ruling procedure belong to the skill. Grep `CLAUDE.md` for: `When to stop`, `drain`, `launch confirmation`, `walking skeleton`, `AMENDED (`, and a tiebreak sentence. Any hit → MAJOR, citing the skill line that already owns the rule. A one-line pointer that names the owning skill ("green baseline is law at every join (`orchestrate-build` owns the rule)") is not duplication.
+**Duplication is a finding even when the copies agree today (KD-021).** A process rule stated in both `CLAUDE.md` and the tier skill (`orchestrate-build` or `build-loop`) → **MAJOR**: the copies drift, and a tiebreak line ("where this file and the skill disagree, the skill wins") is the evidence that they were expected to. `CLAUDE.md` holds project facts, commands, invariants, commit format and the unit agents' stop-and-report triggers; the loop, joins, stop conditions and ruling procedure belong to the skill. Grep `CLAUDE.md` for: `When to stop`, `drain`, `launch confirmation`, `walking skeleton`, `AMENDED (`, and a tiebreak sentence. Any hit → MAJOR, citing the skill line that already owns the rule. A one-line pointer that names the owning skill ("green baseline is law at every join (`orchestrate-build` owns the rule)") is not duplication.
 
-**"Talking to the user" (KD-022).** `CLAUDE.md` has the section, copied verbatim from the kit's `COMMUNICATION.md`, and no other harness file contradicts it: a skill telling the agent to "explain in detail", "summarize everything you did", or to report in a free-form summary instead of the report-back shape. Missing section or a contradiction → **MINOR**.
+**"Talking to the user" (KD-022).** The tier skill (`orchestrate-build` or `build-loop`) has the section with its eight numbered rules, from "Answer first" to "Exact where it matters"; `CLAUDE.md` has only a one-line pointer to it; and no other harness file contradicts it: a skill telling the agent to "explain in detail", "summarize everything you did", or to report in a free-form summary instead of the report-back shape. Missing section or a contradiction → **MINOR**.
+
+**Size.** A generated `CLAUDE.md` over 50 lines → **MAJOR**: it goes into every prompt of every agent, so what binds only the orchestrator or one unit belongs in the skill (KD-021).
 
 ### 6. Path and command validity
 Every path, every command, every filename. Check them against the repo.
@@ -160,7 +177,7 @@ Whatever the harness claims about itself, verify mechanically:
   - Harness permits **concurrent unit agents**, but there is no per-worker DB isolation and units touch the DB → **BLOCKER.** Concurrent suites corrupt each other and produce flaky verdicts.
   - The DB-parallel rule resolved to something vague, or paraphrased rather than one of the canonical sentences → **MAJOR.** An agent reading a hedge takes the permissive reading.
   - Concurrency is keyed on **file-tree disjointness**, so the dispatch units must declare owned trees. Units in `PLAN.md`'s table without file trees, while the orchestrator gates co-dispatch on disjointness → **BLOCKER** — it will either serialize everything or guess.
-  - A concurrency policy but **no instruction to dispatch unit agents in the background** → **BLOCKER.** Synchronous dispatch blocks until return, so "up to N concurrent" runs one-at-a-time while every file still reads as parallel. Grep for the background-dispatch instruction; its absence is the finding.
+  - **Dispatch mode** → **BLOCKER** when `orchestrate-build` lacks any of these three: a lone unit (U0, the only eligible `todo`, a follow-up) is dispatched synchronously; two or more units dispatched together go in the background and are collected before the orchestrator's turn ends; no turn ends with a unit in flight. Without the first, a lone unit waits on a wake-up that an unattended run never delivers; without the second and third, Claude Code stops the background units 10 minutes after the turn ends and their uncommitted work is lost. Grep for each instruction; a missing one, or a wake-up or "end the turn to wait" fallback, is the finding.
   - A join described **without a drain precondition** (no unit left `wip`) → **MAJOR.** The dangerous direction is a false GREEN closing a join on unfinished work.
   - Anything treats a **dispatch as a completion** — marking a unit `done` from a launch rather than a return → **BLOCKER.** Under background dispatch that records outcomes that never happened.
 
@@ -174,9 +191,8 @@ Cross-check `STACK.md`'s gate manifest against the gates actually in `.claude/sk
 | yes | yes | correct |
 | no | no | correct — including a small-tier harness with **no gates at all** |
 | yes | **no** | **BLOCKER** — a gate the project needs was never emitted |
-| **no** | yes | **BLOCKER** — a gate that cannot run against this stack. It will be skipped, faked, or rationalized past, **and the harness will report that it ran.** |
-| **DEFERRED** | either | **BLOCKER** — `harness-forge` was supposed to resolve this row and write it back. An unresolved row means a gate nobody ever decided. |
-| **`inline`**, or columns for `standard`/`full` | anything | **BLOCKER** — the manifest predates the two-tier model. A stale manifest makes this whole check pass vacuously: the harness is gateless (or wrongly gated) while the audit reports CLEAN. Re-run `stack-decide` in RE-TIER mode (KD-015). |
+| **no** | yes | **MAJOR**: a gate that cannot run against this stack. It will be skipped, faked, or rationalized past, **and the harness will report that it ran.** |
+| any value other than `yes`/`no` (a leftover from an older kit, `inline`), or columns for `standard`/`full` | anything | a value that changes nothing emitted → **MINOR**, fixed in place; a stale manifest → **MAJOR**: the manifest predates the two-tier model. A stale manifest makes this whole check pass vacuously: the harness is gateless (or wrongly gated) while the audit reports CLEAN. Re-run `stack-decide` in RE-TIER mode (KD-015). |
 
 Also verify each present gate's commands actually exist (the `make` target, the `npm` script). A gate invoking a command that isn't defined is a gate that fails on first use and then gets quietly disabled by whoever hits it.
 
@@ -190,7 +206,7 @@ The harness tells its agents to push a blocker to the user's phone. If that path
 | Every path any harness file names for it resolves to that same file | mismatch → **BLOCKER** (the agent runs nothing) |
 | `.claude/ASK_CONTRACT.md` exists | missing → **MAJOR** — the pushes will send, and they will be unanswerable |
 | `.gitignore` covers `.env` / `*.env` | missing → **MAJOR** |
-| Every actor instructed to call it has `Bash` in its grant | missing → **BLOCKER** (this is check 1, applied here) |
+| No actor instructed to call it has `Bash` removed by `disallowed-tools` | removed → **BLOCKER**; merely unlisted in `allowed-tools` → **MINOR** (check 1, applied here) |
 | The **orchestrator** calls the script **directly** — it has `Bash` | told to dispatch a notify-only relay task instead → **MAJOR** — stale machinery from the retired tiers; it still works, but it spends a dispatch on a one-line command and teaches the wrong tool model |
 | No `Notification` hook in the target repo's `.claude/settings.json` | present → **MINOR** — it double-fires against the user's global hook, and a channel that cries wolf gets muted. (Check 14 audits the same row from the enforcement side; report it once.) |
 
@@ -232,11 +248,11 @@ Per finding: `#N`, severity, the **two or more files that disagree** (with `file
 
 | | |
 |---|---|
-| **BLOCKER** | The harness will fail or silently skip a gate on the next run. **Unresolved placeholder**, missing tool, unreachable dispatch, orphan read, unbounded loop, stale manifest. |
-| **MAJOR** | Contradiction that will cause an agent to do the wrong thing under pressure. Doc-vs-skill conflict, dead machinery, early-stop residue, per-unit full-suite runs. |
-| **MINOR** | Stale reference, wrong path, cosmetic drift. Wrong today, load-bearing later. |
+| **BLOCKER** | The next build session breaks. Only the five classes under "The fifteen checks" (unresolved placeholder, missing or non-executable hook, two writers of the state file, a needed skill absent, a manifest `yes` gate not emitted), plus a hook that runs tests. |
+| **MAJOR** | Will cause an agent to do the wrong thing under pressure. Doc-vs-skill conflict, dead machinery, early-stop residue, per-unit full-suite runs, unreachable dispatch, orphan read, unbounded loop, stale manifest. |
+| **MINOR** | Stale reference, wrong path, wording, manifest bookkeeping, cosmetic drift. Wrong today, load-bearing later. |
 
-**Return a capped summary (~150 words):** counts by severity, the report filename, and one numbered line per BLOCKER and MAJOR. Nothing else. Do not paste the report.
+**Return a capped summary (~150 words):** counts by severity, the report filename, and one numbered line per BLOCKER and MAJOR, marking each MAJOR or MINOR whose fix is a one-line edit as `(one-line)`, with the file and the edit, so `setup-project` can apply it without another dispatch. Nothing else. Do not paste the report.
 
 ## Guardrails
 

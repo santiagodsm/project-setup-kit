@@ -17,7 +17,7 @@ The kit emits a bespoke harness per project. It does not ship a parameterized un
 | Tier | Emits | For |
 |---|---|---|
 | **small** | `CLAUDE.md` + plan + a single build loop. No gates, no subagents. | < ~15 stories. Weekend/side projects. |
-| **orchestrated** | `CLAUDE.md` + `orchestrate-build` + `join-review` + `harness-doctor` + manifest gates. Epic-sized dispatch units, the whole check run at joins only. | ~15+ stories. |
+| **orchestrated** | `CLAUDE.md` + `orchestrate-build` + `join-review` + manifest gates. Epic-sized dispatch units, the whole check run at joins only. | ~15+ stories. |
 
 A tier can be upgraded in place later. Rationale: a heavyweight harness on a small project gets bypassed, and **a bypassed harness is worse than none — it lies about what is being checked.** There is no tier that dispatches per story; KD-019 records why, and the History section at the end of this file records the ladder this replaced.
 
@@ -56,7 +56,7 @@ A verdict that lives only in an agent's return message **evaporates** — the ne
 | Build tier | `<!-- TIER: small\|orchestrated -->` in `PRD.md` | `project-brief` (and `setup-project`, **only** on a tier-mismatch re-forge) | `design-author`, `stack-decide` (RE-TIER), `harness-forge`, `plan-lint`, `setup-project` |
 | Backlog gate | `<!-- GATE: BACKLOG BLOCKED\|CLEAR -->` on line 1 of `DESIGN.md` | `design-author` | `backlog-author` |
 | Register status | `Status: NOT SPECIFIED — BLOCKING\|DEFERRABLE` | `design-author` | `backlog-author`, `plan-lint` |
-| Gate manifest | table in `STACK.md` | `stack-decide` (and `harness-forge`, **only** to resolve the `DEFERRED` perf row) | `harness-forge`, `harness-doctor` |
+| Gate manifest | table in `STACK.md`, every row `yes` or `no` | `stack-decide` | `harness-forge`, `harness-doctor` |
 
 Learned the hard way: the first version put the BLOCKING/DEFERRABLE rule in prose *below* the §11 template an agent actually copies. On the kit's own first test run, all seven register entries came back unclassified, and `backlog-author` would have sailed straight through and invented the very thing `design-author` had honourably refused to invent. **The template is the contract. Prose below it is decoration.**
 
@@ -67,16 +67,18 @@ Every other skill *returns*; the orchestrator records. Multi-writer state is a c
 `stack-decide` numbers from ADR-001 and records its last number. `design-author` continues from there. Two namespaces both starting at ADR-001 means "ADR-003" resolves to two different decisions depending on which file you opened, and both `harness-forge` and the generated `code-review` cite ADRs by number.
 
 **KD-013 — Every *machine* fix loop is capped. Human-gated loops are not.**
-`plan-lint` → `backlog-author`: 3 rounds, then ask the user. `harness-doctor` → `harness-forge`: 3 rounds, then report failure. An uncapped "repeat until clean" loop spins forever on a problem it does not understand — a defect class the kit's own skills forbid in the harnesses they generate.
+`plan-lint` → `backlog-author`: 3 rounds, then ask the user. After step 5, `harness-doctor` runs once; its BLOCKERs (a narrow class: what would break a build session) get one `harness-forge` re-dispatch and one confirming doctor pass, then the user is asked; its MAJORs and MINORs are fixed in place by `setup-project` when they are one-line edits, never with another dispatch (v0.7: the v0.6 three-round loop spent a whole doctor round on a table row). Step 8's final doctor → `harness-forge`: 3 rounds, then report failure. An uncapped "repeat until clean" loop spins forever on a problem it does not understand, a defect class the kit's own skills forbid in the harnesses they generate.
 
 The `BACKLOG BLOCKED` → user → `design-author` AMEND loop is **deliberately uncapped**, and this is not an inconsistency: each iteration requires a human answer, so it cannot spin. The thing being guarded against is an agent retrying against itself, not a person taking three passes to decide what they want.
 
-**KD-014 — `setup-project` dispatches every step as a subagent. It never invokes a skill itself.**
-Its tools are `Read/Write/Edit/Agent/Skill/AskUserQuestion/ToolSearch` — **no `Bash`, no `Grep`, no `Glob`** — and a skill's `allowed-tools` **intersects down** with whoever loads it.
+**KD-014: `setup-project` runs the interview in the main session and dispatches everything else, for context flatness.**
+*(Rewritten 2026-10-25, kit v0.7.0. The v0.6 text is under History.)*
 
-So if the orchestrator invoked a step directly: `scaffold` could not run the check command. `stack-decide` could not search, and would lock a stack from stale training data. `harness-doctor` could not grep, glob, or run git — silently disabling four of its thirteen checks, and it would report **CLEAN on a harness it never inspected.**
+Steps 1 (`project-brief`), 2 (`stack-decide`) and the ask pass of step 3 (`design-author`) run in the main session: `setup-project` invokes the skill directly with `Skill`. Claude Code removes the tool that asks the user a question from every subagent, so a dispatched interview can never ask; it guesses, or marks the gap BLOCKING. The main session is the only one that can ask, so the steps whose job is asking run there. The ask pass writes nothing itself: `setup-project` records its answers under `SETUP_PROGRESS.md` "Decisions locked" and stays the file's only writer (KD-011). If `OWNER_BRIEF.md` exists at the project root, every asking step reads it instead and says so.
 
-Every one of those failures is silent. The skill runs, produces plausible output, reports success. Dispatching every step is what keeps the orchestrator's context flat *and* gives each skill its whole toolset. The two goals point the same way.
+The design write pass, every AMEND, and steps 4 to 8 are dispatched, one synchronous `general-purpose` subagent each. The reason is context flatness: each step starts clean, reads its inputs from disk, and returns a capped summary, so none of its file reads enter the orchestrator's context across a chain that spans sessions.
+
+Dispatch is not a tool restriction. A skill's `allowed-tools` pre-approves the tools it lists and restricts nothing (Claude Code docs, skills page: "It does not restrict which tools are available"). A missing entry costs a permission prompt, not a capability. Where a skill must not use a tool, its frontmatter says so with `disallowed-tools` (the report-only `harness-doctor` and `plan-lint` disallow `Edit`). `setup-project` has `Bash` and calls `notify.sh` itself.
 
 **KD-015 — Tier changes must rebuild the gate manifest, not just the tier marker.**
 Manifest rows are tier-conditioned *at write time*. A tier-mismatch re-forge that rewrites `<!-- TIER -->` but not `STACK.md` produces a **gateless harness** — `harness-forge` reads "only the gates in the manifest," finds none; `harness-doctor` compares that harness against the same stale manifest and pronounces it CLEAN. Three independent checks, all agreeing, all wrong. Hence `stack-decide`'s RE-TIER mode, and hence the four-step loop-back.
@@ -85,7 +87,7 @@ Manifest rows are tier-conditioned *at write time*. A tier-mismatch re-forge tha
 
 The kit is built on gates that stop rather than guess (KD-003, the `BACKLOG BLOCKED` verdict, the blocker protocol). Each one produces a *stopped run waiting on a person* — and **a stopped run is externally indistinguishable from a finished one.** The observed failure is not that the gate didn't fire; it is that it fired at 2am, nobody knew, and hours later a human told the next agent to carry on past it. The gate worked and cost nothing.
 
-So the channel is part of the harness, not an add-on: `scripts/notify.sh` (Pushover), copied into every generated repo, called by whoever *discovers* the blocker. `setup-project` has no `Bash` and delegates the push exactly as it delegates every step (KD-014). The generated orchestrator has every tool (KD-019) and calls `notify.sh` directly, as does the small-tier builder.
+So the channel is part of the harness, not an add-on: `scripts/notify.sh` (Pushover), copied into every generated repo, called by whoever *discovers* the blocker. `setup-project` calls it with `Bash` for a stop it discovers itself; a dispatched step pushes its own stop before returning (KD-014). The generated orchestrator has every tool (KD-019) and calls `notify.sh` directly, as does the small-tier builder.
 
 Three consequences that are decisions, not details:
 
@@ -105,11 +107,11 @@ The unit of scheduling is the **dispatch unit**. Four conditions gate a pair of 
 - **A failing condition costs one unit, not the batch.** Dropping everything to serial because of one unit is how a default quietly reverts to the old behavior.
 - **Migrations serialize even under perfect test isolation.** The conflict is two revisions chaining off one head in a shared *source* directory — not shared data. Isolation is the wrong fix and would look like it worked.
 
-**Background dispatch is the execution path, and it is part of the decision.** `run_in_background: true` on every subagent the generated harness launches. Without it the policy above is nominal: a synchronous dispatch blocks until that agent returns, so "up to `{{MAX_PARALLEL}}` concurrent" runs strictly one-at-a-time while every file still reads as parallel. **Nothing detects that** — no gate fails, no report lies, the build is just N times slower than it claims. A policy stated without its mechanism is not a weaker version of the policy; it is the *appearance* of one, which is worse, because it stops anyone from looking.
+**The dispatch mode is part of the decision, and it must survive an unattended run.** *(Amended 2026-10-25, kit v0.7.0, audit F17; the v0.6.1 paragraph is in History.)* Two or more units dispatched together go in the background (`run_in_background: true`), each in its own worktree (KD-023); without that, "up to `{{MAX_PARALLEL}}` concurrent" runs strictly one-at-a-time while every file still reads as parallel, and nothing detects it. A unit dispatched alone (U0, the only eligible `todo`, any follow-up) is dispatched synchronously, with `run_in_background: false` written out (the v0.7 test build showed that a call leaving the field out can still be launched in the background), so the call returns its report and nothing has to wait. The orchestrator collects every background unit before its turn ends and never ends a turn with a unit in flight: in an unattended `claude -p` run, Claude Code stops background agents 10 minutes after the turn ends. In the v0.7 audit that killed U0 at minute 12 with 56 tests passing and no commits, and the orchestrator woke twice over the next hour and read the uncommitted files as "still running". So three backstops come with the rule: units commit after every story whose tests pass; a `wip` unit whose tree has not changed in 10 minutes is dead and is re-dispatched to finish what is there; and the generated settings set `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`.
 
 Two corollaries follow and are stated wherever the rule is: **a launch confirmation is not a result** (a unit is `done` when its return is recorded, never when its dispatch succeeded), and **barriers drain first** (a gate or a handoff requires nothing left `wip` — a check run against a tree agents are still writing to describes a state that never existed, and the dangerous direction is a false GREEN closing a join on unfinished work).
 
-**`setup-project` is deliberately the exception and dispatches its own chain synchronously.** Its steps are strictly sequential — each one's output is the next one's input — so background dispatch buys no wall-clock and risks advancing before a step finished, which is the failure that skill exists to prevent. The rule is one rule in both places: *dispatch in the background exactly when there is other work to do meanwhile.* Only its notify-only dispatch is backgrounded, since nothing waits on a push.
+**`setup-project` is deliberately the exception and dispatches its own chain synchronously.** Its steps are strictly sequential (each one's output is the next one's input), so background dispatch buys no wall-clock and risks advancing before a step finished, which is the failure that skill exists to prevent. The rule is one rule in both places: *dispatch in the background exactly when there is other work to do meanwhile.* It has no notify-only dispatch: it runs `notify.sh` itself with `Bash` (KD-014).
 
 **KD-018 — Agents hand off files and pointers, never payloads. Disclosure is scoped to the consumer.**
 
@@ -142,6 +144,7 @@ The generated harness therefore:
 1. gives the orchestrator **every tool** and has it read the entire design contract once, up front
    — it writes section-cited briefs, rules on escalations in one round trip with a citation, and
    amends `DESIGN.md` with dated rulings (the inverse of the retired tool-starved dispatcher);
+   *(v0.7: amended to §1, §2.1, §5, §10, §11 at session start plus each brief's cited sections just in time, since a whole-design read does not survive compaction; AUDIT_V0.7 F5.)*
 2. dispatches **epic-sized units** from `PLAN.md` → `## Dispatch units` (merge rule: *if unit N's
    agent must re-read unit N−1's output to understand its own job, they are one unit*) — roughly
    10–15 units for a ~60-story backlog, stories surviving as the checklist inside a unit;
@@ -171,13 +174,13 @@ Every rule in a generated harness used to be prose. `harness-doctor` can audit p
 - **`.githooks/pre-commit`**, tracked, activated with `git config core.hooksPath .githooks` by `harness-forge` and re-checked at every session start by both loop skills (a fresh clone loses that setting). It lints the staged files only.
 - **The state-file single-writer rule runs at two levels at the orchestrated tier.** Tool level: the hook input carries `agent_id` when the call comes from a subagent, so `guard-writes.sh` blocks any subagent write to the state file. Commit level: `pre-commit` rejects a commit that stages the state file with anything but the design (the orchestrator commits it alone at each join; a mixed commit means a unit agent wrote it). The small tier has neither: its builder commits the state file with every story.
 - **The narrowed Notification rule.** A generated repo may have `.claude/settings.json`; it must not contain a `Notification` hook (KD-016).
-- `harness-doctor` check 14 (resident check 9) audits that all of it exists, is executable, is wired, and stays inside the budget below.
+- `harness-doctor` check 14 audits that all of it exists, is executable, is wired, and stays inside the budget below.
 
 **The speed budget is part of this decision, and it binds every future edit.** The first harness was unusable because it tested too much: the per-story harness finished 8 of 62 stories in the time an epic-unit build finished everything (`HARNESS-REDESIGN.md` §1). Enforcement must never bring that back:
 
 1. **No new test runs anywhere.** The whole suite runs exactly where it already ran: once per story at small, once per join at orchestrated. Hooks never run tests, never run the check command, never run the affected-test command. A hook or git hook that invokes a test runner is a doctor **BLOCKER**.
 2. **Format hook: under 2 seconds**, one file, `timeout: 2`.
-3. **Pre-commit: under 15 seconds**, staged files only, measured by `harness-forge` on the scaffolded repo. Lint plus typecheck over 15 seconds → typecheck stays out. Typecheck is in the hook at the small tier only: at orchestrated it covers the whole project while parallel unit agents share one working tree, so one unit's half-written code would reject another's commit. Lint alone over → no lint, only the state-file rule. At runtime each check is also bounded (lint 10 s, typecheck 5 s) and is skipped, not failed, when it runs past its bound.
+3. **Pre-commit: under 15 seconds**, staged files only, measured by `harness-forge` on the scaffolded repo. Lint plus typecheck over 15 seconds → typecheck stays out. Under 15 seconds, typecheck is in the hook at both tiers: at orchestrated each parallel unit commits from its own worktree (KD-023), so one unit's half-written code never reaches another's type check. Lint alone over → no lint, only the state-file rule. At runtime each check is also bounded (lint 10 s, typecheck 5 s) and is skipped, not failed, when it runs past its bound.
 4. **Guard hook: path checks only, under 100 ms.**
 5. **SessionStart hook: prints one line**, reads nothing.
 6. **Every hook has a timeout.** A timeout or crash lets the action through, except in the two guards that exist to block: the write guard sets `"onFailure": "block"`, and the state-file rule in `pre-commit` rejects. A formatter or lint failure from a timeout never blocks.
@@ -192,11 +195,12 @@ The retired per-story harness carried a long `CLAUDE.md` and a longer orchestrat
 
 So every rule has exactly one owner file:
 
-- **`CLAUDE.md` holds what applies to every prompt**, for the orchestrator and every unit agent alike: the organising principle, project facts, the pinned stack, commands, the invariants (their only copy), the commit format, the unit agents' stop-and-report triggers, "Talking to the user" (KD-022), and the project's definition of done. At the small tier it also states what the tier gave up and the upgrade trigger, which are standing facts about the harness, not loop steps. About 45 lines.
+- **`CLAUDE.md` holds what applies to every prompt**, for the orchestrator and every unit agent alike: the organising principle, project facts, the pinned stack, commands, the invariants (their only copy), the commit format, and the unit agents' stop-and-report triggers. At the small tier it also states what the tier gave up and the upgrade trigger, which are standing facts about the harness, not loop steps. Under 50 lines once forged, with no rationale sentences.
+- **v0.7 (audit F8): what binds only the orchestrator or one unit moved out of `CLAUDE.md`.** "Talking to the user" now lives in the tier skill (`orchestrate-build`, `build-loop`), with one pointer line in `CLAUDE.md`; the project's definition of done lives in `orchestrate-build` → "The final unit is always integration" (small: `build-loop` → When to stop).
 - **The tier skill (`orchestrate-build`, `build-loop`) holds the process**: session start, the loop, joins, drain, parallelism, escalation rulings, the stop conditions. `CLAUDE.md` points to it with one line ("it holds the process") and no tiebreak.
 - **`{{PROJECT_STRUCTURE}}` is one line of top-level code directories, never a tree.** Context files that hold what the agent can find for itself add steps and cost (Gloaguen et al., "Evaluating AGENTS.md", ETH Zurich, 2026); briefs already carry owned trees.
 
-**Reasons stay, once.** The original templates said "do not improve or summarize them", on the theory that the reasoning prose is what makes agents comply. That holds for the reason, not for its volume or its repetition. Each rule keeps its reason in one or two sentences, in the file that owns the rule, and the same reason is not repeated across files. `harness-doctor` check 5 (resident check 3) flags a process rule stated in both `CLAUDE.md` and the tier skill as MAJOR even when the copies agree today.
+**Reasons stay, once.** The original templates said "do not improve or summarize them", on the theory that the reasoning prose is what makes agents comply. That holds for the reason, not for its volume or its repetition. Each rule keeps its reason in one or two sentences, in the file that owns the rule, and the same reason is not repeated across files. `harness-doctor` check 5 flags a process rule stated in both `CLAUDE.md` and the tier skill as MAJOR even when the copies agree today.
 
 **KD-022 — The harness talks to the user in plain, short language.**
 *(2026-10-24, kit v0.6.0.)*
@@ -204,13 +208,18 @@ So every rule has exactly one owner file:
 The user's two complaints about agent messages are that they are too long and that they explain with jargon. `ASK_CONTRACT.md` already fixed this for one channel (questions pushed to the phone); nothing governed the rest. So:
 
 - **`COMMUNICATION.md` at the kit root is the one canonical text**: answer first; short by default (progress in three lines at most, no narration or recap); plain words, with a needed term explained in the same sentence; no internal labels without their meaning; the project's own words (the design glossary and the user's words); explanations start from one concrete example from the project; no filler; and exact where it matters (commands, errors, paths and code stay verbatim and complete). It governs messages to the user only. Briefs, subagent reports, commit messages and design amendments stay precise and technical, because their reader is an agent or a future engineer.
-- **`harness-forge` copies it, resolved, into a "Talking to the user" section of both generated `CLAUDE.md` files.** The kit's setup chain (`setup-project`, `project-brief`, `stack-decide`, `design-author`) points at `COMMUNICATION.md` instead of copying it, and `ASK_CONTRACT.md` points at it as the general rule, so the two cannot drift (KD-021).
+- **The tier skills (`orchestrate-build`, `build-loop`) carry it as a literal "Talking to the user" section; since v0.7 (audit F8) generated `CLAUDE.md` files hold only a one-line pointer to it, because only the agent talking to the user needs the rules.** The kit's setup chain carries the eight rules one line each in `setup-project` under "Talking to the user" (v0.7: every step used to re-read the file, which cost a read per step); the steps that run in the main session inherit them. `ASK_CONTRACT.md` points at `COMMUNICATION.md` as the general rule.
 - **Report-back to the user has a fixed shape**, at joins and handoffs (orchestrated) and per story and handoffs (small): what works now in the user's terms, what is left, what needs the user (in the Ask Contract's shape), and one line on anything that went wrong and was fixed, only if it changes what the user should trust. Under about eight lines.
 - `harness-doctor` flags a missing section, or a harness file that contradicts it ("explain in detail", "summarize everything you did"), as MINOR.
 
 **Rejected: the "caveman" skill** (`JuliusBrussee/caveman`). It shortens output by dropping articles and writing in fragments, which is shorter but harder to read and makes the jargon problem worse. Independent testing found most of its savings come from having any brevity instruction at all: 23% fewer output tokens against no instruction, only 4% against a plain "be concise" instruction (implicator.ai). Its author advises against it for learning, architecture discussions and debugging unfamiliar errors, which is most of what the user reads from a build.
 
 **Considered, not adopted: a project output style.** Claude Code supports project output styles (`.claude/output-styles/*.md`, selected by `outputStyle` in settings). They change the system prompt rather than adding a user-turn file, but the docs say an output style "doesn't guarantee that something always happens", and a custom style drops Claude Code's built-in coding instructions unless `keep-coding-instructions` is set. Recorded in the v0.6 report as a proposal.
+
+**KD-023: Units that run in parallel each get their own worktree.**
+*(2026-10-25, kit v0.7.0. Audit finding F7.)*
+
+Parallel units used to share one working tree, so one unit's half-written code broke another's type check and `git add -A` could stage a neighbour's files; v0.6 dropped the pre-commit type check at orchestrated for that reason. Claude Code's Agent tool can give a subagent its own git worktree (`isolation: "worktree"`), and a worktree agent cannot write into the main checkout, which makes the one-writer-per-tree rule mechanical instead of prose. So `orchestrate-build` dispatches a unit that runs alongside another with `isolation: "worktree"`; U0 and any unit dispatched alone stay in the main tree. The generated `.claude/settings.json` sets `"worktree": { "baseRef": "head" }` so each unit branch starts from the current build branch, not the default branch. The brief tells a worktree unit to run `{{INSTALL_COMMAND}}` first, commit on its branch, and report the branch name. The join merges each returned branch into the build branch before its one full check (owned trees are disjoint by construction, so a conflict is a BLOCKER for the join, recorded in its row) and then removes the worktree. With trees separate, the pre-commit type check is allowed again at orchestrated, still only when forge measures lint plus typecheck under 15 seconds (KD-020 rule 3). Cost, measured on a 123-package TypeScript project: 0.02 s to create a worktree, 0.42 s to install, 1.44 s for the full check. No new test runs: one install and one merge per parallel unit.
 
 ---
 
@@ -225,7 +234,7 @@ Order is the product. Each step is an input to the next; running them out of ord
 | 2 | `stack-decide` | `STACK.md` (ADRs, check command, gate manifest) | manifest emitted | — |
 | 3 | `design-author` | `DESIGN.md` (§1–§12) + `<!-- GATE -->` | `BACKLOG CLEAR` | → user → `design-author` **AMEND** → recheck |
 | 4 | `scaffold` | The repo + the check command | green from cold **and** red when broken | re-dispatch (3 rounds), then ask the user |
-| 5 | `harness-forge` | `CLAUDE.md` + `.claude/**` | `harness-doctor`: zero BLOCKERs | 3 rounds, then fail |
+| 5 | `harness-forge` (runs `scripts/forge.sh`), then `harness-doctor` once | `CLAUDE.md` + `.claude/**` | zero BLOCKERs | one forge re-dispatch + one re-doctor, then ask the user |
 | 6 | `backlog-author` | `PLAN.md` (+ `## Dispatch units` on the orchestrated tier) | refuses unless step 3 is CLEAR | — |
 | 7 | `plan-lint` | `PLAN_LINT.md` | zero BLOCKERs **and zero MAJORs** | → 6 **FIX mode** (3 rounds) · tier mismatch → **1 → 2 (RE-TIER) → 5 → 7** |
 | 8 | seed + `harness-doctor` | first story in the state file | zero BLOCKERs | → **5** with the numbered findings (3 rounds), then fail |
@@ -261,6 +270,19 @@ Setup is done when 7 and 8 are clean. Then: run the generated harness.
 ## History of amended decisions
 
 Notes and superseded text removed from the decisions above when they were rewritten to one current reading (kit v0.6.0, 2026-10-24). Kept verbatim: they are the record of why each decision reads the way it does.
+
+### v0.7.0 (2026-10-25): what changed and why
+
+From the v0.6.1 audit (`AUDIT_V0.7.md`), which ran the whole chain on a test project and measured 133 minutes and about $71 for setup, and one hour of build time that produced nothing in git.
+
+- **The interview runs in the main session** (KD-014 rewritten). Subagents cannot ask the user, so `project-brief`, `stack-decide` and the ask pass of `design-author` now run where the user is. Everything else stays dispatched, for context flatness. Owner mode (`OWNER_BRIEF.md`) is written down.
+- **The kit root is a file** (`~/.claude/project-setup-kit.root`, written by the SessionStart hook), so no skill searches the disk. The eight message rules live one line each in `setup-project`; no step re-reads `COMMUNICATION.md`.
+- **`scripts/forge.sh` generates the harness** from `HARNESS_VALUES.json` with no model in the loop. The doctor runs once after forge, BLOCKER means "breaks a build", and check-command runs are capped (scaffold two, forge one). `DEFERRED` and the `dependency-security-audit` gate are gone; the join runs the stack's audit command in one Bash call when the lockfile changed.
+- **The orchestrator survives compaction and new sessions.** It reads the design's core at session start and each brief's cited sections just in time; generated `CLAUDE.md` has a Compact Instructions section; `wip` rows record dispatch time and task ID.
+- **The generated `CLAUDE.md` holds only what every agent needs**, at most 50 lines. "Talking to the user" and the project definition of done moved into the tier skill (KD-021, KD-022).
+- **Parallel units get worktrees** (KD-023) and the pre-commit type check is allowed back at orchestrated tier.
+- **A lone unit is dispatched synchronously; a group is collected before the turn ends** (KD-017 amended), with a 10-minute liveness rule and a commit after every green story.
+- **No resident doctor at orchestrated tier**; every skill description is one sentence under 200 characters.
 
 ### KD-002 as of v0.5.0, with its AMENDED 2026-07-23 note
 
@@ -356,3 +378,20 @@ The kit's spine already has this shape: briefs, evidence, and reviews live on di
 > carry violates this KD exactly as before. The tier-specific examples above (`standard` pasting a
 > regression finding, `full` building `source:` pointers) describe retired tiers; the rule they
 > illustrated is unchanged.
+
+### KD-014 as of v0.6.1
+
+Verbatim except one phrase, replaced in brackets so the false claim it named no longer reads as current.
+
+**KD-014 — `setup-project` dispatches every step as a subagent. It never invokes a skill itself.**
+Its tools are `Read/Write/Edit/Agent/Skill/AskUserQuestion/ToolSearch` — **no `Bash`, no `Grep`, no `Glob`** — and a skill's `allowed-tools` *[narrows, so the v0.6 text claimed,]* the tools of whoever loads it.
+
+So if the orchestrator invoked a step directly: `scaffold` could not run the check command. `stack-decide` could not search, and would lock a stack from stale training data. `harness-doctor` could not grep, glob, or run git — silently disabling four of its thirteen checks, and it would report **CLEAN on a harness it never inspected.**
+
+Every one of those failures is silent. The skill runs, produces plausible output, reports success. Dispatching every step is what keeps the orchestrator's context flat *and* gives each skill its whole toolset. The two goals point the same way.
+
+### KD-017's dispatch paragraph as of v0.6.1
+
+Replaced in v0.7.0 (audit F17): background dispatch for every unit did not survive an unattended run.
+
+**Background dispatch is the execution path, and it is part of the decision.** `run_in_background: true` on every subagent the generated harness launches. Without it the policy above is nominal: a synchronous dispatch blocks until that agent returns, so "up to `{{MAX_PARALLEL}}` concurrent" runs strictly one-at-a-time while every file still reads as parallel. **Nothing detects that** — no gate fails, no report lies, the build is just N times slower than it claims. A policy stated without its mechanism is not a weaker version of the policy; it is the *appearance* of one, which is worse, because it stops anyone from looking.

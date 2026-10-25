@@ -1,7 +1,7 @@
 ---
 name: build-loop
 version: 1.0.0
-description: "Drive the {{PROJECT}} backlog to completion. Read the plan, pick the next story with its deps done, build it, run {{CHECK_COMMAND}}, self-review it against its acceptance criteria, commit it, write the state file, repeat. Use at the start of every build session and whenever the user says 'resume build', 'continue the build', 'keep going', or 'implement the plan'."
+description: "Use at the start of every {{PROJECT}} build session or when the user says 'resume build' or 'keep going': builds the next ready story, checks it, commits it, repeats."
 allowed-tools:
   - Read
   - Write
@@ -44,7 +44,7 @@ You cannot fix that with resolve. You fix it mechanically:
 - you find yourself wanting a gate — an independent review, a regression run at a boundary, a composite look across several stories, or
 - the `Decisions & deviations` ledger has grown enough that you no longer trust `{{DESIGN}}`.
 
-**Say so to the user and recommend regenerating the harness at `orchestrated`** — which adds an orchestrator that reads the whole design, epic-sized unit dispatch, and independent composite review at join points (independent review is the single most valuable thing a harness buys).
+**Say so to the user and recommend regenerating the harness at `orchestrated`**, which adds an orchestrator that reads the design itself, epic-sized unit dispatch, and independent composite review at join points (independent review is the single most valuable thing a harness buys).
 
 **Do not hand-bolt a gate onto this one.** A half-built gate is worse than no gate: it reports green without looking. And **a small harness silently carrying a large build is this tier's characteristic failure** — it does not break loudly, it just keeps saying "done" while nobody but the author has looked at anything.
 
@@ -53,7 +53,7 @@ You cannot fix that with resolve. You fix it mechanically:
 Run continuously. Do not wait for the user to trigger each story.
 
 0. **Check the git hook is active** (once per session): `git config core.hooksPath`. If it is not `.githooks`, run `git config core.hooksPath .githooks` and note it in `{{STATE_FILE}}` → Session log. A fresh clone loses this setting, and without it the commit-time lint stops running without telling anyone.
-1. **Load state.** Read `{{STATE_FILE}}`. (After a compaction, the SessionStart hook in `.claude/settings.json` prints one line telling you to re-read `CLAUDE.md` and `{{STATE_FILE}}`: that is this step, then carry on from `NEXT ACTION`.) If it does not exist, create it from the template, seed every story in `{{PLAN}}` as `pending`, and set `NEXT ACTION` to the first eligible story.
+1. **Load state.** Read `{{STATE_FILE}}`. (After a compaction, the SessionStart hook in `.claude/settings.json` prints one line telling you to re-read `CLAUDE.md` and `{{STATE_FILE}}`: that is this step, then carry on from `NEXT ACTION`.) Also read `{{DESIGN}}` §1, {{GLOSSARY_SECTION}} (glossary), §5 (invariants), §10 and §11 (open register), and the story list in `{{PLAN}}`. Not the whole design: after a compaction a large file comes back as a path only, so step 3 reads each story's cited sections fresh. If it does not exist, create it from the template, seed every story in `{{PLAN}}` as `pending`, and set `NEXT ACTION` to the first eligible story.
 2. **Pick the next story.** The first story in `{{PLAN}}` order that is `pending` and whose every `deps` story is `done`. `{{STATE_FILE}}` → `NEXT ACTION` should already name it.
    If pending stories remain but none is eligible, that is a dependency deadlock — go to **Blocker**.
 3. **Read what the story needs.**
@@ -102,6 +102,7 @@ Run continuously. Do not wait for the user to trigger each story.
    {{COMMIT_FORMAT}}
    <body: what changed and why, wrapped>
    ```
+   {{#IF AUDIT_COMMAND}}Only if the story changed {{LOCKFILES}}: run `{{AUDIT_COMMAND}}` once, in one Bash call, before committing, fix or record any high finding, and put the result in the story's session-log line (`audit: clean`).{{/IF}}
    With the `Co-Authored-By` trailer from the environment rules. Stage the story's files **and `{{STATE_FILE}}`**. Never batch two stories into one commit, and never start the next story with this one uncommitted — the diff stops being a story and becomes a fog, and the self-review in step 7 has nothing crisp to run against.
 9. **Write `{{STATE_FILE}}`.** After **every** story. Never batched.
    - Mark the story `done` with its commit hash.
@@ -114,7 +115,7 @@ Run continuously. Do not wait for the user to trigger each story.
 
 ## Reporting to the user
 
-After every story (step 9) and at every handoff, tell the user what changed in this shape, plain words per `CLAUDE.md` → "Talking to the user", under about eight lines. This replaces any free-form summary:
+After every story (step 9) and at every handoff, tell the user what changed in this shape, plain words per "Talking to the user" below, under about eight lines. This replaces any free-form summary:
 
 ```
 Works now: <what the user can do now that they could not before, in their terms: "you can now log in and see your orders">
@@ -124,6 +125,18 @@ Went wrong, fixed: <one line, only if it changes what the user should trust; oth
 ```
 
 Name stories by what they do ("the sign-up story (S-04)"), never by bare ID.
+
+## Talking to the user
+1. **Answer first.** The first sentence says what happened, what you found, or what you need from the user.
+2. **Short by default.** Progress updates are three lines at most: outcome, what is left, what is blocked. Do not narrate steps, recap what you did, or restate the request.
+3. **Plain words.** Write for a smart person who is not looking at the code. A needed technical term is explained in the same sentence the first time ("the migration, meaning the script that changes the database tables, failed").
+4. **No bare internal labels.** Never "U3", "AC-4", "KD-017", "§4.2" or a file name on its own. Say what it is: "the payments unit (U3)", "the rule that a balance is never stored (§5.2)".
+5. **The project's own words:** the glossary terms in `DESIGN.md` §2.1 and the words the user uses, never new names for the same thing.
+6. **When asked to explain:** one concrete example from this project first, then the general rule. One analogy at most, about 150 words unless asked for more.
+7. **No filler:** no apologies, no "great question", no hedging, no closing offers of more help.
+8. **Exact where it matters:** commands, error messages, file paths and code stay verbatim and complete. Brevity is for prose, never for code or for the facts the user needs to act.
+
+This governs messages to the user. Briefs, subagent reports, commit messages and design amendments stay precise and technical; their reader is an agent or a future engineer.
 
 ## Blocker protocol
 
@@ -152,6 +165,8 @@ Mark the story `blocked` in `{{STATE_FILE}}` with a precise reason, what you tri
 **Only the third is a *context* signal.** The first two are the loop finishing or hitting a wall — those are outcomes, not handoffs. So: **there is exactly one reason to stop while work remains, and it is the system-reminder, never compaction.** Do not count on seeing the reminder: current Claude Code documents no warning before it compacts automatically, so compaction is the signal you will usually meet, and it means continue.
 
 No story caps. No session caps. No "this feels like a natural stopping point." Every one of those is a self-imposed limit you will honor. Every other heuristic you might reach for (the session feels long, that was a big story, this is a natural stopping point, I've done a lot) fires long before real context pressure, and each one costs the user a full resume cycle for nothing. If the reminder has not fired, you have context. Keep going.
+
+**The backlog is complete** when every gate in `{{DESIGN}}` {{DOD_SECTION}} holds, every story in `{{PLAN}}` is `done`, and the suite is green.
 
 **On the context signal:** finish or cleanly revert the in-flight story (if it is uncommitted, revert it to `pending` so it re-runs from a known state), write `{{STATE_FILE}}` with the exact next story in `NEXT ACTION`, commit, and report to the user in the shape under "Reporting to the user" with one more line, *"Next session: run `build-loop`; it picks up at <the story, by what it does, then its ID>."* Then stop.
 

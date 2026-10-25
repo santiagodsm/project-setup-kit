@@ -1,6 +1,6 @@
 # The placeholder contract
 
-Every `{{VAR}}` in `templates/**`. `harness-forge` resolves all of them before writing a file into the target repo.
+Every `{{VAR}}` in `templates/**`. `harness-forge` writes their values into `HARNESS_VALUES.json` and `scripts/forge.sh` fills them; see "`HARNESS_VALUES.json`" below for the file's shape.
 
 **An unresolved `{{VAR}}` that reaches the generated harness is a BLOCKER.** Not a cosmetic one: an agent reading `Run {{CHECK_COMMAND}}` will not error. It will infer a plausible command, run it, and report green. The check you believe in has quietly stopped running, and nothing tells you.
 
@@ -19,6 +19,7 @@ Every `{{VAR}}` in `templates/**`. `harness-forge` resolves all of them before w
 | `{{AFFECTED_TEST_COMMAND}}` | `STACK.md` | `pytest {paths}` |
 | `{{LINT_COMMAND}}` | `STACK.md` | `ruff check {files}` |
 | `{{TYPECHECK_COMMAND}}` | `STACK.md` | `pyright` |
+| `{{INSTALL_COMMAND}}` | `STACK.md` (the dependency install from the lockfile; forge derives it from the lockfile when `STACK.md` names none). Orchestrated only: a unit in its own worktree runs it first (KD-023). | `npm ci`, `uv sync --frozen` |
 | `{{FORMAT_COMMAND}}` | `STACK.md` → "Format command". **May be empty**: then forge emits no `format.sh` and no PostToolUse entry. Both tiers. | `npx prettier --write`: formats the one file given as its last argument |
 | `{{LINT_STAGED_COMMAND}}` | forge, from `{{LINT_COMMAND}}` with the `{files}` token removed (the hook appends the staged files). **Empty when the lint command cannot take a file list**: then the pre-commit hook does not lint. Both tiers. | `ruff check` |
 | `{{SOURCE_EXTENSIONS}}` | forge, from the stack's languages. Space separated, no dots. Used by `format.sh` and the pre-commit lint filter. | `ts tsx js` |
@@ -49,15 +50,37 @@ Every `{{VAR}}` in `templates/**`. `harness-forge` resolves all of them before w
 | `{{PROJECT_ONE_LINER}}` | `PRD.md` → What | `Shared expense tracking for roommates.` |
 | `{{PROJECT_STRUCTURE}}` | repo, confirmed with `ls` | **One line listing the top-level code directories, nothing else:** `/backend · /mobile · /infra`. **Never a tree listing.** Codebase overviews do not help agents find files faster and cost tokens on every prompt (Gloaguen et al., ETH Zurich, 2026); briefs already carry each unit's owned trees. |
 | `{{E2E_COMMAND}}` | `STACK.md`, or omit | `npx playwright test` — run at join points / by `release-runbook` when the stack has E2E |
-| `{{LOCKFILES}}` | `scaffold` | `uv.lock`, `package-lock.json` |
-| `{{AUDIT_COMMANDS}}` | `STACK.md` | `pip-audit`, `npm audit` |
+| `{{LOCKFILES}}` | `scaffold`. Space separated (it goes into `git diff --name-only <commit> -- {{LOCKFILES}}`) | `uv.lock package-lock.json` |
+| `{{AUDIT_COMMAND}}` | `STACK.md` → "Audit command". **Empty when there are no third-party dependencies**: then no audit line is emitted. One command that exits non-zero on a high-severity advisory; the orchestrator (or the small-tier builder) runs it in one shell call only when a lockfile changed. Both tiers. | `npm audit --audit-level=high` |
 | `{{PERF_SECTION}}` | `DESIGN.md` §8 | `§8.1` |
 | `{{PERF_FIRST_EPIC}}` | `PLAN.md` | `EPIC-09` |
 | **`{{MAX_PARALLEL}}`** | forge, from the isolation `scaffold` built — **`orchestrated` only; the `small` tier has one agent and nothing to run alongside it, so neither parallelism placeholder appears there** | `3` — concurrent unit agents. **3 is the default and the right answer for almost every project** (beyond it, shared build artefacts contend and produce failures that look like real defects). Raise to 4–5 only when the check command is genuinely fast (< ~60s) and isolation is per-worker; drop to `1` only when `{{DB_PARALLEL_RULE}}` says isolation does not exist *and* every unit touches the DB. `1` is a defect being reported, not a configuration. |
 | **`{{DB_PARALLEL_RULE}}`** | forge, from `scaffold`'s returned isolation strategy | **Resolve to one literal sentence** stating what is actually true. Three canonical values, below. Never leave it abstract — this sentence is the only place the harness records whether concurrent test runs are safe, and an agent reading a vague one will assume the permissive reading. |
-| **`{{NOTIFY}}`** | fixed — the notifier `harness-forge` copies into every repo | `.claude/scripts/notify.sh` — **resolve to the bare path, no backticks and no `./` prefix.** Every template already wraps it (in backticks, or inside a bash block), so a decorated value nests and produces a command that does not run. It is not configurable and not stack-dependent; the file is copied verbatim from the plugin root and the path must match it exactly or every ask silently runs nothing. |
-| **`{{TALKING_TO_THE_USER}}`** | fixed: the kit's `COMMUNICATION.md`, the block between `<!-- BEGIN TALKING-TO-THE-USER -->` and `<!-- END TALKING-TO-THE-USER -->`, copied verbatim (markers dropped). Both tiers. | the `## Talking to the user` section: eight rules and a scope line. Never paraphrase or shorten it; `COMMUNICATION.md` is its only owner (KD-021, KD-022). |
+| **`{{NOTIFY}}`** | **set by `forge.sh`; not a values key.** The notifier `harness-forge` copies into every repo | `.claude/scripts/notify.sh`: **the bare path, no backticks and no `./` prefix.** Every template already wraps it (in backticks, or inside a bash block), so a decorated value nests and produces a command that does not run. It is not configurable and not stack-dependent; the file is copied verbatim from the kit root and the path must match it exactly or every ask silently runs nothing. |
+| `{{TALKING_TO_THE_USER}}` | **no longer used (v0.7); no template contains it.** | The `## Talking to the user` section is literal text in `orchestrate-build` and `build-loop`, copied from the block between the markers in the kit's `COMMUNICATION.md`, which stays its only owner (KD-021, KD-022). `CLAUDE.md` carries one pointer line. |
 | **`{{ORGANISING_PRINCIPLE}}`** | `PRD.md` (What/Why, stated quality bar) + `DESIGN.md` invariants — see below | `A silently wrong number is the worst possible outcome.` |
+
+## `HARNESS_VALUES.json`
+
+`harness-forge` writes this file at the repo root (gitignored) and runs `bash <kit root>/scripts/forge.sh <tier> HARNESS_VALUES.json .`. One flat JSON object:
+
+```json
+{
+  "PROJECT": "Dues",
+  "CHECK_COMMAND": "npm run check",
+  "FORMAT_COMMAND": "",
+  "INVARIANTS": "- **I-1** A balance is never stored ...\n- **I-2** ...",
+  "PRECOMMIT_TYPECHECK": false,
+  "gates": ["db-migration-review"]
+}
+```
+
+- **Strings fill `{{KEY}}`.** Multi-line values use `\n`. A value may name another placeholder (`DB_PARALLEL_RULE` naming `{{DB_ISOLATION}}`); `forge.sh` fills it too.
+- **`{{#IF KEY}}` is true** when the key is `true` or a non-empty string. So a command the stack lacks is `""`: every block that needs it drops out. Pure flags (`PRECOMMIT_TYPECHECK`) are booleans.
+- **`gates`** lists the manifest's `yes` gates for this tier, by directory name under `templates/gates/`. Empty at `small`. At `orchestrated`, `db-migration-review`, `api-contract-sync` and `design-token-lint` must be listed exactly when `MIGRATION_TOOL`, `CONTRACT_GEN_COMMAND` and `TOKENS_FILE` are non-empty, so the join never dispatches a gate that was not emitted.
+- **Set by `forge.sh`, never in the file:** `ORCHESTRATED`, `MCP_SERVERS`, `PERF_PROFILING`, `RELEASE_RUNBOOK` (from the tier and `gates`), `NOTIFY`, `TALKING_TO_THE_USER`.
+- **`forge.sh` exits non-zero and writes nothing** when a placeholder is left unfilled, a key is used by no emitted template (a typo, or a key for the other tier), a gate is unknown, or `gates` and the flags disagree. It never overwrites an existing state file.
+- Worked examples: `tests/fixtures/values.orchestrated.json` and `tests/fixtures/values.small.json` (the Dues test project).
 
 ## Conditional flags
 
@@ -68,19 +91,19 @@ Set by `harness-forge` from `STACK.md`'s gate manifest. **A flag set without its
 | `{{#IF MIGRATION_TOOL}}` | a migration tool exists **and** the manifest says yes |
 | `{{#IF CONTRACT_GEN_COMMAND}}` | the client is generated from a spec **and** manifest yes |
 | `{{#IF TOKENS_FILE}}` | a token system exists **and** manifest yes |
-| `{{#IF DEPENDENCY_AUDIT}}` | third-party deps **and** manifest yes |
-| `{{#IF MCP_SERVERS}}` | the project ships or dispatches MCP servers/tools **and** manifest yes |
-| `{{#IF PERF_PROFILING}}` | `DESIGN.md` §8 has numeric targets (forge resolves the DEFERRED row) |
-| `{{#IF RELEASE_RUNBOOK}}` | a deploy target exists **and** manifest yes |
+| `{{#IF MCP_SERVERS}}` | **set by `forge.sh`**: `mcp-scan` is in `gates` |
+| `{{#IF PERF_PROFILING}}` | **set by `forge.sh`**: `perf-profiling` is in `gates` (`stack-decide` decided it from the PRD) |
+| `{{#IF RELEASE_RUNBOOK}}` | **set by `forge.sh`**: `release-runbook` is in `gates` |
+| `{{#IF AUDIT_COMMAND}}` | `{{AUDIT_COMMAND}}` is non-empty |
 | `{{#IF STANDARDS_DOC}}` | a coding/DB standards doc exists |
 | `{{#IF DATABASE}}` | the stack has a database |
 | `{{#IF BUILD_COMMAND}}` | there is a separate build step |
 | `{{#IF FRONTEND_CHECK_COMMAND}}` | the frontend has its own check command |
 | `{{#IF E2E_COMMAND}}` | the stack has an E2E suite |
-| `{{#IF ORCHESTRATED}}` | the tier is `orchestrated`. Used only in `templates/enforcement/` (the state-file guards), which both tiers share |
+| `{{#IF ORCHESTRATED}}` | **set by `forge.sh`**: the tier is `orchestrated`. Used only in `templates/enforcement/` (the state-file guards), which both tiers share |
 | `{{#IF FORMAT_COMMAND}}` | `{{FORMAT_COMMAND}}` is non-empty |
 | `{{#IF LINT_STAGED_COMMAND}}` | `{{LINT_STAGED_COMMAND}}` is non-empty |
-| `{{#IF PRECOMMIT_TYPECHECK}}` | **small tier only**, and forge measured lint plus `{{TYPECHECK_COMMAND}}` on the scaffolded repo at under 15 seconds (KD-020). Never at orchestrated: typecheck covers the whole project, and parallel unit agents share one working tree, so one unit's half-written code would reject another unit's commit |
+| `{{#IF PRECOMMIT_TYPECHECK}}` | both tiers, when forge measured lint plus `{{TYPECHECK_COMMAND}}` on the scaffolded repo at under 15 seconds (KD-020). At orchestrated each parallel unit runs in its own worktree (KD-023), so one unit's half-written code never reaches another unit's type check |
 
 ---
 
@@ -157,10 +180,10 @@ Resolve the condition, then **delete the markers**. A `{{#IF}}` left in a genera
 
 | `scaffold` built | Resolve to |
 |---|---|
-| Per-worker isolation (testcontainers, DB-per-worker, schema-per-worker) | `Satisfied structurally — {{DB_ISOLATION}} gives every worker its own database, so concurrent suites cannot see each other. Nothing to check per story.` |
+| Per-worker isolation (testcontainers, DB-per-worker, schema-per-worker) | `Satisfied structurally: {{DB_ISOLATION}} gives every worker its own database, so concurrent suites cannot see each other. Nothing to check per story.` |
 | No database in tests | `No test touches a database, so there is nothing to isolate and this condition is always met.` |
 | A database, but **no** per-worker isolation | `**Per-worker DB isolation does not exist.** Any unit whose owned trees touch the database runs alone; DB-free units still run concurrently. This is a scaffold defect, not a steady state — report it and get it fixed, because it costs concurrency on every unit for the life of the build.` |
 
-**Substitute `{{DB_ISOLATION}}` inside the first sentence for the literal strategy** (`testcontainers, one DB per pytest-xdist worker`). It is the same trap as `{{COMMIT_FORMAT}}`: a resolved value that still carries `{{` drags a placeholder into the harness and trips the check-0 grep.
+In `HARNESS_VALUES.json` the first sentence may keep `{{DB_ISOLATION}}` as written: `forge.sh` fills placeholders inside values too. Anything that still carries `{{` after filling makes `forge.sh` fail.
 
 The third value must **name itself as a defect.** A harness that quietly serializes is one nobody ever fixes: the cost is invisible and permanent, and each session assumes the previous one had a reason.

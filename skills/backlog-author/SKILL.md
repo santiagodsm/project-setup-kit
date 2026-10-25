@@ -1,14 +1,13 @@
 ---
 name: backlog-author
 version: 0.1.0
-description: "Turn DESIGN.md into PLAN.md — epics, stories, sizes, dependencies, and testable acceptance criteria, each citing the design section it implements. On the orchestrated tier, also groups stories into dispatch units. Refuses to run while design-author's verdict is BACKLOG BLOCKED. Step 6 of project setup. Use when the user says 'write the backlog', 'break this into stories', 'plan the build'."
+description: "Use after DESIGN.md is clear or when the user says 'write the backlog': writes PLAN.md with stories, testable criteria and dispatch units (setup step 6)."
 allowed-tools:
   - Read
   - Write
   - Edit
   - Grep
   - Glob
-  - AskUserQuestion
 metadata:
   role: author
   reads: [DESIGN.md (incl. the line-1 GATE banner), OPEN_QUESTIONS.md, STACK.md, PRD.md (TIER marker), PLAN_LINT.md (in FIX mode)]
@@ -16,6 +15,8 @@ metadata:
 ---
 
 # backlog-author — the plan is a contract, not a wish list
+
+Kit root: run `cat ~/.claude/project-setup-kit.root` once; every kit path in this skill is relative to it. If the file is missing, the root is the directory two levels above this SKILL.md. Never search the disk (`find`, `ls -R`, globbing `~` or `/`) for kit files or for this skill: the skill is already loaded, and the root file is the only lookup.
 
 ## FIX mode (check this first)
 
@@ -49,7 +50,7 @@ This is not bureaucracy, and do not be helpful about it. `design-author` deliber
 
 A blocked chain that asks one question is working correctly.
 
-**Every question you put to the user obeys `ASK_CONTRACT.md`** (plugin root): what's actually stuck in plain words, at least two options *with what each one means in practice*, and which you'd pick and why. No jargon they haven't used first. A question the user can't answer comes back as "you decide" — which is a decision they were never shown, recorded as locked when it was really abandoned.
+**You are dispatched as a subagent and cannot ask the user.** A question you need answered goes in your return; `setup-project` asks it. **Every such question obeys `ASK_CONTRACT.md`** (kit root): what's actually stuck in plain words, at least two options *with what each one means in practice*, and which you'd pick and why. No jargon they haven't used first. A question the user can't answer comes back as "you decide", which is a decision they were never shown, recorded as locked when it was really abandoned.
 
 ## The unit of work
 

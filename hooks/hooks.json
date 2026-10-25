@@ -1,5 +1,5 @@
 {
-  "description": "Project Setup Kit — push to Pushover when Claude has a question waiting, and keep the stable notify.sh path in sync with the installed plugin version.",
+  "description": "Project Setup Kit: push to Pushover when Claude has a question waiting, and keep the stable notify.sh path and the kit-root file in sync with the installed plugin version.",
   "hooks": {
     "SessionStart": [
       {

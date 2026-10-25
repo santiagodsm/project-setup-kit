@@ -1,7 +1,7 @@
 ---
 name: design-author
 version: 0.1.0
-description: "Turn a product brief and a locked stack into DESIGN.md — the design contract every later agent cites. Produces a fixed §1–§12 section map, concrete artifacts (a §2.1 glossary / ubiquitous language, DDL, API contracts, state machines, screen inventory), a locked ADR block, and an honest register of what is deliberately unspecified. Use when starting a new project, after project-brief and stack-decide, or when the user says 'write the design doc', 'design this', or 'turn the PRD into a technical design'."
+description: "Use after STACK.md exists or when the user says 'write the design doc': asks the open questions in the main session, then writes DESIGN.md in a dispatched pass (setup step 3)."
 allowed-tools:
   - Read
   - Write
@@ -20,9 +20,11 @@ metadata:
 
 # design-author — write the contract, not an essay
 
+Kit root: run `cat ~/.claude/project-setup-kit.root` once; every kit path in this skill is relative to it. If the file is missing, the root is the directory two levels above this SKILL.md. Never search the disk (`find`, `ls -R`, globbing `~` or `/`) for kit files or for this skill: the skill is already loaded, and the root file is the only lookup.
+
 `DESIGN.md` is not documentation. It is the **contract every later agent reads and cites.** A scoper quotes §3.2 to an engineer who builds from that quote without ever opening the design. A reviewer gates the result against it. A backlog author derives acceptance criteria from it.
 
-**Every message you write to the user follows `COMMUNICATION.md` at the plugin root** (answer first, short, plain words, no bare internal labels). Questions also follow `ASK_CONTRACT.md`.
+**Every message you write to the user follows `setup-project` → "Talking to the user"** (the ask pass runs in its session, so the rules are already loaded). Questions also follow `ASK_CONTRACT.md` at the kit root.
 
 So the bar is not "is this a good design doc." The bar is:
 
@@ -42,6 +44,14 @@ The three ways it happens:
 
 The register in §11 exists so that "I don't know yet" has a legitimate home. **Use it aggressively.** An empty §11 on a non-trivial project is not a triumph; it means you bluffed somewhere.
 
+## Three modes: ASK, WRITE, AMEND
+
+`setup-project` runs you twice for a new design, then again for every AMEND:
+
+- **ASK, in the main session.** Do "Before you write: gather, then stop and ask" below, and nothing else. Read `PRD.md`, `STACK.md` and `OPEN_QUESTIONS.md`, list every gap the design would otherwise have to guess, ask the user in batches with `AskUserQuestion`, and return each answer as one line for `setup-project` to write under `SETUP_PROGRESS.md` → "Decisions locked". Do not write `DESIGN.md`. Do not re-ask a reserved question: it stays reserved and becomes a §11 entry in the write pass. **Owner mode:** if `OWNER_BRIEF.md` exists at the project root, take the answers from it instead of asking, start your return with "Owner mode: answers taken from OWNER_BRIEF.md", and return any gap it leaves as unanswered.
+- **WRITE, dispatched.** You are a subagent and cannot ask anyone. The "Decisions locked" lines in `SETUP_PROGRESS.md` are the user's answers: build on them. Write the whole `DESIGN.md`. Mark an entry BLOCKING only for a gap the ask pass did not cover, or one the user explicitly left open.
+- **AMEND, dispatched.** See "AMEND mode" below.
+
 ## Two markers you must read before writing a line
 
 **`PRD.md` → `<!-- TIER: small|orchestrated -->`.** This sets your depth (below). Read the marker; do not infer the tier from prose. Four skills key off it and if each infers its own, they will each infer differently.
@@ -60,7 +70,7 @@ Then find the gaps **before** writing, not while writing. Specifically, you cann
 - What must be durable vs what can be recomputed
 - Where the truth lives when two sources disagree
 
-**If you cannot answer one of these from the PRD, do not invent it.** Ask the user, in a batch, with real options and their tradeoffs. Guessing here is the single highest-leverage mistake available to you: it is cheap to ask now and expensive to discover forty stories in.
+**If you cannot answer one of these from the PRD, do not invent it.** In ASK mode, ask the user, in a batch, with real options and their tradeoffs. In WRITE mode the ask pass already asked: use its answers, and route a gap it missed to §11 as BLOCKING. Guessing here is the single highest-leverage mistake available to you: it is cheap to ask now and expensive to discover forty stories in.
 
 Use `WebSearch` when a decision depends on a current fact you cannot know (a library's present state, a platform constraint, a pricing tier). Do not search to pad the document.
 
@@ -251,9 +261,9 @@ A blocked chain waits on a human; if nobody is at the terminal it waits indefini
   --blocks "<what stays stopped — sections and story count>"
 ```
 
-If exactly **one** question blocks, send the four-field form instead (`--what/--option/--option/--recommend`) so it is answerable from the lock screen. Either way, obey `ASK_CONTRACT.md` (plugin root): the `--what` lines are the *situation* in a non-engineer's words — translate the §11 register entries, do not paste them. The full options + recommendations live in your return and `OPEN_QUESTIONS.md`.
+If exactly **one** question blocks, send the four-field form instead (`--what/--option/--option/--recommend`) so it is answerable from the lock screen. Either way, obey `ASK_CONTRACT.md` (kit root): the `--what` lines are the *situation* in a non-engineer's words; translate the §11 register entries, do not paste them. The full options + recommendations live in your return and `OPEN_QUESTIONS.md`.
 
-If `~/.claude/scripts/notify.sh` is missing, use `scripts/notify.sh` at the plugin root; if neither exists, note it once and carry on. Delivery failure exits 0 — never a reason to stop.
+If `~/.claude/scripts/notify.sh` is missing, use `scripts/notify.sh` at the kit root; if neither exists, note it once and carry on. Delivery failure exits 0, never a reason to stop.
 
 ## AMEND mode — closing the gate
 

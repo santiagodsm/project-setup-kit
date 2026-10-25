@@ -52,6 +52,8 @@ if [ "$#" -gt 0 ]; then
   fi
 fi
 {{/IF}}{{#IF PRECOMMIT_TYPECHECK}}
+# Type check, both tiers. At orchestrated each parallel unit commits from its own worktree,
+# so a neighbour's half-written code is never in this tree (kit KD-023).
 if ! bounded 5 {{TYPECHECK_COMMAND}}; then
   echo "pre-commit: rejected. Typecheck failed." >&2
   echo "Rule: every commit is type-clean, and this hook is how the harness enforces it (kit KD-020). Fix the type errors and commit again." >&2

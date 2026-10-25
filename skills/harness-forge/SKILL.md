@@ -1,7 +1,7 @@
 ---
 name: harness-forge
 version: 0.3.0
-description: "Generate the project's own build harness from the tier templates: CLAUDE.md, .claude/skills/*, the state file, sized to the build tier (small or orchestrated), containing only the gates the stack can run. Substitutes templates by default; authors new gates from the contracts when the stack needs one no template covers. Step 5 of project setup. Ends by running harness-doctor and does not complete with an open BLOCKER."
+description: "Use after scaffold or when the user says 'generate the harness': writes HARNESS_VALUES.json and runs scripts/forge.sh to emit the tier's CLAUDE.md, skills and gates (setup step 5)."
 allowed-tools:
   - Read
   - Write
@@ -13,11 +13,13 @@ allowed-tools:
   - ToolSearch
 metadata:
   role: generator
-  reads: [templates/**, COMMUNICATION.md (the Talking-to-the-user block), STACK.md (gate manifest + check command), DESIGN.md, PRD.md (TIER marker + organising-principle sources), PLAN.md (if it exists — dispatch-unit count only), the scaffolded repo]
-  writes: [target repo CLAUDE.md, .claude/skills/**, .claude/scripts/notify.sh + .claude/ASK_CONTRACT.md (copied verbatim from the plugin root), .claude/settings.json, .claude/hooks/** (guard-writes.sh, guard-bash.sh, format.sh), .githooks/**, the build state file (stub), .gitignore (reviews dir, .env), STACK.md (resolves DEFERRED manifest rows ONLY)]
+  reads: [<kit root>/templates/PLACEHOLDERS.md, STACK.md (gate manifest + check command), DESIGN.md, PRD.md (TIER marker + organising-principle sources), PLAN.md (if it exists; dispatch-unit count only), the scaffolded repo]
+  writes: [HARNESS_VALUES.json, and through forge.sh: CLAUDE.md, .claude/skills/**, .claude/scripts/notify.sh + .claude/ASK_CONTRACT.md, .claude/settings.json, .claude/hooks/**, .githooks/pre-commit, the build state file (stub); by hand: authored gates, .gitignore lines]
 ---
 
 # harness-forge — substitute what exists, author what doesn't
+
+Kit root: run `cat ~/.claude/project-setup-kit.root` once; every kit path in this skill is relative to it. If the file is missing, the root is the directory two levels above this SKILL.md. Never search the disk (`find`, `ls -R`, globbing `~` or `/`) for kit files or for this skill: the skill is already loaded, and the root file is the only lookup.
 
 You are producing a **multi-agent system made of prose files**. Nothing type-checks it. A skill can demand a tool it was never granted, write a file nobody reads, or contradict `CLAUDE.md` outright, and **it will all look fine until the build silently stops verifying itself.**
 
@@ -35,23 +37,36 @@ Those contracts are expensive to derive and easy to get subtly wrong. **Do not r
 
 ## Procedure
 
-1. **Read `templates/PLACEHOLDERS.md`.** It is the resolution contract.
-2. **Read the tier** from `PRD.md`'s `<!-- TIER -->` marker. Not the prose. The marker. It is `small` or `orchestrated` — nothing else. If you find `standard` or `full`, stop: the marker predates the two-tier model and `setup-project` must re-tier before you run.
-3. **Read the gate manifest** in `STACK.md`.
-4. **Resolve the `DEFERRED` rows.** `stack-decide` ran before `DESIGN.md` existed and could not decide `perf-profiling`. You can: **§8 has numeric targets → yes; none → no.** **Write your answer back into `STACK.md`'s manifest table.** A `DEFERRED` row must not survive — `harness-doctor` cannot classify one, and the fidelity check then silently passes on a gate nobody ever decided.
-5. **Copy `templates/<tier>/**`** into the target repo — **except `MANIFEST.md`**, which is kit documentation, is full of unresolved placeholders by design, and would ship as an orphan file that trips the grep in step 12. **No `.claude/agents/` is created at either tier.** The orchestrated tier dispatches unit work as general-purpose subagents; emitting role-agent files would be dead machinery on day one.
-6. **Emit gates per the manifest's tier column.** Two values:
-   - **`yes`** → copy `templates/gates/<gate>/` into the target repo.
-   - **`no`** → **do not emit it.** At that tier nothing dispatches it, so the file would be an orphan — a gate the harness appears to have and doesn't. `harness-doctor` check 3 blocks on it.
+The copying, filling and checking is a script, `scripts/forge.sh` under the kit root. It does in a second what used to take an agent most of an hour, and it cannot alter template text. Your job is the judgement: the values, and the parts no template covers.
 
-   There is no `inline` value anymore — there is no story-reviewer to fold a check into. Migration, token, and contract-drift checks live in unit briefs and in `join-review`, which the tier templates already carry. The **tier-core skills** — `orchestrate-build`, `join-review`, `harness-doctor` for orchestrated; `build-loop` for small — live in `templates/<tier>/skills/`, not `templates/gates/`, and step 5 already copied them. Do not look for them in `gates/` and do not author duplicates at step 7.
-7. **Author any gate the stack needs that no template covers.** Same contracts. Note it in your return so the template library can absorb it later.
-8. **Resolve every placeholder.** After resolving `{{#IF}}` blocks, renumber any numbered list a removed block left with a gap, and collapse runs of blank lines. Confirm every path with `ls` before writing it. `{{STATE_FILE}}` resolves to `PROGRESS.md` at the repo root for the orchestrated tier. `{{ORGANISING_PRINCIPLE}}` has its own section below — resolve it deliberately, not as a string swap. `{{TALKING_TO_THE_USER}}` is the block between the markers in the plugin root's `COMMUNICATION.md`, copied verbatim: it is the user's rule for how every agent talks to them, and it has one owner.
-9. **Stub the state file.** `PLAN.md` and its `## Dispatch units` section don't exist yet (step 6). Emit every required section — including the five statuses `todo / wip / done / blocked / partial` — with `NEXT ACTION: awaiting PLAN.md`. **Do not invent a first unit** — an orchestrator booting at a fabricated unit is worse than one booting at nothing.
-10. **Gitignore** `{{REVIEWS_DIR}}` (join-review and doctor reports), `HARNESS_DOCTOR.md`, `PLAN_LINT.md`, and `.env` / `*.env` (with `!*.env.example`). You chose the reviews path; `scaffold` was explicitly forbidden from guessing it. The `.env` rules are belt-and-braces — the real credentials live outside every repo — but a project that later adds a local override must not have to remember this. **Then emit the notification channel — see below. No tier skips it.**
-11. **Emit enforcement.** See "Emit enforcement" below. No tier skips it.
-12. **Grep the output for `{{`.** Zero hits. See below.
-13. **Run `harness-doctor`**, read its report file, fix every BLOCKER. **Three rounds max**, then stop and report failure with the findings — a generator that can't converge in three rounds does not understand what it produced.
+1. **Read `<kit root>/templates/PLACEHOLDERS.md`.** It is the resolution contract: every key, where its value comes from, and the `HARNESS_VALUES.json` schema.
+2. **Read the tier** from `PRD.md`'s `<!-- TIER -->` marker. Not the prose. The marker. It is `small` or `orchestrated`, nothing else. If you find `standard` or `full`, stop: the marker predates the two-tier model and `setup-project` must re-tier before you run.
+3. **Read the gate manifest** in `STACK.md`. Every row is `yes` or `no`. Any other value means a stale manifest: stop and say so in your return (`setup-project` re-runs `stack-decide` in RE-TIER mode). The `yes` rows for this tier are the `gates` list.
+4. **Measure the pre-commit cost** (see "Emit enforcement") to set `PRECOMMIT_TYPECHECK`.
+5. **Write `HARNESS_VALUES.json` at the repo root**: every key `PLACEHOLDERS.md` lists for this tier, from `PRD.md`, `STACK.md`, `DESIGN.md` and the scaffolded repo. Confirm every path with `ls` first. Three values are judgement, not lookup, and each has its own section below: `ORGANISING_PRINCIPLE`, `INVARIANTS` (verbatim from the design), and `DB_PARALLEL_RULE` (one of the three canonical sentences). An empty string is the honest value for a command the stack does not have (`FORMAT_COMMAND`, `FRONTEND_CHECK_COMMAND`, `AUDIT_COMMAND`); the template line that needs it is then dropped.
+6. **Run the script once:**
+   ```bash
+   KIT="$(cat ~/.claude/project-setup-kit.root 2>/dev/null)"
+   bash "$KIT/scripts/forge.sh" <tier> HARNESS_VALUES.json .
+   ```
+   It copies the tier's `MANIFEST.md` file list, the gates in `gates`, the enforcement files, `notify.sh` and `ASK_CONTRACT.md`; fills every placeholder; resolves every `{{#IF}}`; collapses blank lines; sets executable bits; and never overwrites an existing state file. Non-zero exit: it names each unfilled placeholder, unused key or gate mismatch, and writes nothing. Fix `HARNESS_VALUES.json` and run it again. It does not run tests.
+7. **Author any gate the stack needs that no template covers**, as `.claude/skills/<gate>/SKILL.md`, by hand. Same contracts (below). Note it in your return so the template library can absorb it later. Do not hand-edit a file `forge.sh` wrote: change the value and re-run, or the next forge silently undoes your edit.
+8. **Gitignore** `REVIEWS_DIR` (join-review and doctor reports), `HARNESS_DOCTOR.md`, `PLAN_LINT.md`, `HARNESS_VALUES.json`, and `.env` / `*.env` (with `!*.env.example`). You chose the reviews path; `scaffold` was explicitly forbidden from guessing it.
+9. **Activate the git hook:** `git config core.hooksPath .githooks`. Commit the state file on its own (the orchestrated pre-commit rule applies from the first commit).
+10. **Verify the hooks with direct shell calls**, never with the check command:
+    ```bash
+    printf '%s' '{"tool_input":{"command":"git -C . push --force origin main"}}' | .claude/hooks/guard-bash.sh; echo $?   # 2
+    printf '%s' '{"tool_input":{"command":"git status"}}' | .claude/hooks/guard-bash.sh; echo $?                      # 0
+    printf '%s' '{"tool_input":{"file_path":".env"}}' | .claude/hooks/guard-writes.sh; echo $?                         # 2
+    # orchestrated only: a subagent writing the state file is blocked, the orchestrator is not
+    printf '%s' '{"tool_input":{"file_path":"PROGRESS.md"},"agent_id":"a1"}' | .claude/hooks/guard-writes.sh; echo $?  # 2
+    printf '%s' '{"tool_input":{"file_path":"PROGRESS.md"}}' | .claude/hooks/guard-writes.sh; echo $?                 # 0
+    .claude/scripts/notify.sh >/dev/null 2>&1; echo $?                                                                 # 2 (usage)
+    ```
+    Use the real state-file name. Any other result is a defect in what you emitted: fix it and re-run the line.
+11. **Run `{{CHECK_COMMAND}}` once, at the end,** to prove the forged hooks and files did not break the green build. This is the only check run in this step; `scaffold` already proved green and red.
+
+`setup-project` dispatches `harness-doctor` after you return. Do not run it yourself.
 
 ## `{{ORGANISING_PRINCIPLE}}` — one sentence that carries the judgement calls
 
@@ -63,13 +78,9 @@ Resolve it from **`PRD.md`** (the What/Why, and any stated quality bar) and **`D
 
 ## Zero `{{` in the output. This one is not cosmetic.
 
-An unresolved placeholder does not throw. An agent reading `Run {{CHECK_COMMAND}}` will **infer a plausible command, run it, and report green.** The verification you believe in has quietly stopped, and nothing tells you.
+An unresolved placeholder does not throw. An agent reading `Run {{CHECK_COMMAND}}` will **infer a plausible command, run it, and report green.** The verification you believe in has quietly stopped, and nothing tells you. `forge.sh` refuses to write a harness with one left, so this holds for every file it emits. **A gate you author by hand has no such check:** grep it for `{{` yourself.
 
-Same for a stray `{{#IF}}`: resolve the condition, then **delete the markers.**
-
-*One exception, and read it precisely:* `harness-doctor`'s template must **name** the pattern in order to grep for it, so its check-0 grep quotes a bare `{{` on a line tagged `PLACEHOLDER-LITERAL`. **That one literal is exempt.**
-
-**The exemption is on that line, not on the file.** That same file also carries real placeholders — `{{STATE_FILE}}`, `{{REVIEWS_DIR}}` — and **every one of them must still resolve.** Skip the file wholesale and you ship a doctor whose report path is literally `{{REVIEWS_DIR}}harness-doctor-<date>.md`. That is precisely the failure this check exists to catch, embedded in the thing that checks for it.
+*No exception.* No file `forge.sh` emits may contain the pattern: the harness ships no doctor skill (the kit's own `harness-doctor` audits it at setup), and `notify.sh` no longer carries it.
 
 ## Resolve the parallelism policy from what `scaffold` actually built
 
@@ -82,46 +93,46 @@ Read `scaffold`'s returned **test-isolation strategy** — it is required to hav
 
 **Do not emit a serialized harness because serial feels safer.** These templates once hardcoded "parallelism DISABLED," inherited from a build that genuinely had a shared database — after `scaffold` had started building per-worker isolation as a hard gate. Carrying the ban forward serialized every generated build forever, and nothing ever noticed, because a slow build looks exactly like a careful one. If isolation genuinely is missing, resolve the third sentence, which **names itself as a defect**, and say so in your return.
 
-**And emit the dispatch mode with it.** The generated orchestrator must dispatch concurrent unit agents with **`run_in_background: true`**, or "up to `{{MAX_PARALLEL}}` at once" runs strictly one-at-a-time while every file still reads as parallel. The templates carry this; if you author a dispatcher yourself, carry it too, with its two corollaries: **a launch confirmation is not a result**, and **units drain before a join**. Synchronous dispatch is correct exactly when there is nothing to overlap — which is why `setup-project`'s own chain is synchronous; do not "fix" that asymmetry.
+**And emit the dispatch mode with it.** The generated orchestrator dispatches a lone unit (U0, the only eligible `todo`, any follow-up) **synchronously**, so the call returns the report and nothing waits. It dispatches two or more units together with **`run_in_background: true`**, each with `isolation: "worktree"`, and collects every one before its turn ends: an unattended run stops background agents 10 minutes after the turn ends, so a turn never ends with a unit in flight. The templates carry this, with the liveness rule (a `wip` unit whose tree has not changed in 10 minutes is dead and is re-dispatched to finish what is there) and the settings `env` entry `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`. If you author a dispatcher yourself, carry all of it, with its two corollaries: **a launch confirmation is not a result**, and **units drain before a join**. `setup-project`'s own chain follows the same rule: each step runs alone, so each is synchronous.
 
 ## Emit the notification channel
 
 The harness you are generating will, on some Tuesday, hit a blocker at 2am with nobody watching. **A build that stops silently is a build that has stopped forever**, and the way that resolves is a human eventually telling an agent to "just carry on" — past the exact gate that fired correctly.
 
-So every harness ships with a way to reach its owner. Two files, copied verbatim from the plugin root — **do not rewrite either one**:
+So every harness ships with a way to reach its owner. `forge.sh` copies two files verbatim from the kit root. **Do not rewrite either one**:
 
-| From (plugin root) | To (target repo) |
+| From (kit root) | To (target repo) |
 |---|---|
-| `scripts/notify.sh` | `.claude/scripts/notify.sh` — **`chmod +x` it** |
+| `scripts/notify.sh` | `.claude/scripts/notify.sh`, executable |
 | `ASK_CONTRACT.md` | `.claude/ASK_CONTRACT.md` |
 
-Then resolve **`{{NOTIFY}}`** to the literal invocation: `` `.claude/scripts/notify.sh` ``.
+`{{NOTIFY}}` resolves to `.claude/scripts/notify.sh`; `forge.sh` sets it, it is not a key in `HARNESS_VALUES.json`.
 
 **Everyone calls it directly** — the orchestrator included, since it has `Bash`. There is no notify-only relay task anymore; that workaround existed only for a tool-starved orchestrator that no longer exists.
 
-**The target repo's `.claude/settings.json` may exist (step 11 writes it); it must not contain a `Notification` hook.** The user's one notification hook is installed once, globally (the plugin ships it). A per-project copy fires *in addition* to it and buzzes the user twice, which trains them to ignore the channel, which costs you the one time it mattered.
+**The target repo's `.claude/settings.json` must not contain a `Notification` hook.** The user's one notification hook is installed once, globally (the plugin ships it). A per-project copy fires *in addition* to it and buzzes the user twice, which trains them to ignore the channel, which costs you the one time it mattered.
 
-Verify with `.claude/scripts/notify.sh` (no arguments) — it prints usage and exits 2. Do **not** run `selftest`: it sends a real push, and the user did not ask for one.
+Step 10 runs it with no arguments (usage, exit 2). Do **not** run `selftest`: it sends a real push, and the user did not ask for one.
 
 ## Emit enforcement
 
-Every rule above is prose, and prose fails silently. A few rules are load-bearing enough to enforce in tooling, where a violation fails the same way every time (KD-020). Templates: `templates/enforcement/`, shared by both tiers. Resolve them like every other template; `{{#IF ORCHESTRATED}}` is true only at the orchestrated tier.
+Every rule above is prose, and prose fails silently. A few rules are load-bearing enough to enforce in tooling, where a violation fails the same way every time (KD-020). Templates: `templates/enforcement/`, shared by both tiers. `forge.sh` emits them as below; `{{#IF ORCHESTRATED}}` is true only at the orchestrated tier.
 
 | From `templates/enforcement/` | To (target repo) | Emit when |
 |---|---|---|
 | `settings.json.tmpl` | `.claude/settings.json` | always. Deny rules (force-push, hard reset, `--no-verify`, `git clean`, reading `.env` files), the guard hook, the compaction hook, and the format hook when `{{FORMAT_COMMAND}}` is set |
-| `hooks/guard-writes.sh.tmpl` | `.claude/hooks/guard-writes.sh`, `chmod +x` | always. Blocks writes to `.env`/`*.env` (not `*.env.example`) and `.git/`; at orchestrated, also blocks writes to `{{STATE_FILE}}` from any subagent |
-| `hooks/guard-bash.sh.tmpl` | `.claude/hooks/guard-bash.sh`, `chmod +x` | always. Matches the operations the deny rules name (force push, hard reset, skipped hooks, destructive clean) and shell writes to `.env` files or `.git/` anywhere in a command, because deny rules are prefix patterns and not a security boundary |
-| `hooks/format.sh.tmpl` | `.claude/hooks/format.sh`, `chmod +x` | only when `STACK.md` names a format command. No command means no file and no PostToolUse entry: a formatter hook with nothing to run is a gate that can't run |
-| `githooks/pre-commit.tmpl` | `.githooks/pre-commit`, `chmod +x`, tracked | always. At orchestrated: rejects a commit that stages `{{STATE_FILE}}` with anything but `{{DESIGN}}`. Both tiers: lints staged files when `{{LINT_STAGED_COMMAND}}` is set |
+| `hooks/guard-writes.sh.tmpl` | `.claude/hooks/guard-writes.sh`, executable | always. Blocks writes to `.env`/`*.env` (not `*.env.example`) and `.git/`; at orchestrated, also blocks writes to `{{STATE_FILE}}` from any subagent |
+| `hooks/guard-bash.sh.tmpl` | `.claude/hooks/guard-bash.sh`, executable | always. Matches the operations the deny rules name (force push, hard reset, skipped hooks, destructive clean) and shell writes to `.env` files or `.git/` anywhere in a command, because deny rules are prefix patterns and not a security boundary |
+| `hooks/format.sh.tmpl` | `.claude/hooks/format.sh`, executable | only when `STACK.md` names a format command. No command means no file and no PostToolUse entry: a formatter hook with nothing to run is a gate that can't run |
+| `githooks/pre-commit.tmpl` | `.githooks/pre-commit`, executable, tracked | always. At orchestrated: rejects a commit that stages `{{STATE_FILE}}` with anything but `{{DESIGN}}`. Both tiers: lints staged files when `{{LINT_STAGED_COMMAND}}` is set |
 
 **The speed budget is a hard limit, not a target (KD-020).** These hooks never run tests, never run `{{CHECK_COMMAND}}`, `{{AFFECTED_TEST_COMMAND}}` or any test runner. The full suite runs where it already runs: once per story at small, once per join at orchestrated. Then:
 
-- **Measure the pre-commit cost on the scaffolded repo** before you set `{{#IF PRECOMMIT_TYPECHECK}}`: time lint on a few source files plus `{{TYPECHECK_COMMAND}}`. Under 15 seconds together → include typecheck, **at the small tier only**. Over → leave typecheck out. At orchestrated, typecheck never goes in the hook: it covers the whole project, parallel unit agents share one working tree, and one unit's half-written code would reject another unit's commit. Lint alone over 15 seconds → leave `{{LINT_STAGED_COMMAND}}` empty too, and the hook keeps only the state-file rule. Report the measured numbers.
+- **Measure the pre-commit cost on the scaffolded repo** before you set `{{#IF PRECOMMIT_TYPECHECK}}`: time lint on a few source files plus `{{TYPECHECK_COMMAND}}`. Under 15 seconds together → include typecheck, at both tiers. Over → leave typecheck out. At orchestrated this is safe because each parallel unit works in its own worktree (KD-023), so one unit's half-written code never reaches another unit's commit. Lint alone over 15 seconds → leave `{{LINT_STAGED_COMMAND}}` empty too, and the hook keeps only the state-file rule. Report the measured numbers.
 - Every hook in `settings.json` carries a `timeout`. The hooks that exist to block (the write guard, the Bash guard, and the state-file rule) fail closed; the two guards do it with `"onFailure": "block"`. The Bash guard runs on every shell command, so it exits at once when the command mentions neither `git` nor `.env`, and stays string matching only (under 50 ms). The format hook and the pre-commit lint fail open: a timeout or crash lets the action through.
 - The compaction hook prints one line and reads nothing.
 
-**Activate the git hook.** `core.hooksPath` is not tracked, so run `git config core.hooksPath .githooks` once now; both loop skills re-check it at every session start, because a fresh clone loses it. The state-file rule applies from the first commit, so commit `{{STATE_FILE}}` on its own.
+**Activate the git hook** (step 9). `core.hooksPath` is not tracked; both loop skills re-check it at every session start, because a fresh clone loses it.
 
 **Do not add a `Notification` hook here.** See "Emit the notification channel".
 
@@ -129,8 +140,8 @@ Every rule above is prose, and prose fails silently. A few rules are load-bearin
 
 Generated harnesses break in exactly these five places.
 
-**1. Tool grants.** Every skill's `allowed-tools` covers what its procedure demands — a skill's grant **intersects down** once loaded, so a gate that writes a report needs `Write`, and one that invokes another skill needs `Skill`.
-→ **The generated orchestrator has FULL tools — including `Bash`, `Grep`, `Glob`, `Skill` — BY DESIGN.** This is a deliberate reversal of the old rule: the orchestrator reads the whole design contract itself, runs the check at joins, and rules on escalations, and it can do none of that starved. **Do not "harden" it back.** Its enforcement mechanism is the join protocol, not tool starvation. (The old no-Bash rule survives only in the kit's own `setup-project`.)
+**1. Tool grants.** A skill's `allowed-tools` pre-approves tools; it restricts nothing. So list every tool the procedure uses (a gate that writes a report lists `Write`, one that invokes another skill lists `Skill`): a missing entry means a permission prompt, which stalls an unattended run. Where a skill must not use a tool, say so with `disallowed-tools` in its frontmatter. And a skill that will be dispatched must not need a tool a subagent lacks: subagents cannot ask the user a question, and background subagents get a reduced tool set.
+→ **The generated orchestrator has FULL tools, including `Bash`, `Grep`, `Glob`, `Skill`, BY DESIGN.** The orchestrator reads the design contract itself, runs the check at joins, and rules on escalations. **Do not "harden" it back** with `disallowed-tools`. Its enforcement mechanism is the join protocol, not tool starvation.
 
 **2. Artifact ownership.** Every read has exactly one writer. Draw the table. **The state file has exactly one writer: the orchestrator.** Unit agents and gates report; they never write it. Orphan read → the agent invents the file. A report with no declared path → unconstructable pointers.
 
@@ -158,11 +169,12 @@ That last one carries the whole `join-review` gate. *"Any code writing a balance
 - **The organising principle chosen, verbatim, and its source** (which PRD/DESIGN statements support it) — or the generic line plus the PRD-gap flag.
 - **Any gate you authored from scratch**, and why no template covered it.
 - `{{CHECK_COMMAND}}`, verbatim, as wired in — and that it fires at joins only.
-- **The exact path of the build state file you created** (orchestrated: `PROGRESS.md` at the repo root). `setup-project` must seed it and has no Glob. Omit this and it guesses.
+- **The exact path of the build state file you created** (orchestrated: `PROGRESS.md` at the repo root). `setup-project` must seed it without searching for it. Omit this and it guesses.
 - **Dispatch-unit count read from `PLAN.md`'s `## Dispatch units`, if the file exists** — usually it doesn't yet; say so.
 - **Parallelism policy:** `{{MAX_PARALLEL}}` = N, and which `{{DB_PARALLEL_RULE}}` sentence you resolved to, naming the isolation `scaffold` built. The defect sentence is a finding, not a footnote.
 - **Notification channel emitted:** `.claude/scripts/notify.sh` (executable) + `.claude/ASK_CONTRACT.md`, `{{NOTIFY}}` resolved everywhere, **no** `Notification` hook emitted.
 - **Enforcement emitted:** hooks emitted (always `guard-writes.sh` and `guard-bash.sh`), hooks omitted and why (no format command, lint or typecheck over the speed budget, with the measured seconds), the deny rules, `core.hooksPath` set, and that the state-file guard runs at both levels at orchestrated (tool level via the subagent check, commit level via pre-commit) and at neither at small.
-- Placeholder grep: **zero `{{` remaining.**
-- **`harness-doctor`: N blockers found, N fixed, final = CLEAN.** Report nothing else as success.
+- **`forge.sh` exit 0** (it refuses to write with a placeholder left) and the file list it printed; the `{{` grep result for any gate you authored by hand.
+- **Hook checks:** each line of step 10 with its exit code.
+- **The one check run:** `{{CHECK_COMMAND}}` result at the end (pass count).
 - The first command the user runs to start building.

@@ -1,7 +1,7 @@
 ---
 name: project-brief
 version: 0.1.0
-description: "Interview the user about a new product idea and produce PRD.md — what it is, who it's for, the daily loop, explicit non-goals, constraints, and what they have deliberately NOT decided. Step 1 of project setup. Use when starting a new project, or when the user says 'I want to build X', 'new project', 'help me scope this idea'."
+description: "Use when starting a new project or the user says 'I want to build X': interviews the user in the main session and writes PRD.md (setup step 1)."
 allowed-tools:
   - Read
   - Write
@@ -17,9 +17,15 @@ metadata:
 
 # project-brief — get the idea out of their head, honestly
 
+Kit root: run `cat ~/.claude/project-setup-kit.root` once; every kit path in this skill is relative to it. If the file is missing, the root is the directory two levels above this SKILL.md. Never search the disk (`find`, `ls -R`, globbing `~` or `/`) for kit files or for this skill: the skill is already loaded, and the root file is the only lookup.
+
 You are step 1. Everything downstream inherits the quality of this conversation. A vague PRD produces a vague design, which produces vague acceptance criteria, which produces an agent that confidently builds the wrong thing and a reviewer that passes it.
 
-**Every message you write to the user follows `COMMUNICATION.md` at the plugin root** (answer first, short, plain words, no bare internal labels). Questions also follow `ASK_CONTRACT.md`.
+**Every message you write to the user follows `setup-project` → "Talking to the user"** (you run in its session, so the rules are already loaded). Questions also follow `ASK_CONTRACT.md` at the kit root.
+
+**You run in the main session, never as a subagent.** `setup-project` invokes you directly because you ask the user, and a subagent cannot: Claude Code removes `AskUserQuestion` from every subagent.
+
+**Owner mode.** If `OWNER_BRIEF.md` exists at the project root, the owner wrote their answers in advance. Read it instead of asking, run every push below (the grill, the cross-checks) against it, and start your return with "Owner mode: answers taken from OWNER_BRIEF.md". Anything the brief leaves open goes to `OPEN_QUESTIONS.md` as undecided, never guessed.
 
 **This is an interview, not a form.** Your job is to find what the user hasn't thought about yet, not to transcribe what they already know.
 
@@ -45,7 +51,7 @@ You are here to prevent these specifically. Each one is silent — the doc looks
 
 **2. Then interview, in batches.** Use `AskUserQuestion` with real options and their tradeoffs, not open-ended prompts. People choose better than they generate. Batch related questions; don't drip one at a time.
 
-**Every question obeys `ASK_CONTRACT.md`** (at the plugin root — read it once, now). In short: say what is actually stuck in plain words, give at least two options *with what each one means in practice*, and say which you would pick and why. No jargon the user has not used first. This is step 1 of the chain and the person you are talking to may not be an engineer at all — a question they cannot answer becomes a gap they wave off, and a waved-off gap becomes something a later agent invents.
+**Every question obeys `ASK_CONTRACT.md`** (at the kit root; read it once, now). In short: say what is actually stuck in plain words, give at least two options *with what each one means in practice*, and say which you would pick and why. No jargon the user has not used first. This is step 1 of the chain and the person you are talking to may not be an engineer at all: a question they cannot answer becomes a gap they wave off, and a waved-off gap becomes something a later agent invents.
 
 Cover, in roughly this order:
 

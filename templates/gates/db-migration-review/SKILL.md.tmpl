@@ -1,15 +1,15 @@
 ---
 name: db-migration-review
 version: 1.0.0
-description: "Review a {{MIGRATION_TOOL}} migration against the {{SCHEMA_SECTION}} {{DATABASE}} standards and the design's DDL before it merges. Use for every schema story and any migration that alters existing tables."
+description: "Use for every schema story or migration that alters tables: reviews the {{MIGRATION_TOOL}} migration against the design's DDL and database standards before it merges."
 allowed-tools:
   - Read
   - Grep
   - Glob
   - Bash
-  # Write stays even though this gate writes nothing (writes: []): allowed-tools
-  # intersect down, and a unit agent may load this gate mid-unit — dropping Write
-  # here would strip that agent of a tool the rest of its work needs.
+  # Write stays listed even though this gate writes nothing (writes: []): a unit agent
+  # may load this gate mid-unit, and allowed-tools only pre-approves, so an unlisted
+  # tool would cost that agent a permission prompt.
   - Write
 metadata:
   role: reviewer

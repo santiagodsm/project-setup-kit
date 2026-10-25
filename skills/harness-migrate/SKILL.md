@@ -1,7 +1,7 @@
 ---
 name: harness-migrate
 version: 0.1.0
-description: "Convert an existing generated build harness — any retired tier, possibly mid-build — to the orchestrated design in place, carrying its state honestly. Inventories the old machinery, preserves project content and rulings, archives per-story artifacts, regroups the remaining backlog into dispatch units, rebuilds the gate manifest, and ends with harness-doctor. Use when the user says 'migrate the harness', 'convert this harness', 'upgrade the harness to the new tier', or 'move this build off the per-story model'."
+description: "Use when the user says 'migrate the harness' or 'upgrade the harness': converts an older generated harness, even mid-build, to the orchestrated tier in place."
 allowed-tools:
   - Read
   - Write
@@ -18,6 +18,8 @@ metadata:
 ---
 
 # harness-migrate — convert a live harness without lying about its state
+
+Kit root: run `cat ~/.claude/project-setup-kit.root` once; every kit path in this skill is relative to it. If the file is missing, the root is the directory two levels above this SKILL.md. Never search the disk (`find`, `ls -R`, globbing `~` or `/`) for kit files or for this skill: the skill is already loaded, and the root file is the only lookup.
 
 A project mid-build cannot be re-forged. `harness-forge` assumes a **virgin repo**: it stubs the state file empty and awaits a plan. A project with done stories, half-done stories, deviation ledgers, and design amendments has state that must **survive** the conversion — silently resetting it destroys the only record of what is true.
 
@@ -53,7 +55,7 @@ Then **archive the old state file(s) under `docs/_archive/`** — never leave th
 **Keep** (this is the project speaking, and it moves into the new harness):
 - The **organising principle**, if the old `CLAUDE.md` has one load-bearing sentence at its head. If it does not, resolve one the way `harness-forge` does — from `PRD.md`'s What/Why and `DESIGN.md`'s invariants — and if nothing concrete supports one, emit a placeholder-free generic line and flag the gap in your report. Do not invent.
 - The **invariant list — once, in `CLAUDE.md` only.** Old tiers restated it in multiple files; the restatements are deleted with the files that held them.
-- **Stack-conditional gates that match `STACK.md`**, and `ASK_CONTRACT.md` + `notify.sh` (re-copy from the plugin root and `chmod +x` if the old ones were modified — they are copied verbatim, always).
+- **Stack-conditional gates that match `STACK.md`**, and `ASK_CONTRACT.md` + `notify.sh` (re-copy from the kit root and `chmod +x` if the old ones were modified; they are copied verbatim, always).
 - **Author-added gates**, re-wired as join-point tools the orchestrator invokes via `Skill` — never as per-story obligations. They were added because somebody found a real hole; the redesign changes *when* they run, not *whether*.
 
 **Delete** (this is the retired machinery):

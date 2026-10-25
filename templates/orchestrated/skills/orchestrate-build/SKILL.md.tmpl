@@ -1,7 +1,7 @@
 ---
 name: orchestrate-build
 version: 1.0.0
-description: "Drive the {{PROJECT}} backlog to completion as an orchestrator with full tools: read the whole design contract once, dispatch epic-sized units as background subagents on disjoint file trees, run {{CHECK_COMMAND}} and a composite review at every join, rule on escalations with citations. Use at the start of every build session and whenever the user says 'resume build', 'continue the build', 'keep going', or 'implement the plan'."
+description: "Use at the start of every {{PROJECT}} build session or when the user says 'resume build' or 'keep going': dispatches units and runs the check and one review at every join."
 allowed-tools:
   - Read
   - Write
@@ -31,11 +31,21 @@ You are the **orchestrator**, and you have full tools on purpose. The dominant c
 
 0. **Check the git hook is active:** `git config core.hooksPath`. If it is not `.githooks`, run `git config core.hooksPath .githooks` and note it in `{{STATE_FILE}}` → Session log. A fresh clone loses this setting, and without it the commit-time rules stop running without telling anyone.
 1. Read `{{STATE_FILE}}`. If it does not exist, seed it from the template with every unit in `{{PLAN}}` → `## Dispatch units` as `todo`.
-2. **If this is a fresh build — or the state file cannot bridge the gap — read the entire design contract yourself: PRD.md, STACK.md, `{{DESIGN}}` (including every `> AMENDED` block), and FRONTEND.md if present.** All of it, before dispatching anything. This is the one expensive thing in the tier, and it is what makes briefs cheap and rulings possible.
+2. **Read the core of the contract yourself: `{{DESIGN}}` §1, {{GLOSSARY_SECTION}} (glossary), §5 (invariants), §10 and §11 (open register), each with its `> AMENDED` blocks, plus `{{PLAN}}` → `## Dispatch units`.** Not the whole document: after a compaction Claude Code brings a large file back as a path only, so a whole-design read does not last.
+   **Just before writing each brief, read the sections that brief cites** (in `{{DESIGN}}`, PRD.md, STACK.md, FRONTEND.md if present). Your brief comes from that fresh reading, never from a summary.
 3. Read `{{STATE_FILE}}` → Decisions & deviations and Escalations & rulings — entries there beat the design text you just read.
 4. Resume from NEXT ACTION.
 
-**After a compaction** the SessionStart hook in `.claude/settings.json` prints one line telling you to re-read `CLAUDE.md` and `{{STATE_FILE}}` (the deterministic backstop, KD-020). Treat it as a session start: steps 1, 3 and 4; the design contract stays read unless the summary lost what you need for the next brief.
+**After a compaction** the SessionStart hook in `.claude/settings.json` prints one line telling you to re-read `CLAUDE.md` and `{{STATE_FILE}}` (the deterministic backstop, KD-020). Treat it as a session start: steps 1 to 4. The summary does not hold the design; step 2 and the just-in-time reads before each brief do.
+
+A `wip` unit whose tree has not moved in 10 minutes is dead: apply Dispatch mechanics → Liveness.
+
+**In-flight units.** Before resuming from NEXT ACTION, check every `wip` row in `{{STATE_FILE}}` → Dispatch units:
+
+- See what it left in git: `git log --oneline -3 -- <unit tree>`, or `git log --oneline -3 <unit branch> -- <unit tree>` when the row names a branch (a worktree unit commits on its own branch).
+- In a new session, a task ID in the Dispatched column is from a previous session and cannot be running. Re-dispatch the unit with the brief prefix "A previous agent started this unit; its commits are on the tree; finish what is there, do not redo it", and write the new time and task ID in the row.
+- After a compaction in the same session, the task ID is from this session and the agent may still be running; collect its return as usual.
+- Never mark a `wip` row `done`, `partial` or `blocked` without a recorded return, whatever the git log shows.
 
 ## Dispatch units, not stories
 
@@ -57,15 +67,23 @@ You write each brief yourself, from your own reading of the contract. It opens b
 4. **Deliverables** — the unit's story IDs from `{{PLAN}}`; the agent reads their acceptance criteria itself.
 5. **Tests, including what would make each test vacuous.** "A fixture whose overlap happens to be 0 proves nothing" turns a test that passes into a test that discriminates.
 6. **"Stop and report if X"**: the unit-specific triggers you can foresee. The standing ones are in `CLAUDE.md`, which the agent loads; do not restate them.
-7. **Report-back format:** what you did, the commit hashes, **what you could NOT verify**, (U0 only: the skeleton's run command and what a healthy run prints), what you left partial, which invariants have executable proof vs. are argued in comments, decisions made on under-specified details. The could-not-verify section is a deliverable, not an admission — it is where the real risk lives, and agents write it honestly when the brief asks for it.
+7. **Report-back format:** what you did, the commit hashes, **what you could NOT verify**, (U0 only: the skeleton's run command and what a healthy run prints), what you left partial, (worktree units: the branch name), which invariants have executable proof vs. are argued in comments, decisions made on under-specified details. The could-not-verify section is a deliverable, not an admission: it is where the real risk lives, and agents write it honestly when the brief asks for it.
 
 **The brief carries your synthesis and pointers — never the contents of files on disk.** Cite paths and sections; pasting what a path could carry bloats the dispatch and goes stale the moment the file changes.
 
+**Every brief says, verbatim:** "Commit after every story whose tests pass, before starting the next story. A unit that has been running 10 minutes with no commit is doing it wrong." A killed agent then leaves its finished stories in git.
+
+**Brief budget: under 6,000 characters.** Cite design sections by number and line range; never restate design text.
+
 ## Dispatch mechanics
 
-- Every unit is a **general-purpose subagent** with `run_in_background: true` and **no model override** — units inherit the session model.
+- Every unit is a **general-purpose subagent** with **no model override**: units inherit the session model.
+- **A unit dispatched alone is dispatched synchronously**: one Agent call with `run_in_background: false` written out (leave the field out and Claude Code may run the agent in the background anyway), that returns the report. If the call comes back with "Async agent launched", the dispatch went to the background: wait for its result before doing anything else and before ending your turn. That covers U0, any unit that is the only `todo` whose dependencies are done, and every follow-up dispatch.
+- **Only two or more units dispatched together go in the background** (`run_in_background: true`), and you collect every one of them before your turn ends. **Never end a turn with a unit in flight:** in an unattended run Claude Code stops background agents 10 minutes after the turn ends, and their uncommitted work is lost. If this session has no tool that collects a background result, dispatch the group as one synchronous Agent call per unit, all in the same message.
+- **Liveness: a `wip` unit whose tree has not changed in 10 minutes is dead.** Check its owned tree (or its worktree) with `git status` and file mtimes. Re-dispatch it with the brief prefix "A previous agent started this unit; its commits are on the tree; finish what is there, do not redo it", and update its row.
 - **Parallelism on file-tree disjointness only.** Two units run together only when their owned trees do not overlap — no exceptions, no optimism. Cap **{{MAX_PARALLEL}}** concurrent units. {{DB_PARALLEL_RULE}}
-- Mark a unit `wip` in `{{STATE_FILE}}` and write the file **before** dispatching it.
+- **A unit that runs alongside another gets its own worktree:** dispatch it with `isolation: "worktree"`. It works in its own checkout on its own branch, started from the build branch (`worktree.baseRef: "head"` in `.claude/settings.json`), so it cannot write into the main tree or a neighbour's. U0 and any unit dispatched alone stay in the main tree. The brief tells a worktree unit to run `{{INSTALL_COMMAND}}` first, commit on its branch, and report the branch name.
+- Mark a unit `wip` in `{{STATE_FILE}}`, put the time in its Dispatched column, and write the file **before** dispatching it. As soon as the dispatch gives you the agent task ID, add `task:<id>` to that column.
 - **A launch confirmation is not a result.** A unit is `done` / `partial` / `blocked` only when its return is recorded. A background agent whose result nobody records did its work for nothing.
 - Inside its tree the agent verifies narrowly — `{{AFFECTED_TEST_COMMAND}}`, `{{LINT_COMMAND}}`, `{{TYPECHECK_COMMAND}}`{{#IF FRONTEND_CHECK_COMMAND}}, `{{FRONTEND_CHECK_COMMAND}}` on frontend trees{{/IF}} — and **commits its own work** per `CLAUDE.md` → Commits. It does not run `{{CHECK_COMMAND}}` and it does not write `{{STATE_FILE}}`.
 
@@ -74,17 +92,17 @@ You write each brief yourself, from your own reading of the contract. It opens b
 A join is a unit or parallel batch completing. In order:
 
 1. **Drain.** Nothing `wip`. A gate run while agents are still writing describes a state that never existed, and the dangerous direction is a false green.
-2. **Record every return** in `{{STATE_FILE}}` — status, commits, what was left partial or unverified, decisions to the ledger. Update its Build metrics counts too.
+2. **Record every return** in `{{STATE_FILE}}`: status, commits, what was left partial or unverified, decisions to the ledger. Update its Build metrics counts too. Then **merge each returned worktree branch** into `{{BRANCH}}` (`git merge --no-ff <branch>`) before anything below runs, and remove its worktree (`git worktree remove <path>`, then delete the branch). Owned trees are disjoint by construction, so a merge conflict means two units wrote the same file: it is a BLOCKER for the join; record it in the join's row and resolve it before step 4.
 3. **Interrogate the reports.** For each landed unit, ask its report: **which invariants have executable proof, and which are only argued in comments?** Anything argued-only that is load-bearing gets a test in the follow-up or the next unit's brief.
 4. **Mutation-test the 2–3 load-bearing assertions** of the join — flip the guard, confirm the tests go red, restore. A test nobody has tried to break is a test nobody has verified. You have Bash; this costs minutes.
 5. **Run the full gate yourself:** `{{CHECK_COMMAND}}`. Green baseline is law — zero failures, no "pre-existing" or "environmental" excuses: fix the red, dispatch the fix, or mark the unit `blocked` with the red test named. The only acceptable non-green test is one legitimately skip-gated on a genuinely unavailable resource.{{#IF MIGRATION_TOOL}} If the join touched the schema, cycle migrations: `{{MIGRATION_UP}}` → `{{MIGRATION_DOWN}}` → `{{MIGRATION_UP}}`.{{/IF}}
 6. **Re-run the walking skeleton** against real data. It ran at the last join; it must run now. A skeleton regression outranks every other finding at the join.
-7. **Dispatch `join-review`** — a general-purpose background subagent, **`model: opus`**, instructed to invoke the `join-review` skill over the composite diff since the last join. Give it the boundary commit hash, the join ID (`J<n>`, used in its report name), and the could-not-verify lines from the units' recorded returns (bounded, already held: inline is correct, KD-018). Composite review is the one piece of heavyweight ceremony that earned its keep: it sees what only breaks when two units are both present.
-8. **Dispatch any conditional gate whose trigger tree changed in this join** — each as a general-purpose background subagent instructed to invoke the skill:
+7. **Dispatch `join-review`**: a general-purpose subagent, **`model: opus`**, instructed to invoke the `join-review` skill over the composite diff since the last join. Give it the boundary commit hash, the join ID (`J<n>`, used in its report name), and the could-not-verify lines from the units' recorded returns (bounded, already held: inline is correct, KD-018). Composite review is the one piece of heavyweight ceremony that earned its keep: it sees what only breaks when two units are both present.
+8. **Dispatch any conditional gate whose trigger tree changed in this join**: each as a general-purpose subagent instructed to invoke the skill. Dispatch `join-review` and these gates in one message, under the Dispatch mechanics rule: one alone is synchronous; several may go in the background, and you collect every one before your turn ends. The gates:
 {{#IF MIGRATION_TOOL}}   - `db-migration-review` — when `{{MIGRATION_DIR}}` changed. Cycles a scratch DB ({{DB_ISOLATION}}), never the live one.{{/IF}}
 {{#IF CONTRACT_GEN_COMMAND}}   - `api-contract-sync` — when backend endpoints/schemas changed. Check-only (`{{CONTRACT_GEN_COMMAND}}` regeneration belongs to unit agents, never to a reviewer).{{/IF}}
 {{#IF TOKENS_FILE}}   - `design-token-lint` — when frontend trees changed. `{{TOKENS_FILE}}` is the source of truth.{{/IF}}
-{{#IF DEPENDENCY_AUDIT}}   - `dependency-security-audit` — when {{LOCKFILES}} changed ({{AUDIT_COMMANDS}}), and unconditionally every 4th join. Record each added dependency in `{{STATE_FILE}}` → Dependency additions when you record the unit's return.{{/IF}}
+{{#IF AUDIT_COMMAND}}   - **Dependency audit, not a dispatch:** only when `git diff --name-only <boundary commit> -- {{LOCKFILES}}` shows a change in this join, run `{{AUDIT_COMMAND}}` yourself in one Bash call and record the result on the join line in `{{STATE_FILE}}` (`audit: clean`, or each high finding). Lockfile unchanged: do not run it. Record each added dependency in `{{STATE_FILE}}` → Dependency additions when you record the unit's return.{{/IF}}
 {{#IF MCP_SERVERS}}   - `mcp-scan` — when an MCP server, tool, or dispatch path was added or edited.{{/IF}}
 {{#IF PERF_PROFILING}}   - `perf-profiling` — every join from {{PERF_FIRST_EPIC}} on, and any earlier join touching a hot user-facing surface (targets: `{{DESIGN}}` {{PERF_SECTION}}).{{/IF}}
 9. **Fix findings directly or via one follow-up dispatch.** Small and clearly right → fix it yourself, note it. Larger → a follow-up dispatch to the owning unit's agent with the findings as the brief. Record every finding and its resolution in `{{STATE_FILE}}` → the join's row. **There is no fix-story machinery** — no minting, no separate review of the fix; the next join's review covers it. **Cap: two fix rounds per unit per join.** Still failing after the second → mark the unit `blocked` with the finding named, push the ask via `{{NOTIFY}}`, and move on to units that do not depend on it. An uncapped fix loop spins on a problem it does not understand.
@@ -94,7 +112,7 @@ A join is a unit or parallel batch completing. In order:
 
 ## Reporting to the user
 
-At every join (step 10) and at every handoff, tell the user what changed in this shape, plain words per `CLAUDE.md` → "Talking to the user", under about eight lines. This replaces any free-form summary:
+At every join (step 10) and at every handoff, tell the user what changed in this shape, plain words per "Talking to the user" below, under about eight lines. This replaces any free-form summary:
 
 ```
 Works now: <what the user can do now that they could not before, in their terms: "you can now log in and see your orders">
@@ -105,11 +123,23 @@ Went wrong, fixed: <one line, only if it changes what the user should trust; oth
 
 Name units by what they do ("the payments unit (U3)"), never by bare ID.
 
+## Talking to the user
+1. **Answer first.** The first sentence says what happened, what you found, or what you need from the user.
+2. **Short by default.** Progress updates are three lines at most: outcome, what is left, what is blocked. Do not narrate steps, recap what you did, or restate the request.
+3. **Plain words.** Write for a smart person who is not looking at the code. A needed technical term is explained in the same sentence the first time ("the migration, meaning the script that changes the database tables, failed").
+4. **No bare internal labels.** Never "U3", "AC-4", "KD-017", "§4.2" or a file name on its own. Say what it is: "the payments unit (U3)", "the rule that a balance is never stored (§5.2)".
+5. **The project's own words:** the glossary terms in `DESIGN.md` §2.1 and the words the user uses, never new names for the same thing.
+6. **When asked to explain:** one concrete example from this project first, then the general rule. One analogy at most, about 150 words unless asked for more.
+7. **No filler:** no apologies, no "great question", no hedging, no closing offers of more help.
+8. **Exact where it matters:** commands, error messages, file paths and code stay verbatim and complete. Brevity is for prose, never for code or for the facts the user needs to act.
+
+This governs messages to the user. Briefs, subagent reports, commit messages and design amendments stay precise and technical; their reader is an agent or a future engineer.
+
 ## Escalations — agents stop, you rule
 
 The standing stop-and-report triggers live in `CLAUDE.md` → "Unit agents: stop and report if" (every unit agent loads it); briefs add the unit-specific ones you can foresee. An agent that hits one **stops and reports — it never quietly implements the other thing.** You then:
 
-1. **Rule in one message, with a citation.** You read the contract; you can. An escalation answered immediately is a speed-up — the agent resumes with its context intact. One that bounces is a stall.
+1. **Rule in one message, with a citation.** Read the sections the question touches, then rule. An escalation answered immediately is a speed-up: the agent resumes with its context intact. One that bounces is a stall.
 2. **Write the ruling into `{{DESIGN}}`** as a dated block adjacent to the amended section:
    ```
    > AMENDED (<ISO date>, U<N>): <the ruling, and why, with the citation>
@@ -128,6 +158,8 @@ The last dispatch unit exists because units can each pass their own tests while 
 3. **A fixture crossing every numeric limit the design states** — crossing, not approaching. Synthetic fixtures only test the properties someone already thought of; a limit named in the design with no fixture past it is where a green suite is most confidently wrong.
 4. **Gate red-probing:** deliberately break something each gate claims to catch, confirm the gate goes red, restore. A gate that has never demonstrated a red may be checking nothing — and a blind gate invalidates everything downstream of it.
 
+**Definition of done for the whole project:** every gate in `{{DESIGN}}` {{DOD_SECTION}} holds, every unit in `{{PLAN}}` → Dispatch units is `done` (none `partial`), and this integration unit has passed all four demands above. Put this line in the integration unit's brief.
+
 ## When to stop
 
 **There is no unit quota and no session cap.** Stop when, and only when:
@@ -142,10 +174,10 @@ That is the entire list, on purpose. Only the third is a context signal; the fir
 
 ## The rules that do not bend
 
-1. **Read the contract yourself before the first dispatch.** A brief written from someone else's summary is a brief that cannot carry traps.
+1. **Read the contract's core yourself at session start, and each brief's cited sections just before writing it.** A brief written from a summary, yours or anyone's, is a brief that cannot carry traps.
 2. **Green baseline is law at every join.** Zero failures; a red is fixed or `blocked`, never excused.
 3. **U0 first, and the skeleton re-verified at every join.**
-4. **File-tree disjointness or serialize — no optimism.** Cap {{MAX_PARALLEL}}; background dispatch always; drain before joins, gates, and handoffs.
+4. **File-tree disjointness or serialize, no optimism.** Cap {{MAX_PARALLEL}}; a lone unit is dispatched synchronously, a group in the background and collected before the turn ends; no turn ends with a unit in flight; drain before joins, gates, and handoffs.
 5. **A launch is not a result.** Status changes come from recorded returns only.
 6. **`{{STATE_FILE}}` has one writer: you.** Written before every dispatch and after every return; `partial` used honestly.
 7. **Rule on escalations in one message with a citation, and amend `{{DESIGN}}` — never let an agent quietly resolve a contradiction, and never bounce one the contract can answer.**

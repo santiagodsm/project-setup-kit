@@ -1,21 +1,22 @@
 # CLAUDE.md — {{PROJECT}} operating manual
 
 You are building **{{PROJECT}}**. {{PROJECT_ONE_LINER}}
-**Harness tier: SMALL.** Invoke `build-loop` at the start of every build session; it holds the process. You scope, build and review your own work, one story at a time.
-
-{{TALKING_TO_THE_USER}}
+**Harness tier: SMALL.** Invoke `build-loop` at the start of every build session; it holds the process. You scope, build and review your own work, one story at a time. Messages to the user follow `build-loop` → Talking to the user.
 
 ## The three files that govern everything
 1. `{{STATE_FILE}}`: build status and the exact next story. Its `Decisions & deviations` lines beat the design text.
 2. `{{PLAN}}`: stories, dependencies, acceptance criteria.
 3. `{{DESIGN}}`: the design contract: locked decisions, the open register of what is deliberately unspecified, and the {{GLOSSARY_SECTION}} glossary.
 
+## Compact Instructions
+- Keep verbatim: NEXT ACTION from `{{STATE_FILE}}`, the `in_progress` story with its ID and whether its work is committed, and the decisions and deviations made this session.
+- Keep the hash of the last story commit.
+- Drop tool output and file contents; they will be re-read.
+
 ## What this tier gave up
 - **No independent reviewer.** You judge your own work, so every acceptance criterion gets a cited `file:line` and a test.
 - **Nothing folds deviations back into `{{DESIGN}}`.** The deviation ledger in `{{STATE_FILE}}` is the only record; never delete a line.
-- **Only the full suite catches a cross-story regression**, which is why it runs on every story.
-
-**Upgrade trigger:** past ~15 stories, the first time you want a gate, or once the ledger has outgrown your trust in the design, say so and recommend regenerating the harness at `orchestrated`. Never hand-bolt a gate onto this one.
+- **Upgrade trigger:** past ~15 stories, the first time you want a gate, or once the ledger has outgrown your trust in the design, say so and recommend regenerating the harness at `orchestrated`. Never hand-bolt a gate onto this one.
 
 ## Pinned stack (do not substitute)
 {{STACK_SUMMARY}} · tests: {{TEST_FRAMEWORK}}{{#IF MIGRATION_TOOL}} · migrations: {{MIGRATION_TOOL}} in `{{MIGRATION_DIR}}`{{/IF}}. Code: {{PROJECT_STRUCTURE}}. Adding anything outside this list needs a recorded decision in `{{STATE_FILE}}`.
@@ -27,18 +28,9 @@ You are building **{{PROJECT}}**. {{PROJECT_ONE_LINER}}
 
 ## Project invariants
 {{INVARIANTS}}
-
-These are checkable assertions, not aspirations; `build-loop` checks them on every story. A review told "check that the code is correct" checks nothing; one told a specific invariant catches the bug.
 - **Errors:** a single uniform error contract, applied everywhere; plain-language user-facing errors that state impact + next action; no stack traces or secrets to clients; never show success unless the operation completed.
 {{#IF TOKENS_FILE}}- **UI components:** semantic tokens from `{{TOKENS_FILE}}` only — no raw hex/px. Status carried by icon/text, never color alone.{{/IF}}
 {{#IF MIGRATION_TOOL}}- **Schema:** obey design {{SCHEMA_SECTION}} — the standard column set, CHECK-constrained states, and FK delete behavior that never loses history to a cascade.{{/IF}}
 
 ## Commits
-```
-{{COMMIT_FORMAT}}
-<body: what changed and why, wrapped>
-```
-On `{{BRANCH}}`, every message ending with the `Co-Authored-By` trailer from the environment rules. Commit `{{STATE_FILE}}` with the story: at this tier there is no orchestrator to split it out.
-
-## Definition of done for the whole project
-Every gate in `{{DESIGN}}` {{DOD_SECTION}} holds, every story in `{{PLAN}}` is `done`, and the suite is green.
+Format `{{COMMIT_FORMAT}}`, then a wrapped body saying what changed and why, on `{{BRANCH}}`, every message ending with the `Co-Authored-By` trailer from the environment rules. Commit `{{STATE_FILE}}` with the story.

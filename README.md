@@ -18,7 +18,7 @@ That's it. It runs the chain and asks you things.
 | 2 | `stack-decide` | `STACK.md` — locked stack (ADRs), the check command, **the gate manifest** |
 | 3 | `design-author` | `DESIGN.md` — fixed §1–§12, literal DDL and contracts, locked ADRs, **the register of what's not specified** |
 | 4 | `scaffold` | The repo — dirs, CI, containers, and a check command that's green from cold and red when broken |
-| 5 | `harness-forge` | `CLAUDE.md` + `.claude/skills/**` + `.claude/agents/**`, **generated for this stack** |
+| 5 | `harness-forge` | `CLAUDE.md` + `.claude/skills/**` + hooks, **generated for this stack** by `scripts/forge.sh` from the values the skill writes; then one `harness-doctor` pass |
 | 6 | `backlog-author` | `PLAN.md` — epics, stories, deps, **testable** acceptance criteria |
 | 7 | `plan-lint` | Audits the plan: dep cycles, untestable AC, uncovered design sections |
 | 8 | seed + `harness-doctor` | Seeds the harness's first story, then audits the assembled repo: tool grants, artifact ownership, dispatch paths, return contracts |
@@ -43,7 +43,7 @@ The generated harness dispatches **up to 3 units concurrently**. Serial is what 
 
 Two units run together when four things hold: **no dependency edge · disjoint owned file trees · at most one migration-authoring unit in flight · concurrent test suites can't see each other.** The trees are declared per unit in `PLAN.md`'s dispatch-unit table, so disjointness is decided at planning time, not discovered mid-build. Fail a condition and that unit waits while the rest keep going.
 
-**The mechanism ships with the policy.** Every subagent is dispatched `run_in_background: true` — otherwise "up to 3 at once" blocks on each agent in turn and runs strictly serial while every file still reads as parallel, and *nothing detects that*: no gate fails, the build is just three times slower than it claims. Two rules come with it — **a launch confirmation is not a result** (a unit is done when its return is recorded), and **gates and handoffs drain first** (a full-suite run against a tree agents are still writing to describes a state that never existed). `setup-project`'s own chain is the deliberate exception and runs synchronously: its steps feed each other, so there is nothing to overlap.
+**The mechanism ships with the policy.** Units that run together are dispatched in the background, each in its own git worktree, so "up to 3 at once" really runs three at once; the orchestrator collects every one before its turn ends, because an unattended run stops background agents 10 minutes after the turn ends. A unit that runs alone is dispatched synchronously: the call returns with the unit's report, so nothing has to wait or wake up. A unit whose files have not changed in 10 minutes is treated as dead and dispatched again to finish what is there, and every unit commits after each story, so a killed unit leaves its finished work in git. Two rules come with it: **a launch confirmation is not a result** (a unit is done when its return is recorded), and **gates and handoffs drain first** (a full-suite run against a tree agents are still writing to describes a state that never existed). `setup-project`'s own chain follows the same rule: its steps feed each other, so each runs alone and synchronously.
 
 **None of this is configured, it's derived.** `stack-decide` requires a test-isolation decision, `scaffold` builds it as a hard gate, and `harness-forge` emits the concurrency the result actually supports — the same way it emits only the gates the stack can run. If isolation is missing, the harness says so *in a sentence that calls itself a defect*, because a build that quietly serializes is one nobody ever fixes: the cost is invisible and permanent, and each session assumes the last one had a reason.
 
@@ -96,7 +96,7 @@ They live in `~/.claude/`, outside every repo — one copy serves the kit and ev
 
 **The hook ships with the plugin** (`hooks/hooks.json`), so there is nothing to paste into `settings.json` and nothing to keep up to date. It pushes **only when Claude has a question or is waiting for your input**, at silent priority — permission prompts and every other notification are dropped (they fire constantly in supervised sessions, across every project on the machine), and repeats within 5 minutes are deduped per project.
 
-A second hook keeps `~/.claude/scripts/notify.sh` in step with the installed plugin on every session start. That path exists because `${CLAUDE_PLUGIN_ROOT}` is set for hooks and commands but **not** for a skill's or subagent's Bash — so the skills call a stable path, and the sync hook is what stops it drifting a version behind. Both copies update together; neither is yours to maintain.
+A second hook keeps `~/.claude/scripts/notify.sh` in step with the installed plugin on every session start. That path exists because `${CLAUDE_PLUGIN_ROOT}` is set for hooks and commands but **not** for a skill's or subagent's Bash, so the skills call a stable path, and the sync hook is what stops it drifting a version behind. The same hook writes the plugin's location to `~/.claude/project-setup-kit.root`, so a skill finds the kit's own files with one `cat` instead of searching the disk. Both copies update together; neither is yours to maintain.
 
 Generated projects get their own `.claude/scripts/notify.sh` for the loud channel, and **deliberately no hook** — a per-project hook would fire on top of the plugin's, and a channel that buzzes twice for nothing gets muted before the one time it mattered.
 
@@ -116,4 +116,4 @@ Not a style preference. A question that can't be answered in four seconds gets n
 
 ## Design notes
 
-`KIT_DESIGN.md` holds the locked decisions (KD-001…022) and the rationale. Read it before changing anything here.
+`KIT_DESIGN.md` holds the locked decisions (KD-001…023) and the rationale. Read it before changing anything here.

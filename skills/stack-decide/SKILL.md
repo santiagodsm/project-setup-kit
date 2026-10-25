@@ -1,7 +1,7 @@
 ---
 name: stack-decide
 version: 0.1.0
-description: "Lock the technology stack as ADRs and emit the gate manifest that harness-forge consumes. Produces STACK.md: language, framework, database, test tooling, deploy target, the check command, and which quality gates are actually coherent for this stack. Step 2 of project setup, after project-brief. Use when the user says 'pick the stack', 'what should I build this with', or after a PRD exists."
+description: "Use after PRD.md exists or when the user says 'pick the stack': locks the stack in STACK.md with the check command and the gate manifest (setup step 2)."
 allowed-tools:
   - Read
   - Write
@@ -78,13 +78,15 @@ Specify:
 - **Its preconditions, and how they are satisfied automatically.** A database it needs, it starts. A container it needs, it starts.
 - **Test isolation.** If tests touch a database, each parallel worker needs its own. Decide this **now**, not after concurrent runs corrupt each other. Retrofitting isolation is painful and until you do, the harness cannot parallelize at all.
 
-**Every message you write to the user follows `COMMUNICATION.md` at the plugin root** (answer first, short, plain words, no bare internal labels). Questions also follow `ASK_CONTRACT.md`.
+**Every message you write to the user follows `setup-project` → "Talking to the user"** (you run in its session, so the rules are already loaded).
 
 ## Reserved decisions are not yours
 
 `OPEN_QUESTIONS.md` holds what the user reserved. **Do not resolve them.** If a reserved question blocks a stack choice, say so, lock what you can, and record the blocked part as a new OQ. Locking a decision the user reserved is the one unforgivable move here — they will not notice until it is load-bearing.
 
-**Every question you put to the user obeys `ASK_CONTRACT.md`** (plugin root): what's actually stuck in plain words, at least two options *with what each one means in practice*, and which you'd pick and why. No jargon they haven't used first. A question the user can't answer comes back as "you decide" — which is a decision they were never shown, recorded as locked when it was really abandoned.
+**You run in the main session, never as a subagent**, because you may need to ask the user and a subagent cannot. **Owner mode:** if `OWNER_BRIEF.md` exists at the project root, read it instead of asking, and start your return with "Owner mode: answers taken from OWNER_BRIEF.md". A choice it does not cover is yours to make and record as an ADR; a reserved one stays reserved.
+
+**Every question you put to the user has the Ask Contract's shape** (stated here in full, so you need not read the contract): what's actually stuck in plain words, at least two options *with what each one means in practice*, and which you'd pick and why. No jargon they haven't used first. A question the user can't answer comes back as "you decide", which is a decision they were never shown, recorded as locked when it was really abandoned.
 
 ## One ADR namespace, shared with the design
 
@@ -111,6 +113,7 @@ ADR-001 — <Decision>                                   [LOCKED <date>]
 Preconditions: <what it needs> — satisfied automatically by <how>.
 Test isolation: <per-worker DB strategy, or "no DB in tests">.
 Format command: `<command that formats the one file given as its last argument>`, or `none` if the stack has no formatter. (harness-forge wires it to run after every edit Claude makes.)
+Audit command: `<one command that fails on a high-severity advisory, e.g. npm audit --audit-level=high>`, or `none` if there are no third-party dependencies. Lockfiles: `<paths>`.
 
 ## Gate manifest  (harness-forge reads this; ONLY these gates are emitted)
 Tier: <from PRD.md's TIER marker>
@@ -120,9 +123,8 @@ Tier: <from PRD.md's TIER marker>
 | db-migration-review       | **no** | yes | a migration tool exists |
 | api-contract-sync         | **no** | yes | the client is generated from a spec |
 | design-token-lint         | **no** | yes | a token system exists |
-| dependency-security-audit | **no** | yes | there are third-party deps |
 | mcp-scan                  | **no** | yes | the project ships or dispatches MCP servers/tools |
-| perf-profiling            | **no** | DEFERRED | see below |
+| perf-profiling            | **no** | yes/no | the PRD's daily loop names a speed the user would notice, with a number (see below) |
 | release-runbook           | **no** | yes | a deploy target exists |
 
 **Two values:**
@@ -134,7 +136,9 @@ Tier: <from PRD.md's TIER marker>
 
 **Every row is `no` on `small`.** That is KD-002 working, not an oversight — including `release-runbook`, even when a deploy target exists. A small harness's only skill is `build-loop`, which has no dispatch path for a gate, so any gate you mark `yes` there becomes an unreachable orphan.
 
-**`perf-profiling` is the one you cannot decide.** It depends on whether §8 ends up with numeric targets, and the design is written *after* you. Mark it **`DEFERRED`** on the orchestrated tier (`no` on small). `harness-forge` reads `DESIGN.md`, resolves it, and **writes the answer back into this table.** A `DEFERRED` row must not survive into the built harness — `harness-doctor` cannot classify one, and the fidelity check then silently passes on a gate nobody ever decided. Do not guess it yourself: a perf gate with no targets will invent something to measure.
+**Decide `perf-profiling` now, from the PRD.** `yes` on the orchestrated tier only when the PRD's daily loop or its constraints state a numeric speed target the user would notice ("the list loads in under 1 s on a phone", "import 10,000 rows in under a minute"); `design-author` then carries that number into §8. No such number in the PRD → `no`. Every row is `yes` or `no`; nothing is left for a later step to decide. A perf gate with no target invents something to measure.
+
+**There is no dependency-audit gate.** When the stack has third-party dependencies, name the audit command under "The check command" below (`npm audit --audit-level=high`, `pip-audit`); the generated harness runs it in one shell call only when a lockfile changed.
 
 ## ADR numbering handoff
 Last ADR issued here: **ADR-00N**. `design-author` continues at ADR-00N+1.

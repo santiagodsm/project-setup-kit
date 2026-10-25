@@ -1,11 +1,12 @@
 ---
 name: setup-project
 version: 0.1.0
-description: "Run the full project setup chain: brief → stack → design → scaffold → harness → backlog → lint → doctor. Maintains SETUP_PROGRESS.md so setup can span sessions. This is the entry point of the Project Setup Kit. Use when the user says 'new project', 'set up a project', 'start a project', 'I want to build X', or 'resume setup'."
+description: "Use when starting a new project or the user says 'set up a project' or 'resume setup': runs the full setup chain, interviewing in the main session and dispatching the rest."
 allowed-tools:
   - Read
   - Write
   - Edit
+  - Bash
   - Agent
   - Skill
   - AskUserQuestion
@@ -17,6 +18,8 @@ metadata:
 ---
 
 # setup-project — walk the chain, in order, once
+
+Kit root: run `cat ~/.claude/project-setup-kit.root` once; every kit path in this skill is relative to it. If the file is missing, the root is the directory two levels above this SKILL.md. Never search the disk (`find`, `ls -R`, globbing `~` or `/`) for kit files or for this skill: the skill is already loaded, and the root file is the only lookup.
 
 You take a person from "I have an idea" to "this repo has a design, a plan, and its own build agents." Then you get out of the way. The harness you generate is the project's; the kit is not a runtime dependency.
 
@@ -36,9 +39,9 @@ Each step is an input to the next. Run them out of order and you get a backlog w
 |---|---|---|---|---|
 | 1 | `project-brief` | `PRD.md` | `<!-- TIER: x -->` marker present. ≥4 non-goals. Daily loop concrete. | — |
 | 2 | `stack-decide` | `STACK.md` | Check command named. Gate manifest emitted. | — |
-| 3 | `design-author` | `DESIGN.md` | Line 1 reads `<!-- GATE: BACKLOG CLEAR -->` | **BLOCKED** → ask the user → re-dispatch `design-author` in **AMEND mode** → recheck |
+| 3 | `design-author` (ask pass here, write pass dispatched) | `DESIGN.md` | Line 1 reads `<!-- GATE: BACKLOG CLEAR -->` | **BLOCKED** → ask the user → re-dispatch `design-author` in **AMEND mode** → recheck |
 | 4 | `scaffold` | The repo | **Check command green from cold, AND red when broken.** Both verified by running them. | Re-dispatch with the specific failure. **3 rounds max**, then stop and ask the user — a toolchain that won't come up green in three tries needs a human, not a fourth agent. |
-| 5 | `harness-forge` | `CLAUDE.md` + `.claude/**` | It runs `harness-doctor` internally; **zero BLOCKERs** | 3 rounds max, then report failure |
+| 5 | `harness-forge`, then `harness-doctor` once | `CLAUDE.md` + `.claude/**`, `HARNESS_DOCTOR.md` | **Zero BLOCKERs** | See "Step 5: one doctor pass" |
 | 6 | `backlog-author` | `PLAN.md` (+ `## Dispatch units` on the orchestrated tier) | — | Refuses if step 3's gate is not CLEAR |
 | 7 | `plan-lint` | `PLAN_LINT.md` | **Zero BLOCKERs and zero MAJORs** | → re-dispatch `backlog-author` in **FIX mode** with the numbered findings → re-lint. **3 rounds max**, then stop and ask the user. |
 | 8 | **Seed + final doctor** | The harness's first story | Zero BLOCKERs | → re-dispatch `harness-forge` with the numbered findings → re-doctor. **3 rounds max**, then report failure. |
@@ -64,9 +67,16 @@ Three steps can send you backwards. Each is capped — an uncapped fix loop will
 
   Do not carry on with the wrong harness to save time. You pay it back as a gate that was never there.
 
+## Step 5: one doctor pass
+
+After `harness-forge` returns, dispatch `harness-doctor` **once**. Then, by severity:
+
+- **BLOCKERs** (the doctor's narrow class: a build session would break): re-dispatch `harness-forge` **once** with the numbered BLOCKER lines, then dispatch `harness-doctor` once more to confirm. Still a BLOCKER: stop and ask the user. That is at most two doctor passes before step 6.
+- **MAJORs and MINORs:** already recorded in `HARNESS_DOCTOR.md`. Each one the doctor marked `(one-line)` you fix yourself with `Edit`, now, and note it in `SETUP_PROGRESS.md` → Notes. The rest stay in `HARNESS_DOCTOR.md` for the user; list them in the final summary. **No further doctor dispatch** for them: step 8 audits the whole repo again anyway.
+
 ## Step-8 findings: who fixes what
 
-`harness-doctor` is **report-only** — it never patches what it diagnoses, and you have no `Bash` and cannot patch a harness yourself. So a step-8 BLOCKER goes back to **`harness-forge`**, with the numbered findings. It wrote the harness; it fixes the harness. Three rounds, then stop and report failure with the specific findings — a generator that can't converge in three rounds does not understand what it produced, and rounds four through ten will not change that.
+`harness-doctor` is **report-only**: it never patches what it diagnoses. So a step-8 BLOCKER goes back to **`harness-forge`**, with the numbered findings. It wrote the harness; it fixes the harness. Three rounds, then stop and report failure with the specific findings: a generator that can't converge in three rounds does not understand what it produced, and rounds four through ten will not change that.
 
 ## The three hard gates. Do not walk past them.
 
@@ -83,40 +93,58 @@ A check command that only passes when a human remembers to export a variable wil
 **After steps 5 and 7 — zero BLOCKERs.**
 A generated harness with a missing tool grant or an unreachable gate fails on its first real story, and the failure looks like a build problem rather than a harness problem. That is the expensive kind: you debug the wrong thing.
 
-## How to run each step — DISPATCH. Never run a step yourself.
+## How each step runs: the interview here, everything else dispatched
 
-**Every step is dispatched as a `general-purpose` subagent, told to invoke the skill by name and follow it in full.** Not "long steps." Every step. There is no exception.
+| Step | Runs | How |
+|---|---|---|
+| 1 `project-brief` | **main session** | invoke the skill with `Skill` and follow it in full |
+| 2 `stack-decide` | **main session** | invoke the skill with `Skill` and follow it in full |
+| 3 `design-author`, **ask pass** | **main session** | invoke the skill with `Skill`, mode ASK |
+| 3 `design-author`, **write pass** | dispatched | one `general-purpose` subagent, mode WRITE |
+| 3 `design-author`, AMEND | dispatched | as before, with the user's answers inline |
+| 4 to 8 | dispatched | one `general-purpose` subagent each, told to invoke the skill by name and follow it in full |
 
-This is not a style preference, it is a hard constraint:
+**Why the split.** Claude Code removes `AskUserQuestion` from every subagent, so a dispatched step can never ask the user anything; it guesses or marks a gap BLOCKING instead. The three steps whose job is asking therefore run here, in the only session that can ask. Every other step is dispatched for **context flatness**: it starts clean, reads its inputs from disk, returns a capped summary, and none of its file reads enter your context. Dispatch is not a tool restriction. A skill's `allowed-tools` pre-approves tools and restricts nothing; where a skill must not use a tool, its frontmatter says so with `disallowed-tools`.
 
-**Your tools are `Read`, `Write`, `Edit`, `Agent`, `Skill`, `AskUserQuestion`, `ToolSearch`. You have no `Bash`, no `Grep`, no `Glob`.** And a skill's `allowed-tools` **intersects down** with the tools of whoever loads it. So if *you* invoke `scaffold`, it cannot run the check command. If *you* invoke `harness-doctor`, it cannot grep, glob, or run git — which silently disables four of its thirteen checks, and it will report CLEAN on a harness it never actually inspected. If *you* invoke `stack-decide`, it cannot search the web and will lock a stack from stale training data.
+**The design-author split.** The ask pass reads `PRD.md`, `STACK.md` and `OPEN_QUESTIONS.md` and asks the user every question the design would otherwise have to guess. You write each answer as one line under `SETUP_PROGRESS.md` → "Decisions locked" (the ask pass runs in your session, so you are still the file's only writer). Then dispatch the write pass once, pointing it at those lines. The write pass writes `DESIGN.md` from the locked decisions and may mark BLOCKING only what the ask pass did not cover. The BLOCKED, ask the user, AMEND loop is unchanged.
 
-Every one of those failures is **silent**. The skill runs, produces plausible output, and reports success.
+**After a main-session step, do not re-read what it wrote.** The next step reads the file itself. Keep the step's return (a few lines) and move on.
+
+**Owner mode.** If `OWNER_BRIEF.md` exists at the project root, the owner wrote their answers in advance and is not at the terminal. Every skill that would ask the user reads that file instead, and says "Owner mode: answers taken from OWNER_BRIEF.md" in its output. You do the same for your own questions (a tier change to confirm, BLOCKED answers to collect). A question the brief does not answer: take the recommended option and record it in `SETUP_PROGRESS.md` → Notes as "decided for the owner", unless it is a decision the owner reserved, which stays open.
 
 ### Dispatch these steps **synchronously**. This is the one place background is wrong.
 
-The generated build harness dispatches every subagent with `run_in_background: true`, because it runs many stories at once. **Your chain is the opposite shape: each step's output *is* the next step's input.** There is nothing to overlap — `design-author` cannot start before `STACK.md` exists, and `backlog-author` reads the gate banner `design-author` writes. Dispatching in the background here buys zero wall-clock and adds the one failure this skill exists to prevent: moving to step N+1 before step N actually finished. "The order is the product."
+The generated build harness can run several units at once. **Your chain is the opposite shape: each step's output *is* the next step's input.** There is nothing to overlap. `design-author` cannot start before `STACK.md` exists, and `backlog-author` reads the gate banner `design-author` writes. Dispatching in the background here buys zero wall-clock and adds the one failure this skill exists to prevent: moving to step N+1 before step N actually finished. "The order is the product."
 
-So: **chain steps synchronous (`run_in_background: false`); the notify-only dispatch background.** A notification has no output anyone waits on, and blocking the chain on a push to somebody's phone would be absurd.
+So every dispatch here is synchronous (`run_in_background: false`). The rule is the same one the generated harness follows: **dispatch in the background exactly when there is other work to do meanwhile.**
 
-Do not generalize the harness's rule to here, and do not generalize this exception to the harness. The rule in both places is the same one: **dispatch in the background exactly when there is other work to do meanwhile.**
+Dispatch, take the capped return, record it, move on. Read a produced file only when you need one specific value from it (the `<!-- GATE -->` banner, the `<!-- TIER -->` marker, the first eligible story).
 
-The restriction is deliberate: it is what keeps your context flat across a chain that spans sessions. Dispatch, take the capped return, record it, move on. Read a produced file only when you need one specific value from it (the `<!-- GATE -->` banner, the `<!-- TIER -->` marker, the first eligible story).
-
-**What a dispatch carries:** the skill name, the mode if any (AMEND / FIX / RE-TIER), the inputs by *path*, and only the values the skill cannot read from disk — the numbered findings from a prior return, the user's answers to blocking questions, plain-language ask wording for a notify task. Never paste a produced file's contents into a prompt: the skill reads files itself, with better tools than you have, and everything you paste sits in your context for the rest of the chain.
+**What a dispatch carries:** the skill name, the mode if any (WRITE / AMEND / FIX / RE-TIER), the inputs by *path*, and only the values the skill cannot read from disk: the numbered findings from a prior return, the user's answers to blocking questions. Never paste a produced file's contents into a prompt. The skill reads files itself, and everything you paste sits in your context for the rest of the chain.
 
 Write `SETUP_PROGRESS.md` **after every step**. Setup spans sessions. A crash should cost at most one step.
 
-**Every message you write to the user follows `COMMUNICATION.md` at the plugin root** (answer first, short, plain words, no bare internal labels). Questions also follow `ASK_CONTRACT.md`.
+## Talking to the user
+
+Every message you, or a step running in this session, writes to the user follows these eight rules:
+
+1. **Answer first.** The first sentence says what happened, what you found, or what you need.
+2. **Short by default.** Progress is three lines at most: outcome, what is left, what is blocked. No narration, no recap.
+3. **Plain words.** A needed technical term is explained in the same sentence the first time.
+4. **No bare internal labels.** Never "U3", "KD-017", "§4.2" or a file name on its own; say what it is.
+5. **The project's own words.** The user's words and the design glossary, never new names for the same thing.
+6. **Explaining.** One concrete example from this project first, then the rule; about 150 words unless asked for more.
+7. **No filler.** No apologies, no "great question", no hedging, no closing offers of more help.
+8. **Exact where it matters.** Commands, error messages, paths and code stay verbatim and complete.
+
+These bind messages to the user only. Dispatch prompts, returns and design text stay precise and technical. Questions also follow `ASK_CONTRACT.md` at the kit root (read it once, when you first need to ask).
 
 ## Reaching the user when the chain stops
 
-A halted chain is indistinguishable from a finished one if nobody is at the terminal — and long silences get resolved by guessing. So a stop that waits on a person gets **one push** to their phone (never one per question — `notify.sh ask --count N` bundles them; `ASK_CONTRACT.md` at the plugin root is the contract for both channels).
+A halted chain is indistinguishable from a finished one if nobody is at the terminal, and long silences get resolved by guessing. So a stop that waits on a person gets **one push** to their phone (never one per question: `notify.sh ask --count N` bundles them; `ASK_CONTRACT.md` at the kit root is the contract for both channels).
 
-You have no `Bash`; delegate the push like everything else:
-
-1. **The skill that discovers the stop sends it before returning** — `design-author` on BLOCKED; `scaffold`, `harness-forge`, `plan-lint` on their third failed round. Still say in every dispatch prompt: *"if you end in a state that waits on the user, push once per `ASK_CONTRACT.md` before returning."* A subagent reads the skill, not this file.
-2. **For a stop only you can see** (tier mismatch to confirm, a bailout you are declaring), dispatch a one-shot `general-purpose` agent (`model: haiku` — the wording is already written) to run `~/.claude/scripts/notify.sh ask` — **with the plain-language wording written by you** in the dispatch prompt.
+1. **A dispatched skill that discovers the stop sends it before returning**: `design-author` on BLOCKED; `scaffold`, `harness-forge`, `plan-lint` on their third failed round. Still say in every dispatch prompt: *"if you end in a state that waits on the user, push once with `~/.claude/scripts/notify.sh ask` before returning."* (`notify.sh` refuses a question without the contract's fields, so the subagent does not need to read the contract.) A subagent reads the skill, not this file.
+2. **For a stop you discover yourself** (a tier change to confirm, BLOCKED answers to collect, a bailout you are declaring), run `~/.claude/scripts/notify.sh ask` yourself with Bash, with the plain-language wording you wrote.
 
 **Then still ask in the terminal.** The push is the doorbell; `AskUserQuestion` is where the answer gets captured. Delivery failure exits 0 and never halts the chain.
 
@@ -138,7 +166,7 @@ Step <N>: <skill>. <Why it's next / what's blocking.>
 - Build tier: <tier> (~N stories)
 - Stack: <one line>
 - Check command: `<verbatim>`
-- **Build state file:** `<path harness-forge returned>`   ← record it. You have no Glob, steps 5→8 often span sessions, and you must seed this file at step 8.
+- **Build state file:** `<path harness-forge returned>`   ← record it. Steps 5→8 often span sessions, and you must seed this file at step 8 without searching for it.
 - Harness tier emitted: <tier> · gates: <list> · gates excluded: <list>
 
 ## Steps
