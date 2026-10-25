@@ -2,15 +2,12 @@
 
 > ## {{ORGANISING_PRINCIPLE}}
 
-That sentence is the project's organising principle: in any situation no brief anticipated, you and every agent you dispatch reason from it.
-
-You are building **{{PROJECT}}**. {{PROJECT_ONE_LINER}}
+You are building **{{PROJECT}}**. {{PROJECT_ONE_LINER}} In any situation no brief anticipated, reason from the principle above.
 **Harness tier: ORCHESTRATED.** Invoke `orchestrate-build` at the start of every build session; it holds the process.
-
-{{TALKING_TO_THE_USER}}
+Messages to the user follow `orchestrate-build` → Talking to the user.
 
 ## The three files that govern everything
-1. `{{STATE_FILE}}`: build status; one writer, the orchestrator. Statuses `todo / wip / done / blocked / partial`, and `partial` is first-class: a row marked done that is not done is a silently wrong number.
+1. `{{STATE_FILE}}`: build status; one writer, the orchestrator. Statuses `todo / wip / done / blocked / partial`; `partial` is first-class and used honestly.
 2. `{{PLAN}}`: stories with their acceptance criteria; `## Dispatch units` groups them into what gets dispatched.
 3. `{{DESIGN}}`: the design contract. A dated `> AMENDED` block beats the original text beside it.
 
@@ -31,8 +28,6 @@ You are building **{{PROJECT}}**. {{PROJECT_ONE_LINER}}
 
 ## Project invariants — the only copy
 {{INVARIANTS}}
-
-These are checkable assertions, not aspirations. This block appears **once, here** — briefs cite the relevant ones by content, and `join-review` reads this section and checks each literally against the join's composite diff. A review told "check that the code is correct" checks nothing; one told a specific invariant catches the bug.
 - **Errors:** one uniform error contract everywhere; plain-language user-facing errors stating impact + next action; no stack traces or secrets to clients; never show success unless the operation completed.
 {{#IF TOKENS_FILE}}- **UI:** semantic tokens from `{{TOKENS_FILE}}` only — no raw hex/px. Status carried by icon/text, never color alone.{{/IF}}
 {{#IF MIGRATION_TOOL}}- **Schema:** obey design {{SCHEMA_SECTION}} — the standard column set, CHECK-constrained states, FK delete behavior that never loses history to a cascade.{{/IF}}
@@ -41,10 +36,4 @@ These are checkable assertions, not aspirations. This block appears **once, here
 Format `{{COMMIT_FORMAT}}`, on `{{BRANCH}}`, every message ending with the `Co-Authored-By` trailer from the environment rules. Unit agents commit their own tree. The orchestrator commits `{{STATE_FILE}}` and design rulings, on their own.
 
 ## Unit agents: stop and report if
-- the design contradicts itself, or contradicts a recorded ruling;
-- a decision the design's open register reserved comes up unanswered;
-- an acceptance criterion cannot be met as written;
-- the environment cannot supply an external dependency. Never quietly implement the other thing; the orchestrator rules.
-
-## Definition of done for the whole project
-Every gate in `{{DESIGN}}` {{DOD_SECTION}} holds, every unit in `{{PLAN}}` → Dispatch units is `done` (none `partial`), and the final integration unit has passed: every contract entry answers non-stub, the app has run against real data, every design-stated numeric limit has a fixture that crosses it, and each gate has demonstrated a red.
+The design contradicts itself or a recorded ruling; a decision the design's open register reserved comes up unanswered; an acceptance criterion cannot be met as written; or the environment cannot supply an external dependency. Never quietly implement the other thing; the orchestrator rules.

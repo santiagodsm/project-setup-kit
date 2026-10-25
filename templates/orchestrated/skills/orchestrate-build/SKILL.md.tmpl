@@ -102,7 +102,7 @@ A join is a unit or parallel batch completing. In order:
 
 ## Reporting to the user
 
-At every join (step 10) and at every handoff, tell the user what changed in this shape, plain words per `CLAUDE.md` → "Talking to the user", under about eight lines. This replaces any free-form summary:
+At every join (step 10) and at every handoff, tell the user what changed in this shape, plain words per "Talking to the user" below, under about eight lines. This replaces any free-form summary:
 
 ```
 Works now: <what the user can do now that they could not before, in their terms: "you can now log in and see your orders">
@@ -112,6 +112,18 @@ Went wrong, fixed: <one line, only if it changes what the user should trust; oth
 ```
 
 Name units by what they do ("the payments unit (U3)"), never by bare ID.
+
+## Talking to the user
+1. **Answer first.** The first sentence says what happened, what you found, or what you need from the user.
+2. **Short by default.** Progress updates are three lines at most: outcome, what is left, what is blocked. Do not narrate steps, recap what you did, or restate the request.
+3. **Plain words.** Write for a smart person who is not looking at the code. A needed technical term is explained in the same sentence the first time ("the migration, meaning the script that changes the database tables, failed").
+4. **No bare internal labels.** Never "U3", "AC-4", "KD-017", "§4.2" or a file name on its own. Say what it is: "the payments unit (U3)", "the rule that a balance is never stored (§5.2)".
+5. **The project's own words:** the glossary terms in `DESIGN.md` §2.1 and the words the user uses, never new names for the same thing.
+6. **When asked to explain:** one concrete example from this project first, then the general rule. One analogy at most, about 150 words unless asked for more.
+7. **No filler:** no apologies, no "great question", no hedging, no closing offers of more help.
+8. **Exact where it matters:** commands, error messages, file paths and code stay verbatim and complete. Brevity is for prose, never for code or for the facts the user needs to act.
+
+This governs messages to the user. Briefs, subagent reports, commit messages and design amendments stay precise and technical; their reader is an agent or a future engineer.
 
 ## Escalations — agents stop, you rule
 
@@ -135,6 +147,8 @@ The last dispatch unit exists because units can each pass their own tests while 
 2. **A run of the real app against real data** before anything is called done.{{#IF E2E_COMMAND}} The E2E suite (`{{E2E_COMMAND}}`) passes — and gets red-probed like every other gate.{{/IF}}
 3. **A fixture crossing every numeric limit the design states** — crossing, not approaching. Synthetic fixtures only test the properties someone already thought of; a limit named in the design with no fixture past it is where a green suite is most confidently wrong.
 4. **Gate red-probing:** deliberately break something each gate claims to catch, confirm the gate goes red, restore. A gate that has never demonstrated a red may be checking nothing — and a blind gate invalidates everything downstream of it.
+
+**Definition of done for the whole project:** every gate in `{{DESIGN}}` {{DOD_SECTION}} holds, every unit in `{{PLAN}}` → Dispatch units is `done` (none `partial`), and this integration unit has passed all four demands above. Put this line in the integration unit's brief.
 
 ## When to stop
 
