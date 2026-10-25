@@ -19,7 +19,7 @@ metadata:
 
 # setup-project — walk the chain, in order, once
 
-Kit root: `cat ~/.claude/project-setup-kit.root`; if the file is missing, the root is the directory two levels above this SKILL.md.
+Kit root: run `cat ~/.claude/project-setup-kit.root` once; every kit path in this skill is relative to it. If the file is missing, the root is the directory two levels above this SKILL.md. Never search the disk (`find`, `ls -R`, globbing `~` or `/`) for kit files or for this skill: the skill is already loaded, and the root file is the only lookup.
 
 You take a person from "I have an idea" to "this repo has a design, a plan, and its own build agents." Then you get out of the way. The harness you generate is the project's; the kit is not a runtime dependency.
 

@@ -19,7 +19,7 @@ metadata:
 
 # harness-forge — substitute what exists, author what doesn't
 
-Kit root: `cat ~/.claude/project-setup-kit.root`; if the file is missing, the root is the directory two levels above this SKILL.md.
+Kit root: run `cat ~/.claude/project-setup-kit.root` once; every kit path in this skill is relative to it. If the file is missing, the root is the directory two levels above this SKILL.md. Never search the disk (`find`, `ls -R`, globbing `~` or `/`) for kit files or for this skill: the skill is already loaded, and the root file is the only lookup.
 
 You are producing a **multi-agent system made of prose files**. Nothing type-checks it. A skill can demand a tool it was never granted, write a file nobody reads, or contradict `CLAUDE.md` outright, and **it will all look fine until the build silently stops verifying itself.**
 

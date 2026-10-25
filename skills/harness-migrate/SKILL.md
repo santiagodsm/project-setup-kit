@@ -19,7 +19,7 @@ metadata:
 
 # harness-migrate — convert a live harness without lying about its state
 
-Kit root: `cat ~/.claude/project-setup-kit.root`; if the file is missing, the root is the directory two levels above this SKILL.md.
+Kit root: run `cat ~/.claude/project-setup-kit.root` once; every kit path in this skill is relative to it. If the file is missing, the root is the directory two levels above this SKILL.md. Never search the disk (`find`, `ls -R`, globbing `~` or `/`) for kit files or for this skill: the skill is already loaded, and the root file is the only lookup.
 
 A project mid-build cannot be re-forged. `harness-forge` assumes a **virgin repo**: it stubs the state file empty and awaits a plan. A project with done stories, half-done stories, deviation ledgers, and design amendments has state that must **survive** the conversion — silently resetting it destroys the only record of what is true.
 

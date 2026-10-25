@@ -20,7 +20,7 @@ metadata:
 
 # design-author — write the contract, not an essay
 
-Kit root: `cat ~/.claude/project-setup-kit.root`; if the file is missing, the root is the directory two levels above this SKILL.md.
+Kit root: run `cat ~/.claude/project-setup-kit.root` once; every kit path in this skill is relative to it. If the file is missing, the root is the directory two levels above this SKILL.md. Never search the disk (`find`, `ls -R`, globbing `~` or `/`) for kit files or for this skill: the skill is already loaded, and the root file is the only lookup.
 
 `DESIGN.md` is not documentation. It is the **contract every later agent reads and cites.** A scoper quotes §3.2 to an engineer who builds from that quote without ever opening the design. A reviewer gates the result against it. A backlog author derives acceptance criteria from it.
 
