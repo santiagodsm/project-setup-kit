@@ -271,6 +271,19 @@ Setup is done when 7 and 8 are clean. Then: run the generated harness.
 
 Notes and superseded text removed from the decisions above when they were rewritten to one current reading (kit v0.6.0, 2026-10-24). Kept verbatim: they are the record of why each decision reads the way it does.
 
+### v0.7.0 (2026-10-25): what changed and why
+
+From the v0.6.1 audit (`AUDIT_V0.7.md`), which ran the whole chain on a test project and measured 133 minutes and about $71 for setup, and one hour of build time that produced nothing in git.
+
+- **The interview runs in the main session** (KD-014 rewritten). Subagents cannot ask the user, so `project-brief`, `stack-decide` and the ask pass of `design-author` now run where the user is. Everything else stays dispatched, for context flatness. Owner mode (`OWNER_BRIEF.md`) is written down.
+- **The kit root is a file** (`~/.claude/project-setup-kit.root`, written by the SessionStart hook), so no skill searches the disk. The eight message rules live one line each in `setup-project`; no step re-reads `COMMUNICATION.md`.
+- **`scripts/forge.sh` generates the harness** from `HARNESS_VALUES.json` with no model in the loop. The doctor runs once after forge, BLOCKER means "breaks a build", and check-command runs are capped (scaffold two, forge one). `DEFERRED` and the `dependency-security-audit` gate are gone; the join runs the stack's audit command in one Bash call when the lockfile changed.
+- **The orchestrator survives compaction and new sessions.** It reads the design's core at session start and each brief's cited sections just in time; generated `CLAUDE.md` has a Compact Instructions section; `wip` rows record dispatch time and task ID.
+- **The generated `CLAUDE.md` holds only what every agent needs**, at most 50 lines. "Talking to the user" and the project definition of done moved into the tier skill (KD-021, KD-022).
+- **Parallel units get worktrees** (KD-023) and the pre-commit type check is allowed back at orchestrated tier.
+- **A lone unit is dispatched synchronously; a group is collected before the turn ends** (KD-017 amended), with a 10-minute liveness rule and a commit after every green story.
+- **No resident doctor at orchestrated tier**; every skill description is one sentence under 200 characters.
+
 ### KD-002 as of v0.5.0, with its AMENDED 2026-07-23 note
 
 **KD-002 — Tiered harness output.** *(AMENDED 2026-07-23 — see KD-019 and `HARNESS-REDESIGN.md`.)*
