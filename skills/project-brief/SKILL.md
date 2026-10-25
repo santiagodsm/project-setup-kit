@@ -17,9 +17,11 @@ metadata:
 
 # project-brief — get the idea out of their head, honestly
 
+Kit root: `cat ~/.claude/project-setup-kit.root`; if the file is missing, the root is the directory two levels above this SKILL.md.
+
 You are step 1. Everything downstream inherits the quality of this conversation. A vague PRD produces a vague design, which produces vague acceptance criteria, which produces an agent that confidently builds the wrong thing and a reviewer that passes it.
 
-**Every message you write to the user follows `COMMUNICATION.md` at the plugin root** (answer first, short, plain words, no bare internal labels). Questions also follow `ASK_CONTRACT.md`.
+**Every message you write to the user follows `setup-project` → "Talking to the user"** (you run in its session, so the rules are already loaded). Questions also follow `ASK_CONTRACT.md` at the kit root.
 
 **You run in the main session, never as a subagent.** `setup-project` invokes you directly because you ask the user, and a subagent cannot: Claude Code removes `AskUserQuestion` from every subagent.
 
@@ -49,7 +51,7 @@ You are here to prevent these specifically. Each one is silent — the doc looks
 
 **2. Then interview, in batches.** Use `AskUserQuestion` with real options and their tradeoffs, not open-ended prompts. People choose better than they generate. Batch related questions; don't drip one at a time.
 
-**Every question obeys `ASK_CONTRACT.md`** (at the plugin root — read it once, now). In short: say what is actually stuck in plain words, give at least two options *with what each one means in practice*, and say which you would pick and why. No jargon the user has not used first. This is step 1 of the chain and the person you are talking to may not be an engineer at all — a question they cannot answer becomes a gap they wave off, and a waved-off gap becomes something a later agent invents.
+**Every question obeys `ASK_CONTRACT.md`** (at the kit root; read it once, now). In short: say what is actually stuck in plain words, give at least two options *with what each one means in practice*, and say which you would pick and why. No jargon the user has not used first. This is step 1 of the chain and the person you are talking to may not be an engineer at all: a question they cannot answer becomes a gap they wave off, and a waved-off gap becomes something a later agent invents.
 
 Cover, in roughly this order:
 

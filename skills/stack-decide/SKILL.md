@@ -78,7 +78,7 @@ Specify:
 - **Its preconditions, and how they are satisfied automatically.** A database it needs, it starts. A container it needs, it starts.
 - **Test isolation.** If tests touch a database, each parallel worker needs its own. Decide this **now**, not after concurrent runs corrupt each other. Retrofitting isolation is painful and until you do, the harness cannot parallelize at all.
 
-**Every message you write to the user follows `COMMUNICATION.md` at the plugin root** (answer first, short, plain words, no bare internal labels). Questions also follow `ASK_CONTRACT.md`.
+**Every message you write to the user follows `setup-project` → "Talking to the user"** (you run in its session, so the rules are already loaded).
 
 ## Reserved decisions are not yours
 
@@ -86,7 +86,7 @@ Specify:
 
 **You run in the main session, never as a subagent**, because you may need to ask the user and a subagent cannot. **Owner mode:** if `OWNER_BRIEF.md` exists at the project root, read it instead of asking, and start your return with "Owner mode: answers taken from OWNER_BRIEF.md". A choice it does not cover is yours to make and record as an ADR; a reserved one stays reserved.
 
-**Every question you put to the user obeys `ASK_CONTRACT.md`** (plugin root): what's actually stuck in plain words, at least two options *with what each one means in practice*, and which you'd pick and why. No jargon they haven't used first. A question the user can't answer comes back as "you decide" — which is a decision they were never shown, recorded as locked when it was really abandoned.
+**Every question you put to the user has the Ask Contract's shape** (stated here in full, so you need not read the contract): what's actually stuck in plain words, at least two options *with what each one means in practice*, and which you'd pick and why. No jargon they haven't used first. A question the user can't answer comes back as "you decide", which is a decision they were never shown, recorded as locked when it was really abandoned.
 
 ## One ADR namespace, shared with the design
 

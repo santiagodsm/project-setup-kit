@@ -3,7 +3,7 @@
 **The one canonical text for how every agent in this kit, and every harness it generates, writes to the user.** Decision and rationale: `KIT_DESIGN.md` KD-022.
 
 - `harness-forge` copies the block between the markers below, verbatim, into the "Talking to the user" section of every generated `CLAUDE.md` (placeholder `{{TALKING_TO_THE_USER}}`).
-- The kit's own setup chain (`setup-project`, `project-brief`, `stack-decide`, `design-author`) and `ASK_CONTRACT.md` point here instead of restating it. One owner per rule (KD-021): edit the rules here and nowhere else.
+- The kit's own setup chain carries these rules as a one-line-each summary in `skills/setup-project/SKILL.md` under "Talking to the user", so no step re-reads this file. Edit a rule here first, then that summary. `ASK_CONTRACT.md` points here as the general rule.
 - `ASK_CONTRACT.md` adds the fixed shape for questions. These rules are the general case it sits inside.
 
 <!-- BEGIN TALKING-TO-THE-USER -->

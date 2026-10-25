@@ -13,11 +13,13 @@ allowed-tools:
   - ToolSearch
 metadata:
   role: generator
-  reads: [templates/**, COMMUNICATION.md (the Talking-to-the-user block), STACK.md (gate manifest + check command), DESIGN.md, PRD.md (TIER marker + organising-principle sources), PLAN.md (if it exists — dispatch-unit count only), the scaffolded repo]
-  writes: [target repo CLAUDE.md, .claude/skills/**, .claude/scripts/notify.sh + .claude/ASK_CONTRACT.md (copied verbatim from the plugin root), .claude/settings.json, .claude/hooks/** (guard-writes.sh, guard-bash.sh, format.sh), .githooks/**, the build state file (stub), .gitignore (reviews dir, .env), STACK.md (resolves DEFERRED manifest rows ONLY)]
+  reads: [<kit root>/templates/**, the kit's Talking-to-the-user block, STACK.md (gate manifest + check command), DESIGN.md, PRD.md (TIER marker + organising-principle sources), PLAN.md (if it exists; dispatch-unit count only), the scaffolded repo]
+  writes: [target repo CLAUDE.md, .claude/skills/**, .claude/scripts/notify.sh + .claude/ASK_CONTRACT.md (copied verbatim from the kit root), .claude/settings.json, .claude/hooks/** (guard-writes.sh, guard-bash.sh, format.sh), .githooks/**, the build state file (stub), .gitignore (reviews dir, .env), STACK.md (resolves DEFERRED manifest rows ONLY)]
 ---
 
 # harness-forge — substitute what exists, author what doesn't
+
+Kit root: `cat ~/.claude/project-setup-kit.root`; if the file is missing, the root is the directory two levels above this SKILL.md.
 
 You are producing a **multi-agent system made of prose files**. Nothing type-checks it. A skill can demand a tool it was never granted, write a file nobody reads, or contradict `CLAUDE.md` outright, and **it will all look fine until the build silently stops verifying itself.**
 
@@ -35,7 +37,7 @@ Those contracts are expensive to derive and easy to get subtly wrong. **Do not r
 
 ## Procedure
 
-1. **Read `templates/PLACEHOLDERS.md`.** It is the resolution contract.
+1. **Read `<kit root>/templates/PLACEHOLDERS.md`.** It is the resolution contract. Every `templates/` path below is under the kit root.
 2. **Read the tier** from `PRD.md`'s `<!-- TIER -->` marker. Not the prose. The marker. It is `small` or `orchestrated` — nothing else. If you find `standard` or `full`, stop: the marker predates the two-tier model and `setup-project` must re-tier before you run.
 3. **Read the gate manifest** in `STACK.md`.
 4. **Resolve the `DEFERRED` rows.** `stack-decide` ran before `DESIGN.md` existed and could not decide `perf-profiling`. You can: **§8 has numeric targets → yes; none → no.** **Write your answer back into `STACK.md`'s manifest table.** A `DEFERRED` row must not survive — `harness-doctor` cannot classify one, and the fidelity check then silently passes on a gate nobody ever decided.
@@ -46,7 +48,7 @@ Those contracts are expensive to derive and easy to get subtly wrong. **Do not r
 
    There is no `inline` value anymore — there is no story-reviewer to fold a check into. Migration, token, and contract-drift checks live in unit briefs and in `join-review`, which the tier templates already carry. The **tier-core skills** — `orchestrate-build`, `join-review`, `harness-doctor` for orchestrated; `build-loop` for small — live in `templates/<tier>/skills/`, not `templates/gates/`, and step 5 already copied them. Do not look for them in `gates/` and do not author duplicates at step 7.
 7. **Author any gate the stack needs that no template covers.** Same contracts. Note it in your return so the template library can absorb it later.
-8. **Resolve every placeholder.** After resolving `{{#IF}}` blocks, renumber any numbered list a removed block left with a gap, and collapse runs of blank lines. Confirm every path with `ls` before writing it. `{{STATE_FILE}}` resolves to `PROGRESS.md` at the repo root for the orchestrated tier. `{{ORGANISING_PRINCIPLE}}` has its own section below — resolve it deliberately, not as a string swap. `{{TALKING_TO_THE_USER}}` is the block between the markers in the plugin root's `COMMUNICATION.md`, copied verbatim: it is the user's rule for how every agent talks to them, and it has one owner.
+8. **Resolve every placeholder.** After resolving `{{#IF}}` blocks, renumber any numbered list a removed block left with a gap, and collapse runs of blank lines. Confirm every path with `ls` before writing it. `{{STATE_FILE}}` resolves to `PROGRESS.md` at the repo root for the orchestrated tier. `{{ORGANISING_PRINCIPLE}}` has its own section below; resolve it deliberately, not as a string swap. `{{TALKING_TO_THE_USER}}` is the block between the `BEGIN TALKING-TO-THE-USER` and `END TALKING-TO-THE-USER` markers in the kit root's communication rules (`grep -l 'BEGIN TALKING-TO-THE-USER' "$KIT"/*.md` finds the file), copied verbatim: it is the user's rule for how every agent talks to them, and it has one owner.
 9. **Stub the state file.** `PLAN.md` and its `## Dispatch units` section don't exist yet (step 6). Emit every required section — including the five statuses `todo / wip / done / blocked / partial` — with `NEXT ACTION: awaiting PLAN.md`. **Do not invent a first unit** — an orchestrator booting at a fabricated unit is worse than one booting at nothing.
 10. **Gitignore** `{{REVIEWS_DIR}}` (join-review and doctor reports), `HARNESS_DOCTOR.md`, `PLAN_LINT.md`, and `.env` / `*.env` (with `!*.env.example`). You chose the reviews path; `scaffold` was explicitly forbidden from guessing it. The `.env` rules are belt-and-braces — the real credentials live outside every repo — but a project that later adds a local override must not have to remember this. **Then emit the notification channel — see below. No tier skips it.**
 11. **Emit enforcement.** See "Emit enforcement" below. No tier skips it.
@@ -88,9 +90,9 @@ Read `scaffold`'s returned **test-isolation strategy** — it is required to hav
 
 The harness you are generating will, on some Tuesday, hit a blocker at 2am with nobody watching. **A build that stops silently is a build that has stopped forever**, and the way that resolves is a human eventually telling an agent to "just carry on" — past the exact gate that fired correctly.
 
-So every harness ships with a way to reach its owner. Two files, copied verbatim from the plugin root — **do not rewrite either one**:
+So every harness ships with a way to reach its owner. Two files, copied verbatim from the kit root. **Do not rewrite either one**:
 
-| From (plugin root) | To (target repo) |
+| From (kit root) | To (target repo) |
 |---|---|
 | `scripts/notify.sh` | `.claude/scripts/notify.sh` — **`chmod +x` it** |
 | `ASK_CONTRACT.md` | `.claude/ASK_CONTRACT.md` |

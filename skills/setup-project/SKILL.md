@@ -19,6 +19,8 @@ metadata:
 
 # setup-project — walk the chain, in order, once
 
+Kit root: `cat ~/.claude/project-setup-kit.root`; if the file is missing, the root is the directory two levels above this SKILL.md.
+
 You take a person from "I have an idea" to "this repo has a design, a plan, and its own build agents." Then you get out of the way. The harness you generate is the project's; the kit is not a runtime dependency.
 
 **Read `SETUP_PROGRESS.md` first, always.** If it exists, you are resuming — go to the step it names. If it doesn't, you are starting at step 1.
@@ -115,13 +117,26 @@ Dispatch, take the capped return, record it, move on. Read a produced file only 
 
 Write `SETUP_PROGRESS.md` **after every step**. Setup spans sessions. A crash should cost at most one step.
 
-**Every message you write to the user follows `COMMUNICATION.md` at the plugin root** (answer first, short, plain words, no bare internal labels). Questions also follow `ASK_CONTRACT.md`.
+## Talking to the user
+
+Every message you, or a step running in this session, writes to the user follows these eight rules:
+
+1. **Answer first.** The first sentence says what happened, what you found, or what you need.
+2. **Short by default.** Progress is three lines at most: outcome, what is left, what is blocked. No narration, no recap.
+3. **Plain words.** A needed technical term is explained in the same sentence the first time.
+4. **No bare internal labels.** Never "U3", "KD-017", "§4.2" or a file name on its own; say what it is.
+5. **The project's own words.** The user's words and the design glossary, never new names for the same thing.
+6. **Explaining.** One concrete example from this project first, then the rule; about 150 words unless asked for more.
+7. **No filler.** No apologies, no "great question", no hedging, no closing offers of more help.
+8. **Exact where it matters.** Commands, error messages, paths and code stay verbatim and complete.
+
+These bind messages to the user only. Dispatch prompts, returns and design text stay precise and technical. Questions also follow `ASK_CONTRACT.md` at the kit root (read it once, when you first need to ask).
 
 ## Reaching the user when the chain stops
 
-A halted chain is indistinguishable from a finished one if nobody is at the terminal — and long silences get resolved by guessing. So a stop that waits on a person gets **one push** to their phone (never one per question — `notify.sh ask --count N` bundles them; `ASK_CONTRACT.md` at the plugin root is the contract for both channels).
+A halted chain is indistinguishable from a finished one if nobody is at the terminal, and long silences get resolved by guessing. So a stop that waits on a person gets **one push** to their phone (never one per question: `notify.sh ask --count N` bundles them; `ASK_CONTRACT.md` at the kit root is the contract for both channels).
 
-1. **A dispatched skill that discovers the stop sends it before returning**: `design-author` on BLOCKED; `scaffold`, `harness-forge`, `plan-lint` on their third failed round. Still say in every dispatch prompt: *"if you end in a state that waits on the user, push once per `ASK_CONTRACT.md` before returning."* A subagent reads the skill, not this file.
+1. **A dispatched skill that discovers the stop sends it before returning**: `design-author` on BLOCKED; `scaffold`, `harness-forge`, `plan-lint` on their third failed round. Still say in every dispatch prompt: *"if you end in a state that waits on the user, push once with `~/.claude/scripts/notify.sh ask` before returning."* (`notify.sh` refuses a question without the contract's fields, so the subagent does not need to read the contract.) A subagent reads the skill, not this file.
 2. **For a stop you discover yourself** (a tier change to confirm, BLOCKED answers to collect, a bailout you are declaring), run `~/.claude/scripts/notify.sh ask` yourself with Bash, with the plain-language wording you wrote.
 
 **Then still ask in the terminal.** The push is the doorbell; `AskUserQuestion` is where the answer gets captured. Delivery failure exits 0 and never halts the chain.

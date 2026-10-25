@@ -96,7 +96,7 @@ They live in `~/.claude/`, outside every repo — one copy serves the kit and ev
 
 **The hook ships with the plugin** (`hooks/hooks.json`), so there is nothing to paste into `settings.json` and nothing to keep up to date. It pushes **only when Claude has a question or is waiting for your input**, at silent priority — permission prompts and every other notification are dropped (they fire constantly in supervised sessions, across every project on the machine), and repeats within 5 minutes are deduped per project.
 
-A second hook keeps `~/.claude/scripts/notify.sh` in step with the installed plugin on every session start. That path exists because `${CLAUDE_PLUGIN_ROOT}` is set for hooks and commands but **not** for a skill's or subagent's Bash — so the skills call a stable path, and the sync hook is what stops it drifting a version behind. Both copies update together; neither is yours to maintain.
+A second hook keeps `~/.claude/scripts/notify.sh` in step with the installed plugin on every session start. That path exists because `${CLAUDE_PLUGIN_ROOT}` is set for hooks and commands but **not** for a skill's or subagent's Bash, so the skills call a stable path, and the sync hook is what stops it drifting a version behind. The same hook writes the plugin's location to `~/.claude/project-setup-kit.root`, so a skill finds the kit's own files with one `cat` instead of searching the disk. Both copies update together; neither is yours to maintain.
 
 Generated projects get their own `.claude/scripts/notify.sh` for the loud channel, and **deliberately no hook** — a per-project hook would fire on top of the plugin's, and a channel that buzzes twice for nothing gets muted before the one time it mattered.
 

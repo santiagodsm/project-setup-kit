@@ -19,6 +19,8 @@ metadata:
 
 # harness-migrate — convert a live harness without lying about its state
 
+Kit root: `cat ~/.claude/project-setup-kit.root`; if the file is missing, the root is the directory two levels above this SKILL.md.
+
 A project mid-build cannot be re-forged. `harness-forge` assumes a **virgin repo**: it stubs the state file empty and awaits a plan. A project with done stories, half-done stories, deviation ledgers, and design amendments has state that must **survive** the conversion — silently resetting it destroys the only record of what is true.
 
 So you do what forge does — emit the orchestrated file set, resolved per `templates/PLACEHOLDERS.md` — **but you seed the state file from the old state instead of stubbing it.** That is the entire difference, and it is why this skill exists. Do not dispatch `harness-forge` and patch afterwards; a stub that briefly replaces real state is a window in which a resumed build starts from a lie.
@@ -53,7 +55,7 @@ Then **archive the old state file(s) under `docs/_archive/`** — never leave th
 **Keep** (this is the project speaking, and it moves into the new harness):
 - The **organising principle**, if the old `CLAUDE.md` has one load-bearing sentence at its head. If it does not, resolve one the way `harness-forge` does — from `PRD.md`'s What/Why and `DESIGN.md`'s invariants — and if nothing concrete supports one, emit a placeholder-free generic line and flag the gap in your report. Do not invent.
 - The **invariant list — once, in `CLAUDE.md` only.** Old tiers restated it in multiple files; the restatements are deleted with the files that held them.
-- **Stack-conditional gates that match `STACK.md`**, and `ASK_CONTRACT.md` + `notify.sh` (re-copy from the plugin root and `chmod +x` if the old ones were modified — they are copied verbatim, always).
+- **Stack-conditional gates that match `STACK.md`**, and `ASK_CONTRACT.md` + `notify.sh` (re-copy from the kit root and `chmod +x` if the old ones were modified; they are copied verbatim, always).
 - **Author-added gates**, re-wired as join-point tools the orchestrator invokes via `Skill` — never as per-story obligations. They were added because somebody found a real hole; the redesign changes *when* they run, not *whether*.
 
 **Delete** (this is the retired machinery):

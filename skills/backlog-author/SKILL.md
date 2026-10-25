@@ -16,6 +16,8 @@ metadata:
 
 # backlog-author — the plan is a contract, not a wish list
 
+Kit root: `cat ~/.claude/project-setup-kit.root`; if the file is missing, the root is the directory two levels above this SKILL.md.
+
 ## FIX mode (check this first)
 
 If `PLAN.md` already exists and you were dispatched with `plan-lint` findings, you are in **FIX mode**. Read **`PLAN_LINT.md`** and fix the numbered findings **in place**.
@@ -48,7 +50,7 @@ This is not bureaucracy, and do not be helpful about it. `design-author` deliber
 
 A blocked chain that asks one question is working correctly.
 
-**You are dispatched as a subagent and cannot ask the user.** A question you need answered goes in your return; `setup-project` asks it. **Every such question obeys `ASK_CONTRACT.md`** (plugin root): what's actually stuck in plain words, at least two options *with what each one means in practice*, and which you'd pick and why. No jargon they haven't used first. A question the user can't answer comes back as "you decide", which is a decision they were never shown, recorded as locked when it was really abandoned.
+**You are dispatched as a subagent and cannot ask the user.** A question you need answered goes in your return; `setup-project` asks it. **Every such question obeys `ASK_CONTRACT.md`** (kit root): what's actually stuck in plain words, at least two options *with what each one means in practice*, and which you'd pick and why. No jargon they haven't used first. A question the user can't answer comes back as "you decide", which is a decision they were never shown, recorded as locked when it was really abandoned.
 
 ## The unit of work
 

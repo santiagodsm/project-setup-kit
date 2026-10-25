@@ -20,9 +20,11 @@ metadata:
 
 # design-author — write the contract, not an essay
 
+Kit root: `cat ~/.claude/project-setup-kit.root`; if the file is missing, the root is the directory two levels above this SKILL.md.
+
 `DESIGN.md` is not documentation. It is the **contract every later agent reads and cites.** A scoper quotes §3.2 to an engineer who builds from that quote without ever opening the design. A reviewer gates the result against it. A backlog author derives acceptance criteria from it.
 
-**Every message you write to the user follows `COMMUNICATION.md` at the plugin root** (answer first, short, plain words, no bare internal labels). Questions also follow `ASK_CONTRACT.md`.
+**Every message you write to the user follows `setup-project` → "Talking to the user"** (the ask pass runs in its session, so the rules are already loaded). Questions also follow `ASK_CONTRACT.md` at the kit root.
 
 So the bar is not "is this a good design doc." The bar is:
 
@@ -259,9 +261,9 @@ A blocked chain waits on a human; if nobody is at the terminal it waits indefini
   --blocks "<what stays stopped — sections and story count>"
 ```
 
-If exactly **one** question blocks, send the four-field form instead (`--what/--option/--option/--recommend`) so it is answerable from the lock screen. Either way, obey `ASK_CONTRACT.md` (plugin root): the `--what` lines are the *situation* in a non-engineer's words — translate the §11 register entries, do not paste them. The full options + recommendations live in your return and `OPEN_QUESTIONS.md`.
+If exactly **one** question blocks, send the four-field form instead (`--what/--option/--option/--recommend`) so it is answerable from the lock screen. Either way, obey `ASK_CONTRACT.md` (kit root): the `--what` lines are the *situation* in a non-engineer's words; translate the §11 register entries, do not paste them. The full options + recommendations live in your return and `OPEN_QUESTIONS.md`.
 
-If `~/.claude/scripts/notify.sh` is missing, use `scripts/notify.sh` at the plugin root; if neither exists, note it once and carry on. Delivery failure exits 0 — never a reason to stop.
+If `~/.claude/scripts/notify.sh` is missing, use `scripts/notify.sh` at the kit root; if neither exists, note it once and carry on. Delivery failure exits 0, never a reason to stop.
 
 ## AMEND mode — closing the gate
 
