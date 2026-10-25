@@ -19,6 +19,7 @@ Every `{{VAR}}` in `templates/**`. `harness-forge` writes their values into `HAR
 | `{{AFFECTED_TEST_COMMAND}}` | `STACK.md` | `pytest {paths}` |
 | `{{LINT_COMMAND}}` | `STACK.md` | `ruff check {files}` |
 | `{{TYPECHECK_COMMAND}}` | `STACK.md` | `pyright` |
+| `{{INSTALL_COMMAND}}` | `STACK.md` (the dependency install from the lockfile; forge derives it from the lockfile when `STACK.md` names none). Orchestrated only: a unit in its own worktree runs it first (KD-023). | `npm ci`, `uv sync --frozen` |
 | `{{FORMAT_COMMAND}}` | `STACK.md` → "Format command". **May be empty**: then forge emits no `format.sh` and no PostToolUse entry. Both tiers. | `npx prettier --write`: formats the one file given as its last argument |
 | `{{LINT_STAGED_COMMAND}}` | forge, from `{{LINT_COMMAND}}` with the `{files}` token removed (the hook appends the staged files). **Empty when the lint command cannot take a file list**: then the pre-commit hook does not lint. Both tiers. | `ruff check` |
 | `{{SOURCE_EXTENSIONS}}` | forge, from the stack's languages. Space separated, no dots. Used by `format.sh` and the pre-commit lint filter. | `ts tsx js` |
@@ -102,7 +103,7 @@ Set by `harness-forge` from `STACK.md`'s gate manifest. **A flag set without its
 | `{{#IF ORCHESTRATED}}` | **set by `forge.sh`**: the tier is `orchestrated`. Used only in `templates/enforcement/` (the state-file guards), which both tiers share |
 | `{{#IF FORMAT_COMMAND}}` | `{{FORMAT_COMMAND}}` is non-empty |
 | `{{#IF LINT_STAGED_COMMAND}}` | `{{LINT_STAGED_COMMAND}}` is non-empty |
-| `{{#IF PRECOMMIT_TYPECHECK}}` | **small tier only**, and forge measured lint plus `{{TYPECHECK_COMMAND}}` on the scaffolded repo at under 15 seconds (KD-020). Never at orchestrated: typecheck covers the whole project, and parallel unit agents share one working tree, so one unit's half-written code would reject another unit's commit |
+| `{{#IF PRECOMMIT_TYPECHECK}}` | both tiers, when forge measured lint plus `{{TYPECHECK_COMMAND}}` on the scaffolded repo at under 15 seconds (KD-020). At orchestrated each parallel unit runs in its own worktree (KD-023), so one unit's half-written code never reaches another unit's type check |
 
 ---
 
