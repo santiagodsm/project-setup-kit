@@ -25,7 +25,7 @@ Dispatch **U<N>** (<title>) — brief per the 7-part skeleton in `orchestrate-bu
 
 - **Git:** remote `origin` = <url>; branch `{{BRANCH}}`. Unit agents commit their own tree ({{COMMIT_FORMAT}} + trailer); the orchestrator commits this file and design rulings.
 - **Walking skeleton (U0):** run it with `<command>`, expect `<what a healthy run shows>`. **Re-verify at every join** — it is the continuously-running integration check.
-- **Parallelism:** cap {{MAX_PARALLEL}}, file-tree disjointness only, `run_in_background: true`. {{DB_PARALLEL_RULE}}
+- **Parallelism:** cap {{MAX_PARALLEL}}, file-tree disjointness only; a lone unit is dispatched synchronously, a group in the background (each in its own worktree) and collected before the orchestrator's turn ends. {{DB_PARALLEL_RULE}}
 - **Joins:** the procedure and its order live in `orchestrate-build` → The join. Do not restate them here (KD-021).
 - **Env facts (do not re-discover):** <toolchain versions, ports, network availability>.
 - **Repo-side TODOs (user-only):** <credentials, CI, branch protection — anything unreachable from here>.
