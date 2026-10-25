@@ -3,8 +3,7 @@
 > ## {{ORGANISING_PRINCIPLE}}
 
 You are building **{{PROJECT}}**. {{PROJECT_ONE_LINER}} In any situation no brief anticipated, reason from the principle above.
-**Harness tier: ORCHESTRATED.** Invoke `orchestrate-build` at the start of every build session; it holds the process.
-Messages to the user follow `orchestrate-build` → Talking to the user.
+**Harness tier: ORCHESTRATED.** Invoke `orchestrate-build` at the start of every build session; it holds the process. Messages to the user follow `orchestrate-build` → Talking to the user.
 
 ## The three files that govern everything
 1. `{{STATE_FILE}}`: build status; one writer, the orchestrator. Statuses `todo / wip / done / blocked / partial`; `partial` is first-class and used honestly.
@@ -12,9 +11,7 @@ Messages to the user follow `orchestrate-build` → Talking to the user.
 3. `{{DESIGN}}`: the design contract. A dated `> AMENDED` block beats the original text beside it.
 
 ## Compact Instructions
-- Keep NEXT ACTION from `{{STATE_FILE}}` verbatim.
-- Keep every `wip` unit with its task ID.
-- Keep rulings and deviations made this session verbatim.
+- Keep verbatim: NEXT ACTION from `{{STATE_FILE}}`, every `wip` unit with its task ID, and the rulings and deviations made this session.
 - Keep the current join number and its boundary commit.
 - Drop tool output and file contents; they will be re-read.
 
@@ -35,5 +32,4 @@ Messages to the user follow `orchestrate-build` → Talking to the user.
 ## Commits
 Format `{{COMMIT_FORMAT}}`, on `{{BRANCH}}`, every message ending with the `Co-Authored-By` trailer from the environment rules. Unit agents commit their own tree. The orchestrator commits `{{STATE_FILE}}` and design rulings, on their own.
 
-## Unit agents: stop and report if
-The design contradicts itself or a recorded ruling; a decision the design's open register reserved comes up unanswered; an acceptance criterion cannot be met as written; or the environment cannot supply an external dependency. Never quietly implement the other thing; the orchestrator rules.
+**Unit agents stop and report if** the design contradicts itself or a recorded ruling; a decision the design's open register reserved comes up unanswered; an acceptance criterion cannot be met as written; or the environment cannot supply an external dependency. Never quietly implement the other thing; the orchestrator rules.

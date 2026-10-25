@@ -38,8 +38,9 @@
   "DB_CONTAINER": "in-memory SQLite (no container)",
   "DB_ISOLATION": "an in-memory SQLite per Vitest file (`new DatabaseSync(':memory:')`, migrated on open) and a fresh temp-file database for the single Playwright server on port 4748",
   "DB_PARALLEL_RULE": "Satisfied structurally: {{DB_ISOLATION}} gives every worker its own database, so concurrent suites cannot see each other. Nothing to check per story.",
-  "PRECOMMIT_TYPECHECK": false,
+  "PRECOMMIT_TYPECHECK": true,
   "gates": [
     "db-migration-review"
-  ]
+  ],
+  "INSTALL_COMMAND": "npm ci"
 }

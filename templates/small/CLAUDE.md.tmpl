@@ -1,8 +1,7 @@
 # CLAUDE.md — {{PROJECT}} operating manual
 
 You are building **{{PROJECT}}**. {{PROJECT_ONE_LINER}}
-**Harness tier: SMALL.** Invoke `build-loop` at the start of every build session; it holds the process. You scope, build and review your own work, one story at a time.
-Messages to the user follow `build-loop` → Talking to the user.
+**Harness tier: SMALL.** Invoke `build-loop` at the start of every build session; it holds the process. You scope, build and review your own work, one story at a time. Messages to the user follow `build-loop` → Talking to the user.
 
 ## The three files that govern everything
 1. `{{STATE_FILE}}`: build status and the exact next story. Its `Decisions & deviations` lines beat the design text.
@@ -10,17 +9,14 @@ Messages to the user follow `build-loop` → Talking to the user.
 3. `{{DESIGN}}`: the design contract: locked decisions, the open register of what is deliberately unspecified, and the {{GLOSSARY_SECTION}} glossary.
 
 ## Compact Instructions
-- Keep NEXT ACTION from `{{STATE_FILE}}` verbatim.
-- Keep the `in_progress` story with its ID and whether its work is committed.
-- Keep decisions and deviations made this session verbatim.
+- Keep verbatim: NEXT ACTION from `{{STATE_FILE}}`, the `in_progress` story with its ID and whether its work is committed, and the decisions and deviations made this session.
 - Keep the hash of the last story commit.
 - Drop tool output and file contents; they will be re-read.
 
 ## What this tier gave up
 - **No independent reviewer.** You judge your own work, so every acceptance criterion gets a cited `file:line` and a test.
 - **Nothing folds deviations back into `{{DESIGN}}`.** The deviation ledger in `{{STATE_FILE}}` is the only record; never delete a line.
-
-**Upgrade trigger:** past ~15 stories, the first time you want a gate, or once the ledger has outgrown your trust in the design, say so and recommend regenerating the harness at `orchestrated`. Never hand-bolt a gate onto this one.
+- **Upgrade trigger:** past ~15 stories, the first time you want a gate, or once the ledger has outgrown your trust in the design, say so and recommend regenerating the harness at `orchestrated`. Never hand-bolt a gate onto this one.
 
 ## Pinned stack (do not substitute)
 {{STACK_SUMMARY}} · tests: {{TEST_FRAMEWORK}}{{#IF MIGRATION_TOOL}} · migrations: {{MIGRATION_TOOL}} in `{{MIGRATION_DIR}}`{{/IF}}. Code: {{PROJECT_STRUCTURE}}. Adding anything outside this list needs a recorded decision in `{{STATE_FILE}}`.
