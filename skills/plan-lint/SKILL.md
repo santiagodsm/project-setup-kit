@@ -8,6 +8,9 @@ allowed-tools:
   - Glob
   - Bash
   - Write
+disallowed-tools:
+  - Edit
+  - NotebookEdit
 metadata:
   role: reviewer
   reads: [PLAN.md, DESIGN.md, PRD.md (the TIER marker), OPEN_QUESTIONS.md, STACK.md]

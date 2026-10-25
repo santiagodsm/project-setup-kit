@@ -129,8 +129,8 @@ Every rule above is prose, and prose fails silently. A few rules are load-bearin
 
 Generated harnesses break in exactly these five places.
 
-**1. Tool grants.** Every skill's `allowed-tools` covers what its procedure demands — a skill's grant **intersects down** once loaded, so a gate that writes a report needs `Write`, and one that invokes another skill needs `Skill`.
-→ **The generated orchestrator has FULL tools — including `Bash`, `Grep`, `Glob`, `Skill` — BY DESIGN.** This is a deliberate reversal of the old rule: the orchestrator reads the whole design contract itself, runs the check at joins, and rules on escalations, and it can do none of that starved. **Do not "harden" it back.** Its enforcement mechanism is the join protocol, not tool starvation. (The old no-Bash rule survives only in the kit's own `setup-project`.)
+**1. Tool grants.** A skill's `allowed-tools` pre-approves tools; it restricts nothing. So list every tool the procedure uses (a gate that writes a report lists `Write`, one that invokes another skill lists `Skill`): a missing entry means a permission prompt, which stalls an unattended run. Where a skill must not use a tool, say so with `disallowed-tools` in its frontmatter. And a skill that will be dispatched must not need a tool a subagent lacks: subagents cannot ask the user a question, and background subagents get a reduced tool set.
+→ **The generated orchestrator has FULL tools, including `Bash`, `Grep`, `Glob`, `Skill`, BY DESIGN.** The orchestrator reads the design contract itself, runs the check at joins, and rules on escalations. **Do not "harden" it back** with `disallowed-tools`. Its enforcement mechanism is the join protocol, not tool starvation.
 
 **2. Artifact ownership.** Every read has exactly one writer. Draw the table. **The state file has exactly one writer: the orchestrator.** Unit agents and gates report; they never write it. Orphan read → the agent invents the file. A report with no declared path → unconstructable pointers.
 
@@ -158,7 +158,7 @@ That last one carries the whole `join-review` gate. *"Any code writing a balance
 - **The organising principle chosen, verbatim, and its source** (which PRD/DESIGN statements support it) — or the generic line plus the PRD-gap flag.
 - **Any gate you authored from scratch**, and why no template covered it.
 - `{{CHECK_COMMAND}}`, verbatim, as wired in — and that it fires at joins only.
-- **The exact path of the build state file you created** (orchestrated: `PROGRESS.md` at the repo root). `setup-project` must seed it and has no Glob. Omit this and it guesses.
+- **The exact path of the build state file you created** (orchestrated: `PROGRESS.md` at the repo root). `setup-project` must seed it without searching for it. Omit this and it guesses.
 - **Dispatch-unit count read from `PLAN.md`'s `## Dispatch units`, if the file exists** — usually it doesn't yet; say so.
 - **Parallelism policy:** `{{MAX_PARALLEL}}` = N, and which `{{DB_PARALLEL_RULE}}` sentence you resolved to, naming the isolation `scaffold` built. The defect sentence is a finding, not a footnote.
 - **Notification channel emitted:** `.claude/scripts/notify.sh` (executable) + `.claude/ASK_CONTRACT.md`, `{{NOTIFY}}` resolved everywhere, **no** `Notification` hook emitted.

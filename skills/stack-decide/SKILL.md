@@ -84,6 +84,8 @@ Specify:
 
 `OPEN_QUESTIONS.md` holds what the user reserved. **Do not resolve them.** If a reserved question blocks a stack choice, say so, lock what you can, and record the blocked part as a new OQ. Locking a decision the user reserved is the one unforgivable move here — they will not notice until it is load-bearing.
 
+**You run in the main session, never as a subagent**, because you may need to ask the user and a subagent cannot. **Owner mode:** if `OWNER_BRIEF.md` exists at the project root, read it instead of asking, and start your return with "Owner mode: answers taken from OWNER_BRIEF.md". A choice it does not cover is yours to make and record as an ADR; a reserved one stays reserved.
+
 **Every question you put to the user obeys `ASK_CONTRACT.md`** (plugin root): what's actually stuck in plain words, at least two options *with what each one means in practice*, and which you'd pick and why. No jargon they haven't used first. A question the user can't answer comes back as "you decide" — which is a decision they were never shown, recorded as locked when it was really abandoned.
 
 ## One ADR namespace, shared with the design

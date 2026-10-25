@@ -8,7 +8,6 @@ allowed-tools:
   - Edit
   - Grep
   - Glob
-  - AskUserQuestion
 metadata:
   role: author
   reads: [DESIGN.md (incl. the line-1 GATE banner), OPEN_QUESTIONS.md, STACK.md, PRD.md (TIER marker), PLAN_LINT.md (in FIX mode)]
@@ -49,7 +48,7 @@ This is not bureaucracy, and do not be helpful about it. `design-author` deliber
 
 A blocked chain that asks one question is working correctly.
 
-**Every question you put to the user obeys `ASK_CONTRACT.md`** (plugin root): what's actually stuck in plain words, at least two options *with what each one means in practice*, and which you'd pick and why. No jargon they haven't used first. A question the user can't answer comes back as "you decide" — which is a decision they were never shown, recorded as locked when it was really abandoned.
+**You are dispatched as a subagent and cannot ask the user.** A question you need answered goes in your return; `setup-project` asks it. **Every such question obeys `ASK_CONTRACT.md`** (plugin root): what's actually stuck in plain words, at least two options *with what each one means in practice*, and which you'd pick and why. No jargon they haven't used first. A question the user can't answer comes back as "you decide", which is a decision they were never shown, recorded as locked when it was really abandoned.
 
 ## The unit of work
 

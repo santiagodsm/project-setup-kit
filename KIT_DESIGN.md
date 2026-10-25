@@ -71,12 +71,14 @@ Every other skill *returns*; the orchestrator records. Multi-writer state is a c
 
 The `BACKLOG BLOCKED` → user → `design-author` AMEND loop is **deliberately uncapped**, and this is not an inconsistency: each iteration requires a human answer, so it cannot spin. The thing being guarded against is an agent retrying against itself, not a person taking three passes to decide what they want.
 
-**KD-014 — `setup-project` dispatches every step as a subagent. It never invokes a skill itself.**
-Its tools are `Read/Write/Edit/Agent/Skill/AskUserQuestion/ToolSearch` — **no `Bash`, no `Grep`, no `Glob`** — and a skill's `allowed-tools` **intersects down** with whoever loads it.
+**KD-014: `setup-project` runs the interview in the main session and dispatches everything else, for context flatness.**
+*(Rewritten 2026-10-25, kit v0.7.0. The v0.6 text is under History.)*
 
-So if the orchestrator invoked a step directly: `scaffold` could not run the check command. `stack-decide` could not search, and would lock a stack from stale training data. `harness-doctor` could not grep, glob, or run git — silently disabling four of its thirteen checks, and it would report **CLEAN on a harness it never inspected.**
+Steps 1 (`project-brief`), 2 (`stack-decide`) and the ask pass of step 3 (`design-author`) run in the main session: `setup-project` invokes the skill directly with `Skill`. Claude Code removes the tool that asks the user a question from every subagent, so a dispatched interview can never ask; it guesses, or marks the gap BLOCKING. The main session is the only one that can ask, so the steps whose job is asking run there. The ask pass writes nothing itself: `setup-project` records its answers under `SETUP_PROGRESS.md` "Decisions locked" and stays the file's only writer (KD-011). If `OWNER_BRIEF.md` exists at the project root, every asking step reads it instead and says so.
 
-Every one of those failures is silent. The skill runs, produces plausible output, reports success. Dispatching every step is what keeps the orchestrator's context flat *and* gives each skill its whole toolset. The two goals point the same way.
+The design write pass, every AMEND, and steps 4 to 8 are dispatched, one synchronous `general-purpose` subagent each. The reason is context flatness: each step starts clean, reads its inputs from disk, and returns a capped summary, so none of its file reads enter the orchestrator's context across a chain that spans sessions.
+
+Dispatch is not a tool restriction. A skill's `allowed-tools` pre-approves the tools it lists and restricts nothing (Claude Code docs, skills page: "It does not restrict which tools are available"). A missing entry costs a permission prompt, not a capability. Where a skill must not use a tool, its frontmatter says so with `disallowed-tools` (the report-only `harness-doctor` and `plan-lint` disallow `Edit`). `setup-project` has `Bash` and calls `notify.sh` itself.
 
 **KD-015 — Tier changes must rebuild the gate manifest, not just the tier marker.**
 Manifest rows are tier-conditioned *at write time*. A tier-mismatch re-forge that rewrites `<!-- TIER -->` but not `STACK.md` produces a **gateless harness** — `harness-forge` reads "only the gates in the manifest," finds none; `harness-doctor` compares that harness against the same stale manifest and pronounces it CLEAN. Three independent checks, all agreeing, all wrong. Hence `stack-decide`'s RE-TIER mode, and hence the four-step loop-back.
@@ -85,7 +87,7 @@ Manifest rows are tier-conditioned *at write time*. A tier-mismatch re-forge tha
 
 The kit is built on gates that stop rather than guess (KD-003, the `BACKLOG BLOCKED` verdict, the blocker protocol). Each one produces a *stopped run waiting on a person* — and **a stopped run is externally indistinguishable from a finished one.** The observed failure is not that the gate didn't fire; it is that it fired at 2am, nobody knew, and hours later a human told the next agent to carry on past it. The gate worked and cost nothing.
 
-So the channel is part of the harness, not an add-on: `scripts/notify.sh` (Pushover), copied into every generated repo, called by whoever *discovers* the blocker. `setup-project` has no `Bash` and delegates the push exactly as it delegates every step (KD-014). The generated orchestrator has every tool (KD-019) and calls `notify.sh` directly, as does the small-tier builder.
+So the channel is part of the harness, not an add-on: `scripts/notify.sh` (Pushover), copied into every generated repo, called by whoever *discovers* the blocker. `setup-project` calls it with `Bash` for a stop it discovers itself; a dispatched step pushes its own stop before returning (KD-014). The generated orchestrator has every tool (KD-019) and calls `notify.sh` directly, as does the small-tier builder.
 
 Three consequences that are decisions, not details:
 
@@ -109,7 +111,7 @@ The unit of scheduling is the **dispatch unit**. Four conditions gate a pair of 
 
 Two corollaries follow and are stated wherever the rule is: **a launch confirmation is not a result** (a unit is `done` when its return is recorded, never when its dispatch succeeded), and **barriers drain first** (a gate or a handoff requires nothing left `wip` — a check run against a tree agents are still writing to describes a state that never existed, and the dangerous direction is a false GREEN closing a join on unfinished work).
 
-**`setup-project` is deliberately the exception and dispatches its own chain synchronously.** Its steps are strictly sequential — each one's output is the next one's input — so background dispatch buys no wall-clock and risks advancing before a step finished, which is the failure that skill exists to prevent. The rule is one rule in both places: *dispatch in the background exactly when there is other work to do meanwhile.* Only its notify-only dispatch is backgrounded, since nothing waits on a push.
+**`setup-project` is deliberately the exception and dispatches its own chain synchronously.** Its steps are strictly sequential (each one's output is the next one's input), so background dispatch buys no wall-clock and risks advancing before a step finished, which is the failure that skill exists to prevent. The rule is one rule in both places: *dispatch in the background exactly when there is other work to do meanwhile.* It has no notify-only dispatch: it runs `notify.sh` itself with `Bash` (KD-014).
 
 **KD-018 — Agents hand off files and pointers, never payloads. Disclosure is scoped to the consumer.**
 
@@ -356,3 +358,14 @@ The kit's spine already has this shape: briefs, evidence, and reviews live on di
 > carry violates this KD exactly as before. The tier-specific examples above (`standard` pasting a
 > regression finding, `full` building `source:` pointers) describe retired tiers; the rule they
 > illustrated is unchanged.
+
+### KD-014 as of v0.6.1
+
+Verbatim except one phrase, replaced in brackets so the false claim it named no longer reads as current.
+
+**KD-014 — `setup-project` dispatches every step as a subagent. It never invokes a skill itself.**
+Its tools are `Read/Write/Edit/Agent/Skill/AskUserQuestion/ToolSearch` — **no `Bash`, no `Grep`, no `Glob`** — and a skill's `allowed-tools` *[narrows, so the v0.6 text claimed,]* the tools of whoever loads it.
+
+So if the orchestrator invoked a step directly: `scaffold` could not run the check command. `stack-decide` could not search, and would lock a stack from stale training data. `harness-doctor` could not grep, glob, or run git — silently disabling four of its thirteen checks, and it would report **CLEAN on a harness it never inspected.**
+
+Every one of those failures is silent. The skill runs, produces plausible output, reports success. Dispatching every step is what keeps the orchestrator's context flat *and* gives each skill its whole toolset. The two goals point the same way.

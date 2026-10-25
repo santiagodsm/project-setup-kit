@@ -10,6 +10,9 @@ allowed-tools:
   - Write
   - Skill
   - ToolSearch
+disallowed-tools:
+  - Edit
+  - NotebookEdit
 metadata:
   role: reviewer
   reads: [CLAUDE.md, .claude/skills/**/SKILL.md, .claude/agents/*.md (if any exist), the build state file, STACK.md (gate manifest + format command), PRD.md (tier), PLAN.md (if it exists), .gitignore, .claude/settings.json, .claude/hooks/*, .githooks/*]
@@ -73,13 +76,15 @@ The filter on `harness-doctor` is required (a `grep -v` on the path, not `--excl
 Skip if the harness was hand-written and uses no templates.
 
 ### 1. Tool sufficiency
-For every skill: does its `allowed-tools` (which **intersects down** once the skill loads) cover everything its procedure demands? And for any agent file that exists, does its `tools:` grant cover its skill?
+A skill's `allowed-tools` pre-approves tools and restricts nothing; `disallowed-tools` in its frontmatter is what removes a tool. So check two things:
 
-- A join-review told to write `<reviews-dir>/join-<unit>.md` but granted no `Write`.
-- An orchestrator skill whose `allowed-tools` omits `Skill` while its procedure invokes gates by skill name.
-- A gate told to run a command but with no `Bash` in its grant.
+- **Does any dispatched skill call for a tool a subagent lacks?** Claude Code removes the tool that asks the user a question from every subagent, and a background subagent gets a reduced tool set. A skill that is dispatched (every gate, `join-review`, every unit brief) and tells its agent to ask the user, or to use a tool the background set lacks, will guess or stall. Grep the dispatched skills for `Ask[U]serQuestion` and for "ask the user" → **BLOCKER** if the procedure depends on the answer, **MAJOR** otherwise. The fix is to return the question to the orchestrator, which asks.
+- **Does any skill's `disallowed-tools` remove a tool its own procedure uses?** For example a gate told to run a command whose frontmatter disallows `Bash` → **BLOCKER**.
+- **`allowed-tools` missing a tool the procedure uses** (a join-review that writes a report but does not list `Write`) → **MINOR**: the tool still works, but the first use asks for permission, which stalls an unattended run.
 
-**The orchestrated orchestrator has FULL tools — `Bash`, `Grep`, `Glob`, `Skill` — BY DESIGN.** It reads the whole design contract, runs the full check at joins, and rules on escalations; it can do none of that starved. A harness that strips those tools back off it is a **MAJOR** finding, not a hardening — the enforcement mechanism is the join protocol, not tool starvation. Distinguish *missing capability* from *intentional constraint* by reading why the file says a tool is absent.
+For any agent file that exists, its `tools:` field does restrict: check that it covers its skill.
+
+**The orchestrated orchestrator has FULL tools (`Bash`, `Grep`, `Glob`, `Skill`) BY DESIGN.** It reads the design contract, runs the full check at joins, and rules on escalations. A harness that removes those tools from it (with `disallowed-tools`) is a **MAJOR** finding, not a hardening: the enforcement mechanism is the join protocol, not tool starvation. Distinguish *missing capability* from *intentional constraint* by reading why the file says a tool is absent.
 
 ### 2. Artifact ownership (every read has exactly one writer)
 Build the full table: for every file any actor reads or writes, who writes it and who reads it.
@@ -190,7 +195,7 @@ The harness tells its agents to push a blocker to the user's phone. If that path
 | Every path any harness file names for it resolves to that same file | mismatch → **BLOCKER** (the agent runs nothing) |
 | `.claude/ASK_CONTRACT.md` exists | missing → **MAJOR** — the pushes will send, and they will be unanswerable |
 | `.gitignore` covers `.env` / `*.env` | missing → **MAJOR** |
-| Every actor instructed to call it has `Bash` in its grant | missing → **BLOCKER** (this is check 1, applied here) |
+| No actor instructed to call it has `Bash` removed by `disallowed-tools` | removed → **BLOCKER**; merely unlisted in `allowed-tools` → **MINOR** (check 1, applied here) |
 | The **orchestrator** calls the script **directly** — it has `Bash` | told to dispatch a notify-only relay task instead → **MAJOR** — stale machinery from the retired tiers; it still works, but it spends a dispatch on a one-line command and teaches the wrong tool model |
 | No `Notification` hook in the target repo's `.claude/settings.json` | present → **MINOR** — it double-fires against the user's global hook, and a channel that cries wolf gets muted. (Check 14 audits the same row from the enforcement side; report it once.) |
 

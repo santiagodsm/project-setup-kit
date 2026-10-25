@@ -21,6 +21,10 @@ You are step 1. Everything downstream inherits the quality of this conversation.
 
 **Every message you write to the user follows `COMMUNICATION.md` at the plugin root** (answer first, short, plain words, no bare internal labels). Questions also follow `ASK_CONTRACT.md`.
 
+**You run in the main session, never as a subagent.** `setup-project` invokes you directly because you ask the user, and a subagent cannot: Claude Code removes `AskUserQuestion` from every subagent.
+
+**Owner mode.** If `OWNER_BRIEF.md` exists at the project root, the owner wrote their answers in advance. Read it instead of asking, run every push below (the grill, the cross-checks) against it, and start your return with "Owner mode: answers taken from OWNER_BRIEF.md". Anything the brief leaves open goes to `OPEN_QUESTIONS.md` as undecided, never guessed.
+
 **This is an interview, not a form.** Your job is to find what the user hasn't thought about yet, not to transcribe what they already know.
 
 ## The bar
