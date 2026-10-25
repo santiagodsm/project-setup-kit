@@ -38,6 +38,13 @@ You are the **orchestrator**, and you have full tools on purpose. The dominant c
 
 **After a compaction** the SessionStart hook in `.claude/settings.json` prints one line telling you to re-read `CLAUDE.md` and `{{STATE_FILE}}` (the deterministic backstop, KD-020). Treat it as a session start: steps 1 to 4. The summary does not hold the design; step 2 and the just-in-time reads before each brief do.
 
+**In-flight units.** Before resuming from NEXT ACTION, check every `wip` row in `{{STATE_FILE}}` → Dispatch units:
+
+- See what it left in git: `git log --oneline -3 -- <unit tree>`, or `git log --oneline -3 <unit branch> -- <unit tree>` when the row names a branch (a worktree unit commits on its own branch).
+- In a new session, a task ID in the Dispatched column is from a previous session and cannot be running. Re-dispatch the unit with the brief prefix "A previous agent started this unit; its commits are on the tree; finish what is there, do not redo it", and write the new time and task ID in the row.
+- After a compaction in the same session, the task ID is from this session and the agent may still be running; collect its return as usual.
+- Never mark a `wip` row `done`, `partial` or `blocked` without a recorded return, whatever the git log shows.
+
 ## Dispatch units, not stories
 
 Units come from `{{PLAN}}` → `## Dispatch units`: each lists its member stories, owned file trees, and dependencies. Stories are the checklist *inside* a brief, never dispatch boundaries. The sizing rule, verbatim:
@@ -66,7 +73,7 @@ You write each brief yourself, from your own reading of the contract. It opens b
 
 - Every unit is a **general-purpose subagent** with `run_in_background: true` and **no model override** — units inherit the session model.
 - **Parallelism on file-tree disjointness only.** Two units run together only when their owned trees do not overlap — no exceptions, no optimism. Cap **{{MAX_PARALLEL}}** concurrent units. {{DB_PARALLEL_RULE}}
-- Mark a unit `wip` in `{{STATE_FILE}}` and write the file **before** dispatching it.
+- Mark a unit `wip` in `{{STATE_FILE}}`, put the time in its Dispatched column, and write the file **before** dispatching it. As soon as the dispatch gives you the agent task ID, add `task:<id>` to that column.
 - **A launch confirmation is not a result.** A unit is `done` / `partial` / `blocked` only when its return is recorded. A background agent whose result nobody records did its work for nothing.
 - Inside its tree the agent verifies narrowly — `{{AFFECTED_TEST_COMMAND}}`, `{{LINT_COMMAND}}`, `{{TYPECHECK_COMMAND}}`{{#IF FRONTEND_CHECK_COMMAND}}, `{{FRONTEND_CHECK_COMMAND}}` on frontend trees{{/IF}} — and **commits its own work** per `CLAUDE.md` → Commits. It does not run `{{CHECK_COMMAND}}` and it does not write `{{STATE_FILE}}`.
 

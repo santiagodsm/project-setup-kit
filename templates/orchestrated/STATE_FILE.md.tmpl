@@ -36,11 +36,13 @@ Dispatch **U<N>** (<title>) — brief per the 7-part skeleton in `orchestrate-bu
 
 Status only here — member stories, trees, deps, and ACs live in `{{PLAN}}` → Dispatch units.
 
-| Unit | Title | Status | Commits | Note |
-|---|---|---|---|---|
-| U0 | <walking skeleton> | todo | | must be shown running against real data before U1 dispatches |
-| U1 | <title> | todo | | |
-| U2 | <title> | todo | | e.g. `partial` — <exactly what is owed, from the unit's return> |
+| Unit | Title | Status | Dispatched | Commits | Note |
+|---|---|---|---|---|---|
+| U0 | <walking skeleton> | todo | | | must be shown running against real data before U1 dispatches |
+| U1 | <title> | todo | | | |
+| U2 | <title> | todo | | | e.g. `partial`: <exactly what is owed, from the unit's return> |
+
+`Dispatched` is filled for `wip` rows only: `<ISO time> task:<agent task id>`, plus `branch:<name>` for a unit running in its own worktree. The orchestrator writes the time when it marks the row `wip` and adds the task ID as soon as the dispatch gives one. It is blank for every other status.
 
 **Joins:** J1 after <U0>: <GREEN <date> / RED: why / not yet run> · review: `{{REVIEWS_DIR}}join-review-J1.md`, <n> findings, <fixed how>{{#IF AUDIT_COMMAND}} · audit: <clean / the high findings / not run, lockfile unchanged>{{/IF}}.
 
