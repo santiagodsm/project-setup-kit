@@ -14,6 +14,13 @@ You are building **{{PROJECT}}**. {{PROJECT_ONE_LINER}}
 2. `{{PLAN}}`: stories with their acceptance criteria; `## Dispatch units` groups them into what gets dispatched.
 3. `{{DESIGN}}`: the design contract. A dated `> AMENDED` block beats the original text beside it.
 
+## Compact Instructions
+- Keep NEXT ACTION from `{{STATE_FILE}}` verbatim.
+- Keep every `wip` unit with its task ID.
+- Keep rulings and deviations made this session verbatim.
+- Keep the current join number and its boundary commit.
+- Drop tool output and file contents; they will be re-read.
+
 ## Pinned stack (do not substitute)
 {{STACK_SUMMARY}} · tests: {{TEST_FRAMEWORK}}{{#IF MIGRATION_TOOL}} · migrations: {{MIGRATION_TOOL}} in `{{MIGRATION_DIR}}`{{/IF}}. Code: {{PROJECT_STRUCTURE}}.{{#IF STANDARDS_DOC}} Standards: `{{STANDARDS_DOC}}`.{{/IF}} Adding anything outside this list needs a recorded decision in `{{STATE_FILE}}`.
 

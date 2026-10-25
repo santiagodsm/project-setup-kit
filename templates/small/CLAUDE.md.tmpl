@@ -10,6 +10,13 @@ You are building **{{PROJECT}}**. {{PROJECT_ONE_LINER}}
 2. `{{PLAN}}`: stories, dependencies, acceptance criteria.
 3. `{{DESIGN}}`: the design contract: locked decisions, the open register of what is deliberately unspecified, and the {{GLOSSARY_SECTION}} glossary.
 
+## Compact Instructions
+- Keep NEXT ACTION from `{{STATE_FILE}}` verbatim.
+- Keep the `in_progress` story with its ID and whether its work is committed.
+- Keep decisions and deviations made this session verbatim.
+- Keep the hash of the last story commit.
+- Drop tool output and file contents; they will be re-read.
+
 ## What this tier gave up
 - **No independent reviewer.** You judge your own work, so every acceptance criterion gets a cited `file:line` and a test.
 - **Nothing folds deviations back into `{{DESIGN}}`.** The deviation ledger in `{{STATE_FILE}}` is the only record; never delete a line.

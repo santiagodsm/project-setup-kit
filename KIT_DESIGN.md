@@ -144,6 +144,7 @@ The generated harness therefore:
 1. gives the orchestrator **every tool** and has it read the entire design contract once, up front
    — it writes section-cited briefs, rules on escalations in one round trip with a citation, and
    amends `DESIGN.md` with dated rulings (the inverse of the retired tool-starved dispatcher);
+   *(v0.7: amended to §1, §2.1, §5, §10, §11 at session start plus each brief's cited sections just in time, since a whole-design read does not survive compaction; AUDIT_V0.7 F5.)*
 2. dispatches **epic-sized units** from `PLAN.md` → `## Dispatch units` (merge rule: *if unit N's
    agent must re-read unit N−1's output to understand its own job, they are one unit*) — roughly
    10–15 units for a ~60-story backlog, stories surviving as the checklist inside a unit;

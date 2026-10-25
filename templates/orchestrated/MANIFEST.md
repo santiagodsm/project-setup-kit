@@ -2,7 +2,7 @@
 
 **Kit documentation. Never copied into a target repo; full of unresolved placeholders by design.**
 
-This tier implements HARNESS-REDESIGN.md §2: one orchestrator with **full tools** that reads the entire design contract itself, dispatches **epic-sized units** (not stories) as background subagents on disjoint file trees, runs the full gate and one composite review at **join points**, and rules on escalations with citations. It replaces the retired per-story `standard`/`full` lifecycle (scoper → implementer → reviewer per story), whose context re-establishment cost was the defect: same product, the unit-shaped build finished in ~19 dispatches while the story-shaped one paid the toll 3–7 times per story and stalled.
+This tier implements HARNESS-REDESIGN.md §2: one orchestrator with **full tools** that reads the design contract itself (its core at session start, each brief's cited sections just in time), dispatches **epic-sized units** (not stories) as background subagents on disjoint file trees, runs the full gate and one composite review at **join points**, and rules on escalations with citations. It replaces the retired per-story `standard`/`full` lifecycle (scoper → implementer → reviewer per story), whose context re-establishment cost was the defect: same product, the unit-shaped build finished in ~19 dispatches while the story-shaped one paid the toll 3–7 times per story and stalled.
 
 **Sizing (KD-002): for ~15+ story builds.** Below that, use `small` — one inline builder, no subagents; orchestration overhead at that size costs more than it returns. There is no upper tier above this one.
 
@@ -26,8 +26,8 @@ This tier implements HARNESS-REDESIGN.md §2: one orchestrator with **full tools
 
 ## Load-bearing invariants of this tier
 
-1. **The orchestrator has full tools, on purpose.** The old "no Bash/Grep/Glob orchestrator" existed to keep a per-story orchestrator's context flat; it also made briefs expensive and adjudication impossible — the mechanism behind "misses the point of the app." Here the one actor with continuity holds the whole contract. Do not re-add the restriction when editing this tier.
-2. **One reading of the contract, by the orchestrator, before any dispatch.** Everything downstream (cited briefs, trap-writing, one-message rulings) depends on it.
+1. **The orchestrator has full tools, on purpose.** The old "no Bash/Grep/Glob orchestrator" existed to keep a per-story orchestrator's context flat; it also made briefs expensive and adjudication impossible: the mechanism behind "misses the point of the app." Here the one actor with continuity holds the contract. Do not re-add the restriction when editing this tier.
+2. **The orchestrator reads the contract itself: §1, §2.1, §5, §10, §11 at session start, and each brief's cited sections just before writing it.** A whole-design read does not survive compaction. Everything downstream (cited briefs, trap-writing, one-message rulings) depends on that reading.
 3. **Units, not stories.** Merge rule, verbatim: *if unit N's agent must re-read unit N−1's output to understand its own job, they are one unit.* Stories remain the AC checklist inside a brief.
 4. **U0 is the walking skeleton and stays runnable** — re-verified at every join. Time-to-first-run is a correctness strategy: real data finds the defect class no synthetic fixture can.
 5. **Gates at joins, not steps.** Unit agents run narrow checks on their own tree; only the orchestrator runs `{{CHECK_COMMAND}}`, only at joins. Review happens exactly once per join (`join-review`), not per unit.
